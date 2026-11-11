@@ -8,11 +8,15 @@ namespace NovelTranslator.Core.Translation;
 
 public class PromptBuilder
 {
-    public static string BuildSystemPrompt(Story story)
+    public static string BuildSystemPrompt(Story story, string? customSystemPrompt = null)
     {
         string style = string.IsNullOrWhiteSpace(story.StyleNotes)
             ? ""
-            : $"คำแนะนำสไตล์เพิ่มเติม: {story.StyleNotes}";
+            : $"\nคำแนะนำสไตล์เพิ่มเติม: {story.StyleNotes}";
+
+        string custom = string.IsNullOrWhiteSpace(customSystemPrompt)
+            ? ""
+            : $"\nคำสั่งพิเศษจากผู้ใช้: {customSystemPrompt.Trim()}";
 
         return $@"คุณคือนักแปลนิยายมืออาชีพ แปลจาก {story.SourceLang} เป็น {story.TargetLang}
 กฎ:
@@ -20,8 +24,7 @@ public class PromptBuilder
 2. รักษาโครงสร้างย่อหน้าและบทสนทนาให้ตรงกับต้นฉบับ
 3. ใช้สำนวนภาษาไทยที่ลื่นไหลแบบนิยาย ไม่แปลตรงตัวจนแข็ง
 4. ใช้คำศัพท์ตาม glossary อย่างเคร่งครัด
-5. ตอบเฉพาะคำแปลเท่านั้น ห้ามมีคำเกริ่นหรือคำอธิบายใดๆ ทั้งสิ้น
-{style}".Trim();
+5. ตอบเฉพาะคำแปลเท่านั้น ห้ามมีคำเกริ่นหรือคำอธิบายใดๆ ทั้งสิ้น{style}{custom}".Trim();
     }
 
     public static List<ChatMessage> BuildMessages(
@@ -30,11 +33,12 @@ public class PromptBuilder
         IEnumerable<GlossaryEntry> matchedGlossary,
         string? previousSourceContext = null,
         string? previousTranslationContext = null,
-        string? retryHint = null)
+        string? retryHint = null,
+        string? customSystemPrompt = null)
     {
         var messages = new List<ChatMessage>
         {
-            new ChatMessage { Role = "system", Content = BuildSystemPrompt(story) }
+            new ChatMessage { Role = "system", Content = BuildSystemPrompt(story, customSystemPrompt) }
         };
 
         var userSb = new StringBuilder();

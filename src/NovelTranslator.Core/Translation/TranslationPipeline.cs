@@ -113,7 +113,8 @@ public class TranslationPipeline
                     matchedGlossary,
                     previousSourceContext,
                     previousTranslationContext,
-                    retryHint);
+                    retryHint,
+                    _settings.CustomSystemPrompt);
 
                 var chunkSb = new StringBuilder();
 
@@ -198,7 +199,9 @@ public class TranslationPipeline
             selectedSourceParagraph,
             matchedGlossary,
             surroundingSourceContext,
-            null);
+            null,
+            null,
+            _settings.CustomSystemPrompt);
 
         var sb = new StringBuilder();
         await foreach (var delta in _llmClient.StreamChatAsync(messages, _settings.Temperature, cancellationToken))

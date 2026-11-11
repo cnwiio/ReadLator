@@ -53,4 +53,17 @@ public class ChunkerTests
         Assert.True(chunks.Count >= 2);
         Assert.Contains("\"Don't go there!\"", chunks[0]);
     }
+
+    [Fact]
+    public void BuildSystemPrompt_IncludesCustomPromptAndStyleNotes()
+    {
+        var story = new NovelTranslator.Core.Models.Story
+        {
+            Title = "Test",
+            StyleNotes = "ใช้ภาษายุคโบราณ"
+        };
+        string prompt = PromptBuilder.BuildSystemPrompt(story, "ห้ามทับศัพท์");
+        Assert.Contains("ใช้ภาษายุคโบราณ", prompt);
+        Assert.Contains("คำสั่งพิเศษจากผู้ใช้: ห้ามทับศัพท์", prompt);
+    }
 }

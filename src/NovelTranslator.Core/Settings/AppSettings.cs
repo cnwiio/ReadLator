@@ -20,6 +20,9 @@ public class AppSettings
     public float Temperature { get; set; } = 0.3f;
     public int MaxChunkWords { get; set; } = 600;
     public int ContextParagraphCount { get; set; } = 2;
+    public string CustomSystemPrompt { get; set; } = string.Empty;
+    public string ThemeMode { get; set; } = "Light"; // Light, Dark, Sepia
+    public int EditorFontSize { get; set; } = 16;
     public long? LastSelectedStoryId { get; set; }
     public long? LastSelectedChapterId { get; set; }
 

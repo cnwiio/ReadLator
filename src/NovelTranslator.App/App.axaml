@@ -2,7 +2,19 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="NovelTranslator.App.App"
              xmlns:local="using:NovelTranslator.App"
-             RequestedThemeVariant="Default">
+             RequestedThemeVariant="Light">
+
+    <Application.Resources>
+        <SolidColorBrush x:Key="HeaderBgBrush" Color="#1E293B" />
+        <SolidColorBrush x:Key="SidebarBgBrush" Color="#F1F5F9" />
+        <SolidColorBrush x:Key="MainBgBrush" Color="#F8FAFC" />
+        <SolidColorBrush x:Key="CardBgBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="EditorBgBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="BorderSubtleBrush" Color="#CBD5E1" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F172A" />
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#64748B" />
+        <SolidColorBrush x:Key="BadgeBgBrush" Color="#E2E8F0" />
+    </Application.Resources>
 
     <Application.DataTemplates>
         <local:ViewLocator />
@@ -11,6 +23,10 @@
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+        <Style Selector="Window">
+            <Setter Property="Background" Value="{DynamicResource MainBgBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
         <Style Selector="TextBlock">
             <Setter Property="FontFamily" Value="avares://NovelTranslator.App/Assets/Fonts#Tahoma, Segoe UI, Tahoma, sans-serif" />
         </Style>
@@ -19,6 +35,11 @@
         </Style>
         <Style Selector="Button">
             <Setter Property="FontFamily" Value="avares://NovelTranslator.App/Assets/Fonts#Tahoma, Segoe UI, Tahoma, sans-serif" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+        <Style Selector="ComboBox">
+            <Setter Property="FontFamily" Value="avares://NovelTranslator.App/Assets/Fonts#Tahoma, Segoe UI, Tahoma, sans-serif" />
+            <Setter Property="CornerRadius" Value="6" />
         </Style>
     </Application.Styles>
 </Application>

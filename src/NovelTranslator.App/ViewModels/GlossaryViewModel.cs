@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -14,8 +16,12 @@ public partial class GlossaryViewModel : ObservableObject
 {
     private readonly NovelRepository _repository;
     private readonly Story _story;
+    private readonly List<GlossaryEntry> _allEntries = new();
 
     public ObservableCollection<GlossaryEntry> Entries { get; } = new();
+
+    [ObservableProperty]
+    private string _searchFilter = string.Empty;
 
     [ObservableProperty]
     private GlossaryEntry? _selectedEntry;
@@ -48,8 +54,25 @@ public partial class GlossaryViewModel : ObservableObject
     public async Task LoadEntriesAsync()
     {
         var list = await _repository.GetGlossaryByStoryAsync(_story.Id);
+        _allEntries.Clear();
+        _allEntries.AddRange(list);
+        ApplyFilter();
+    }
+
+    partial void OnSearchFilterChanged(string value) => ApplyFilter();
+
+    private void ApplyFilter()
+    {
+        string q = SearchFilter?.Trim() ?? string.Empty;
+        var filtered = string.IsNullOrEmpty(q)
+            ? _allEntries
+            : _allEntries.Where(e =>
+                e.SourceTerm.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                e.TargetTerm.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                e.Notes.Contains(q, StringComparison.OrdinalIgnoreCase));
+
         Entries.Clear();
-        foreach (var item in list)
+        foreach (var item in filtered)
         {
             Entries.Add(item);
         }
@@ -89,7 +112,8 @@ public partial class GlossaryViewModel : ObservableObject
                 Notes = Notes.Trim()
             };
             entry.Id = await _repository.InsertGlossaryEntryAsync(entry);
-            Entries.Add(entry);
+            _allEntries.Add(entry);
+            ApplyFilter();
             StatusMessage = $"เพิ่มคำว่า \"{entry.SourceTerm}\" สำเร็จ";
         }
         else
@@ -113,6 +137,7 @@ public partial class GlossaryViewModel : ObservableObject
         if (SelectedEntry == null) return;
         await _repository.DeleteGlossaryEntryAsync(SelectedEntry.Id);
         StatusMessage = $"ลบคำว่า \"{SelectedEntry.SourceTerm}\" แล้ว";
+        _allEntries.Remove(SelectedEntry);
         Entries.Remove(SelectedEntry);
         ClearInputs();
     }

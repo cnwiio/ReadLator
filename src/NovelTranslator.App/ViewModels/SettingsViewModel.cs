@@ -35,6 +35,16 @@ public partial class SettingsViewModel : ObservableObject
     private int _contextParagraphCount = 2;
 
     [ObservableProperty]
+    private string _customSystemPrompt = string.Empty;
+
+    [ObservableProperty]
+    private bool _isApiKeyVisible;
+
+    public char ApiKeyPasswordChar => IsApiKeyVisible ? '\0' : '*';
+
+    partial void OnIsApiKeyVisibleChanged(bool value) => OnPropertyChanged(nameof(ApiKeyPasswordChar));
+
+    [ObservableProperty]
     private string _connectionStatus = string.Empty;
 
     [ObservableProperty]
@@ -58,6 +68,40 @@ public partial class SettingsViewModel : ObservableObject
         Temperature = settings.Temperature;
         MaxChunkWords = settings.MaxChunkWords;
         ContextParagraphCount = settings.ContextParagraphCount;
+        CustomSystemPrompt = settings.CustomSystemPrompt ?? string.Empty;
+
+        _ = RefreshModelsSilentAsync();
+    }
+
+    [RelayCommand]
+    public void ToggleApiKeyVisibility() => IsApiKeyVisible = !IsApiKeyVisible;
+
+    public async Task RefreshModelsSilentAsync()
+    {
+        try
+        {
+            ApplyToSettings();
+            var client = new LlmClient(_settings);
+            var models = await client.GetModelsAsync();
+            if (models.Count > 0)
+            {
+                string currentModel = ModelName;
+                AvailableModels.Clear();
+                foreach (var m in models)
+                {
+                    AvailableModels.Add(m.Id);
+                }
+                if (!string.IsNullOrEmpty(currentModel) && !AvailableModels.Contains(currentModel))
+                {
+                    AvailableModels.Insert(0, currentModel);
+                }
+                ModelName = string.IsNullOrEmpty(currentModel) ? AvailableModels[0] : currentModel;
+            }
+        }
+        catch
+        {
+            // Ignore silent refresh error on open
+        }
     }
 
     partial void OnBackendIndexChanged(int value)
@@ -76,6 +120,7 @@ public partial class SettingsViewModel : ObservableObject
                 BaseUrl = "http://localhost:1234/v1";
             }
         }
+        _ = RefreshModelsSilentAsync();
     }
 
     [RelayCommand]
@@ -95,15 +140,19 @@ public partial class SettingsViewModel : ObservableObject
             if (result.Success)
             {
                 var models = await client.GetModelsAsync();
+                string currentModel = ModelName;
                 AvailableModels.Clear();
                 foreach (var m in models)
                 {
                     AvailableModels.Add(m.Id);
                 }
-                if (string.IsNullOrEmpty(ModelName) && AvailableModels.Count > 0)
+                if (!string.IsNullOrEmpty(currentModel) && !AvailableModels.Contains(currentModel))
                 {
-                    ModelName = AvailableModels[0];
+                    AvailableModels.Insert(0, currentModel);
                 }
+                ModelName = string.IsNullOrEmpty(currentModel) && AvailableModels.Count > 0
+                    ? AvailableModels[0]
+                    : currentModel;
             }
         }
         catch (Exception ex)
@@ -167,8 +216,9 @@ public partial class SettingsViewModel : ObservableObject
         _settings.BaseUrl = BaseUrl;
         _settings.ApiKey = ApiKey;
         _settings.ModelName = ModelName;
-        _settings.Temperature = Temperature;
+        _settings.Temperature = (float)Math.Round(Temperature, 2);
         _settings.MaxChunkWords = MaxChunkWords;
         _settings.ContextParagraphCount = ContextParagraphCount;
+        _settings.CustomSystemPrompt = CustomSystemPrompt ?? string.Empty;
     }
 }

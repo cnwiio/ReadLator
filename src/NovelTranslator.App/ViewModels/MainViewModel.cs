@@ -27,12 +27,66 @@ public partial class MainViewModel : ObservableObject
     // รายการเรื่องและตอน
     public ObservableCollection<Story> Stories { get; } = new();
     public ObservableCollection<Chapter> Chapters { get; } = new();
+    public ObservableCollection<Chapter> FilteredChapters { get; } = new();
 
     [ObservableProperty]
     private Story? _selectedStory;
 
     [ObservableProperty]
     private Chapter? _selectedChapter;
+
+    [ObservableProperty]
+    private string _chapterSearchFilter = string.Empty;
+
+    [ObservableProperty]
+    private string _chapterTitleEdit = string.Empty;
+
+    [ObservableProperty]
+    private bool _isStoryDetailsExpanded;
+
+    [ObservableProperty]
+    private string _storyTitleEdit = string.Empty;
+
+    [ObservableProperty]
+    private string _storyStyleNotesEdit = string.Empty;
+
+    // UI State & Theme
+    [ObservableProperty]
+    private bool _isSidebarVisible = true;
+
+    public string SidebarToggleText => IsSidebarVisible ? "◀ ซ่อนแถบตอน" : "▶ แสดงแถบตอน";
+    partial void OnIsSidebarVisibleChanged(bool value) => OnPropertyChanged(nameof(SidebarToggleText));
+
+    [ObservableProperty]
+    private bool _isReaderMode;
+
+    public bool IsOriginalPaneVisible => !IsReaderMode;
+    public string ReaderModeButtonText => IsReaderMode ? "📑 มุมมองคู่ขนาน (Split)" : "📖 โหมดอ่านคำแปลเต็มจอ";
+    partial void OnIsReaderModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsOriginalPaneVisible));
+        OnPropertyChanged(nameof(ReaderModeButtonText));
+    }
+
+    [ObservableProperty]
+    private bool _isSyncScrollEnabled = true;
+
+    [ObservableProperty]
+    private int _editorFontSize = 16;
+
+    [ObservableProperty]
+    private string _themeMode = "Light";
+
+    public string ThemeButtonText => ThemeMode switch
+    {
+        "Dark" => "🌙 โหมดมืด",
+        "Sepia" => "📜 ถนอมสายตา (Sepia)",
+        _ => "☀️ โหมดสว่าง"
+    };
+    partial void OnThemeModeChanged(string value) => OnPropertyChanged(nameof(ThemeButtonText));
+
+    [ObservableProperty]
+    private string _activeModelDisplay = "🤖 ยังไม่ได้ตั้งค่าโมเดล";
 
     // ช่องข้อความหลัก
     [ObservableProperty]
@@ -47,6 +101,9 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private int _originalParagraphCount;
+
+    [ObservableProperty]
+    private int _translatedWordCount;
 
     [ObservableProperty]
     private string _chapterStatusText = "ยังไม่แปล";
@@ -88,6 +145,9 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         _settings = AppSettings.Load();
+        _editorFontSize = Math.Clamp(_settings.EditorFontSize > 0 ? _settings.EditorFontSize : 16, 12, 28);
+        _themeMode = string.IsNullOrWhiteSpace(_settings.ThemeMode) ? "Light" : _settings.ThemeMode;
+        UpdateActiveModelDisplay();
         _database = new NovelDatabase();
         _database.Initialize();
         _repository = new NovelRepository(_database);
@@ -113,8 +173,66 @@ public partial class MainViewModel : ObservableObject
         _settings.Temperature = fresh.Temperature;
         _settings.MaxChunkWords = fresh.MaxChunkWords;
         _settings.ContextParagraphCount = fresh.ContextParagraphCount;
+        _settings.CustomSystemPrompt = fresh.CustomSystemPrompt;
         _settings.LastSelectedStoryId = fresh.LastSelectedStoryId;
         _settings.LastSelectedChapterId = fresh.LastSelectedChapterId;
+        UpdateActiveModelDisplay();
+    }
+
+    private void UpdateActiveModelDisplay()
+    {
+        string model = string.IsNullOrWhiteSpace(_settings.ModelName) ? "ยังไม่ระบุโมเดล" : _settings.ModelName;
+        ActiveModelDisplay = $"🤖 {_settings.Backend}: {model}";
+    }
+
+    [RelayCommand]
+    public void CycleTheme()
+    {
+        ThemeMode = ThemeMode switch
+        {
+            "Light" => "Dark",
+            "Dark" => "Sepia",
+            _ => "Light"
+        };
+        _settings.ThemeMode = ThemeMode;
+        _settings.Save();
+        App.ApplyTheme(ThemeMode);
+    }
+
+    [RelayCommand]
+    public void ToggleSidebar() => IsSidebarVisible = !IsSidebarVisible;
+
+    [RelayCommand]
+    public void ToggleReaderMode() => IsReaderMode = !IsReaderMode;
+
+    [RelayCommand]
+    public void IncreaseFontSize()
+    {
+        EditorFontSize = Math.Clamp(EditorFontSize + 2, 12, 28);
+        _settings.EditorFontSize = EditorFontSize;
+        _settings.Save();
+    }
+
+    [RelayCommand]
+    public void DecreaseFontSize()
+    {
+        EditorFontSize = Math.Clamp(EditorFontSize - 2, 12, 28);
+        _settings.EditorFontSize = EditorFontSize;
+        _settings.Save();
+    }
+
+    [RelayCommand]
+    public void ToggleStoryDetails() => IsStoryDetailsExpanded = !IsStoryDetailsExpanded;
+
+    [RelayCommand]
+    public async Task SaveStoryDetailsAsync()
+    {
+        if (SelectedStory == null || string.IsNullOrWhiteSpace(StoryTitleEdit)) return;
+        SelectedStory.Title = StoryTitleEdit.Trim();
+        SelectedStory.StyleNotes = StoryStyleNotesEdit?.Trim() ?? string.Empty;
+        await _repository.UpdateStoryAsync(SelectedStory);
+        IsStoryDetailsExpanded = false;
+        SaveStatusText = $"บันทึกข้อมูลเรื่อง \"{SelectedStory.Title}\" แล้ว";
     }
 
     private async Task LoadInitialDataAsync()
@@ -155,12 +273,16 @@ public partial class MainViewModel : ObservableObject
     async partial void OnSelectedStoryChanged(Story? value)
     {
         Chapters.Clear();
+        FilteredChapters.Clear();
         SelectedChapter = null;
         OriginalText = string.Empty;
         TranslatedText = string.Empty;
 
         if (value != null)
         {
+            StoryTitleEdit = value.Title;
+            StoryStyleNotesEdit = value.StyleNotes;
+
             // บันทึกเรื่องล่าสุด
             _settings.LastSelectedStoryId = value.Id;
             _settings.Save();
@@ -186,6 +308,8 @@ public partial class MainViewModel : ObservableObject
                 Chapters.Add(firstChap);
             }
 
+            RefreshFilteredChapters();
+
             // กู้คืนตอนล่าสุดของเรื่องนี้ถ้ามี
             if (_settings.LastSelectedChapterId.HasValue)
             {
@@ -197,6 +321,33 @@ public partial class MainViewModel : ObservableObject
                 SelectedChapter = Chapters.FirstOrDefault();
             }
         }
+        else
+        {
+            StoryTitleEdit = string.Empty;
+            StoryStyleNotesEdit = string.Empty;
+        }
+    }
+
+    partial void OnChapterSearchFilterChanged(string value) => RefreshFilteredChapters();
+
+    private void RefreshFilteredChapters()
+    {
+        var current = SelectedChapter;
+        string q = ChapterSearchFilter?.Trim() ?? string.Empty;
+        var matches = string.IsNullOrEmpty(q)
+            ? Chapters
+            : Chapters.Where(c => c.Title.Contains(q, StringComparison.OrdinalIgnoreCase));
+
+        FilteredChapters.Clear();
+        foreach (var c in matches)
+        {
+            FilteredChapters.Add(c);
+        }
+
+        if (current != null && FilteredChapters.Contains(current) && SelectedChapter != current)
+        {
+            SelectedChapter = current;
+        }
     }
 
     partial void OnSelectedChapterChanged(Chapter? value)
@@ -207,18 +358,32 @@ public partial class MainViewModel : ObservableObject
             _settings.LastSelectedChapterId = value.Id;
             _settings.Save();
 
+            ChapterTitleEdit = value.Title ?? string.Empty;
             OriginalText = value.OriginalText ?? string.Empty;
             TranslatedText = value.TranslatedText ?? string.Empty;
             UpdateChapterStatusDisplay(value.Status);
             UpdateWordAndParagraphCounts(OriginalText);
+            TranslatedWordCount = Chunker.EstimateWordCount(TranslatedText);
             SaveStatusText = $"แก้ไขล่าสุด: {value.UpdatedAt.ToLocalTime():HH:mm:ss}";
         }
         else
         {
+            ChapterTitleEdit = string.Empty;
             OriginalText = string.Empty;
             TranslatedText = string.Empty;
+            TranslatedWordCount = 0;
             ChapterStatusText = "";
             SaveStatusText = "";
+        }
+    }
+
+    partial void OnChapterTitleEditChanged(string value)
+    {
+        if (SelectedChapter != null && !string.IsNullOrWhiteSpace(value) && SelectedChapter.Title != value)
+        {
+            SelectedChapter.Title = value;
+            _autoSaveTimer.Stop();
+            _autoSaveTimer.Start();
         }
     }
 
@@ -235,6 +400,7 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnTranslatedTextChanged(string value)
     {
+        TranslatedWordCount = Chunker.EstimateWordCount(value);
         if (SelectedChapter != null && SelectedChapter.TranslatedText != value && !IsTranslating)
         {
             SelectedChapter.TranslatedText = value;
@@ -486,6 +652,7 @@ public partial class MainViewModel : ObservableObject
         };
         chapter.Id = await _repository.InsertChapterAsync(chapter);
         Chapters.Add(chapter);
+        RefreshFilteredChapters();
         SelectedChapter = chapter;
 
         // ล้างค่าบนหน้าจอให้ว่างเปล่าสำหรับตอนใหม่ทันที
@@ -508,7 +675,30 @@ public partial class MainViewModel : ObservableObject
 
         await _repository.DeleteChapterAsync(SelectedChapter.Id);
         Chapters.Remove(SelectedChapter);
+        RefreshFilteredChapters();
         SelectedChapter = Chapters.FirstOrDefault();
+    }
+
+    [RelayCommand]
+    public void PreviousChapter()
+    {
+        if (SelectedChapter == null || Chapters.Count == 0) return;
+        int idx = Chapters.IndexOf(SelectedChapter);
+        if (idx > 0)
+        {
+            SelectedChapter = Chapters[idx - 1];
+        }
+    }
+
+    [RelayCommand]
+    public void NextChapter()
+    {
+        if (SelectedChapter == null || Chapters.Count == 0) return;
+        int idx = Chapters.IndexOf(SelectedChapter);
+        if (idx >= 0 && idx < Chapters.Count - 1)
+        {
+            SelectedChapter = Chapters[idx + 1];
+        }
     }
 
     [RelayCommand]
@@ -526,7 +716,10 @@ public partial class MainViewModel : ObservableObject
         await _repository.UpdateChapterAsync(SelectedChapter);
         await _repository.UpdateChapterAsync(prev);
 
+        var current = SelectedChapter;
         Chapters.Move(index, index - 1);
+        RefreshFilteredChapters();
+        SelectedChapter = current;
     }
 
     [RelayCommand]
@@ -544,7 +737,10 @@ public partial class MainViewModel : ObservableObject
         await _repository.UpdateChapterAsync(SelectedChapter);
         await _repository.UpdateChapterAsync(next);
 
+        var current = SelectedChapter;
         Chapters.Move(index, index + 1);
+        RefreshFilteredChapters();
+        SelectedChapter = current;
     }
 
     // ================= บันทึกและนำเข้า/ส่งออก =================
@@ -584,6 +780,7 @@ public partial class MainViewModel : ObservableObject
             Chapters.Add(chap);
         }
 
+        RefreshFilteredChapters();
         SaveStatusText = $"นำเข้าสำเร็จ {files.Length} ตอน";
     }
 

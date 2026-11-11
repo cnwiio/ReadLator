@@ -1,11 +1,14 @@
 using System;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using NovelTranslator.App.ViewModels;
 using NovelTranslator.Core.Data;
 using NovelTranslator.Core.Models;
@@ -16,6 +19,7 @@ namespace NovelTranslator.App.Views;
 public partial class MainWindow : Window
 {
     private MainViewModel? ViewModel => DataContext as MainViewModel;
+    private bool _isSyncingScroll;
 
     public MainWindow()
     {
@@ -26,6 +30,10 @@ public partial class MainWindow : Window
     private void MainWindow_Loaded(object? sender, RoutedEventArgs e)
     {
         if (ViewModel == null) return;
+
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
+        OriginalTextBox.AddHandler(ScrollViewer.ScrollChangedEvent, OnOriginalScrollChanged);
+        TranslatedTextBox.AddHandler(ScrollViewer.ScrollChangedEvent, OnTranslatedScrollChanged);
 
         // เชื่อมต่อการเปิดหน้าต่างย่อย
         ViewModel.RequestOpenSettings = async () =>
@@ -220,6 +228,56 @@ public partial class MainWindow : Window
 
             dialog.ShowDialog(this);
         };
+    }
+
+    private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (ViewModel == null) return;
+
+        if (e.PropertyName == nameof(MainViewModel.IsSidebarVisible))
+        {
+            MainLayoutGrid.ColumnDefinitions[0].Width = ViewModel.IsSidebarVisible ? new GridLength(290) : new GridLength(0);
+            MainLayoutGrid.ColumnDefinitions[1].Width = ViewModel.IsSidebarVisible ? new GridLength(6) : new GridLength(0);
+        }
+        else if (e.PropertyName == nameof(MainViewModel.IsReaderMode))
+        {
+            EditorSplitGrid.ColumnDefinitions[0].Width = ViewModel.IsReaderMode ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
+            EditorSplitGrid.ColumnDefinitions[1].Width = ViewModel.IsReaderMode ? new GridLength(0) : new GridLength(10);
+        }
+    }
+
+    private void OnOriginalScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (_isSyncingScroll || ViewModel is not { IsSyncScrollEnabled: true, IsReaderMode: false }) return;
+        SyncScroll(OriginalTextBox, TranslatedTextBox);
+    }
+
+    private void OnTranslatedScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        if (_isSyncingScroll || ViewModel is not { IsSyncScrollEnabled: true, IsReaderMode: false }) return;
+        SyncScroll(TranslatedTextBox, OriginalTextBox);
+    }
+
+    private void SyncScroll(TextBox sourceBox, TextBox targetBox)
+    {
+        var sourceSv = sourceBox.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+        var targetSv = targetBox.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+        if (sourceSv == null || targetSv == null) return;
+
+        double sourceMaxY = sourceSv.Extent.Height - sourceSv.Viewport.Height;
+        double targetMaxY = targetSv.Extent.Height - targetSv.Viewport.Height;
+        if (sourceMaxY <= 0 || targetMaxY <= 0) return;
+
+        double ratio = Math.Clamp(sourceSv.Offset.Y / sourceMaxY, 0.0, 1.0);
+        _isSyncingScroll = true;
+        try
+        {
+            targetSv.Offset = new Vector(targetSv.Offset.X, ratio * targetMaxY);
+        }
+        finally
+        {
+            _isSyncingScroll = false;
+        }
     }
 
     private async void OnAddSelectedToGlossaryClicked(object? sender, RoutedEventArgs e)
