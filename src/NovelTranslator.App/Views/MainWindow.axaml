@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v1.6"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v1.7"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -183,20 +183,15 @@
                             BorderThickness="1" CornerRadius="8" Padding="4">
                         <ListBox x:Name="ChapterListBox"
                                  ItemsSource="{Binding FilteredChapters}"
-                                 SelectedItem="{Binding SelectedChapter}"
                                  SelectionMode="Multiple"
                                  Background="Transparent">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid ColumnDefinitions="Auto, *, Auto" Height="28" Background="Transparent"
-                                          PointerPressed="OnChapterRowPointerPressed">
+                                    <Grid ColumnDefinitions="Auto, *, Auto" Height="28" Background="Transparent">
                                         <!-- ไอคอน 3 ขีดแนวนอน (Drag Handle ☰) -->
                                         <Border Background="Transparent" Width="20" Height="24" Margin="0,0,6,0"
-                                                Cursor="SizeNorthSouth" ToolTip.Tip="คลิกลากเพื่อย้ายลำดับตอน"
-                                                PointerPressed="OnDragHandlePointerPressed"
-                                                PointerMoved="OnDragHandlePointerMoved"
-                                                PointerReleased="OnDragHandlePointerReleased"
-                                                PointerCaptureLost="OnDragHandlePointerCaptureLost">
+                                                Cursor="Hand" ToolTip.Tip="คลิกลากเพื่อย้ายลำดับตอน"
+                                                PointerPressed="OnDragHandlePointerPressed">
                                             <Path Data="M3,5 L17,5 M3,10 L17,10 M3,15 L17,15"
                                                   Stroke="{DynamicResource TextMutedBrush}"
                                                   StrokeThickness="1.5" StrokeLineCap="Round"

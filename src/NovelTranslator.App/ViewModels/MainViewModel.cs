@@ -997,7 +997,7 @@ public partial class MainViewModel : ObservableObject
     public async Task ReorderChaptersAsync(IList<Chapter> movingChapters, Chapter targetChapter, bool dropAfter)
     {
         if (movingChapters == null || movingChapters.Count == 0 || targetChapter == null) return;
-        if (movingChapters.Contains(targetChapter) && movingChapters.Count == 1) return;
+        if (movingChapters.Contains(targetChapter)) return;
 
         var selectedIds = Chapters.Where(c => c.IsSelected).Select(c => c.Id).ToHashSet();
         foreach (var m in movingChapters)
