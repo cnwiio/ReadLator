@@ -28,17 +28,17 @@
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
         </Style>
         <Style Selector="TextBlock">
-            <Setter Property="FontFamily" Value="avares://NovelTranslator.App/Assets/Fonts#Tahoma, Segoe UI, Tahoma, sans-serif" />
+            <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />
         </Style>
         <Style Selector="TextBox">
-            <Setter Property="FontFamily" Value="avares://NovelTranslator.App/Assets/Fonts#Tahoma, Segoe UI, Tahoma, sans-serif" />
+            <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />
         </Style>
         <Style Selector="Button">
-            <Setter Property="FontFamily" Value="avares://NovelTranslator.App/Assets/Fonts#Tahoma, Segoe UI, Tahoma, sans-serif" />
+            <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />
             <Setter Property="CornerRadius" Value="6" />
         </Style>
         <Style Selector="ComboBox">
-            <Setter Property="FontFamily" Value="avares://NovelTranslator.App/Assets/Fonts#Tahoma, Segoe UI, Tahoma, sans-serif" />
+            <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />
             <Setter Property="CornerRadius" Value="6" />
         </Style>
     </Application.Styles>
