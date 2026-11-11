@@ -11,6 +11,19 @@ public enum BackendType
     Custom
 }
 
+public class ShortkeysSettings
+{
+    public string TranslateKey { get; set; } = "Ctrl+Enter";
+    public string TranslateAllKey { get; set; } = "Ctrl+Shift+Enter";
+    public string SearchReplaceKey { get; set; } = "Ctrl+F";
+    public string SaveKey { get; set; } = "Ctrl+S";
+    public string FullScreenKey { get; set; } = "F11";
+    public string FocusModeKey { get; set; } = "F10";
+    public string PrevChapterKey { get; set; } = "Alt+Left";
+    public string NextChapterKey { get; set; } = "Alt+Right";
+    public string ToggleSidebarKey { get; set; } = "Ctrl+B";
+}
+
 public class AppSettings
 {
     public BackendType Backend { get; set; } = BackendType.Ollama;
@@ -23,7 +36,9 @@ public class AppSettings
     public string CustomSystemPrompt { get; set; } = string.Empty;
     public string ThemeMode { get; set; } = "Light"; // Light, Dark, Sepia
     public int EditorFontSize { get; set; } = 20;
-    public string EditorFontFamily { get; set; } = "Sarabun, Noto Sans Thai, Tahoma, Segoe UI, sans-serif";
+    public string EditorFontFamily { get; set; } = "Tahoma";
+    public double AutoSaveDelaySeconds { get; set; } = 1.5;
+    public ShortkeysSettings Shortkeys { get; set; } = new();
     public long? LastSelectedStoryId { get; set; }
     public long? LastSelectedChapterId { get; set; }
 

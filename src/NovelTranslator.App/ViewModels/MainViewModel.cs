@@ -97,15 +97,18 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<string> AvailableEditorFonts { get; } = new()
     {
-        "Sarabun, Tahoma, Segoe UI, sans-serif",
-        "Noto Sans Thai, Tahoma, Segoe UI, sans-serif",
-        "Tahoma, Segoe UI, sans-serif",
-        "Segoe UI, Tahoma, sans-serif",
-        "Cordia New, Tahoma, sans-serif"
+        "Tahoma",
+        "Segoe UI",
+        "Cordia New",
+        "Angsana New",
+        "Arial",
+        "Calibri",
+        "Consolas",
+        "Sarabun"
     };
 
     [ObservableProperty]
-    private string _editorFontFamily = "Sarabun, Tahoma, Segoe UI, sans-serif";
+    private string _editorFontFamily = "Tahoma";
 
     partial void OnEditorFontFamilyChanged(string value)
     {
@@ -193,12 +196,16 @@ public partial class MainViewModel : ObservableObject
     public Action<string>? RequestShowErrorDialog { get; set; }
     public Action? RequestSelectAllChapters { get; set; }
     public Action? RequestClearChapterSelection { get; set; }
+    public Action? RequestToggleFullScreen { get; set; }
+
+    [RelayCommand]
+    public void ToggleFullScreen() => RequestToggleFullScreen?.Invoke();
 
     public MainViewModel()
     {
         _settings = AppSettings.Load();
         _editorFontSize = Math.Clamp(_settings.EditorFontSize > 0 ? _settings.EditorFontSize : 20, 12, 32);
-        if (!string.IsNullOrWhiteSpace(_settings.EditorFontFamily) && AvailableEditorFonts.Contains(_settings.EditorFontFamily))
+        if (!string.IsNullOrWhiteSpace(_settings.EditorFontFamily))
         {
             _editorFontFamily = _settings.EditorFontFamily;
         }
@@ -208,8 +215,9 @@ public partial class MainViewModel : ObservableObject
         _database.Initialize();
         _repository = new NovelRepository(_database);
 
-        // ตั้งค่า Auto-save Debounce 1.5 วินาที
-        _autoSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.5) };
+        // ตั้งค่า Auto-save Debounce
+        double autoSaveSeconds = _settings.AutoSaveDelaySeconds > 0 ? _settings.AutoSaveDelaySeconds : 1.5;
+        _autoSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(autoSaveSeconds) };
         _autoSaveTimer.Tick += async (_, _) =>
         {
             _autoSaveTimer.Stop();
@@ -230,8 +238,26 @@ public partial class MainViewModel : ObservableObject
         _settings.MaxChunkWords = fresh.MaxChunkWords;
         _settings.ContextParagraphCount = fresh.ContextParagraphCount;
         _settings.CustomSystemPrompt = fresh.CustomSystemPrompt;
+        _settings.Shortkeys = fresh.Shortkeys;
+        _settings.EditorFontFamily = fresh.EditorFontFamily;
+        _settings.EditorFontSize = fresh.EditorFontSize;
+        _settings.AutoSaveDelaySeconds = fresh.AutoSaveDelaySeconds;
         _settings.LastSelectedStoryId = fresh.LastSelectedStoryId;
         _settings.LastSelectedChapterId = fresh.LastSelectedChapterId;
+
+        if (!string.IsNullOrWhiteSpace(fresh.EditorFontFamily))
+        {
+            EditorFontFamily = fresh.EditorFontFamily;
+        }
+        if (fresh.EditorFontSize > 0)
+        {
+            EditorFontSize = Math.Clamp(fresh.EditorFontSize, 12, 36);
+        }
+        if (fresh.AutoSaveDelaySeconds > 0)
+        {
+            _autoSaveTimer.Interval = TimeSpan.FromSeconds(fresh.AutoSaveDelaySeconds);
+        }
+
         UpdateActiveModelDisplay();
     }
 

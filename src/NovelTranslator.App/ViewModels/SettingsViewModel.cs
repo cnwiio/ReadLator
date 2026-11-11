@@ -37,6 +37,49 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _customSystemPrompt = string.Empty;
 
+    // หมวดการตั้งค่าหลัก (0: AI, 1: Shortkeys, 2: System)
+    [ObservableProperty]
+    private int _selectedCategoryIndex;
+
+    public bool IsAiCategorySelected => SelectedCategoryIndex == 0;
+    public bool IsShortkeysCategorySelected => SelectedCategoryIndex == 1;
+    public bool IsSystemCategorySelected => SelectedCategoryIndex == 2;
+
+    partial void OnSelectedCategoryIndexChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsAiCategorySelected));
+        OnPropertyChanged(nameof(IsShortkeysCategorySelected));
+        OnPropertyChanged(nameof(IsSystemCategorySelected));
+    }
+
+    // หมวด Shortkeys
+    [ObservableProperty] private string _translateKey = "Ctrl+Enter";
+    [ObservableProperty] private string _translateAllKey = "Ctrl+Shift+Enter";
+    [ObservableProperty] private string _searchReplaceKey = "Ctrl+F";
+    [ObservableProperty] private string _saveKey = "Ctrl+S";
+    [ObservableProperty] private string _fullScreenKey = "F11";
+    [ObservableProperty] private string _focusModeKey = "F10";
+    [ObservableProperty] private string _prevChapterKey = "Alt+Left";
+    [ObservableProperty] private string _nextChapterKey = "Alt+Right";
+    [ObservableProperty] private string _toggleSidebarKey = "Ctrl+B";
+
+    // หมวด System & Appearance
+    [ObservableProperty] private string _editorFontFamily = "Tahoma";
+    [ObservableProperty] private int _editorFontSize = 20;
+    [ObservableProperty] private double _autoSaveDelaySeconds = 1.5;
+
+    public ObservableCollection<string> AvailableEditorFonts { get; } = new()
+    {
+        "Tahoma",
+        "Segoe UI",
+        "Cordia New",
+        "Angsana New",
+        "Arial",
+        "Calibri",
+        "Consolas",
+        "Sarabun"
+    };
+
     [ObservableProperty]
     private bool _isApiKeyVisible;
 
@@ -70,7 +113,32 @@ public partial class SettingsViewModel : ObservableObject
         ContextParagraphCount = settings.ContextParagraphCount;
         CustomSystemPrompt = settings.CustomSystemPrompt ?? string.Empty;
 
+        // โหลดค่า Shortkeys
+        TranslateKey = settings.Shortkeys.TranslateKey;
+        TranslateAllKey = settings.Shortkeys.TranslateAllKey;
+        SearchReplaceKey = settings.Shortkeys.SearchReplaceKey;
+        SaveKey = settings.Shortkeys.SaveKey;
+        FullScreenKey = settings.Shortkeys.FullScreenKey;
+        FocusModeKey = settings.Shortkeys.FocusModeKey;
+        PrevChapterKey = settings.Shortkeys.PrevChapterKey;
+        NextChapterKey = settings.Shortkeys.NextChapterKey;
+        ToggleSidebarKey = settings.Shortkeys.ToggleSidebarKey;
+
+        // โหลดค่า System & Appearance
+        EditorFontFamily = string.IsNullOrWhiteSpace(settings.EditorFontFamily) ? "Tahoma" : settings.EditorFontFamily;
+        EditorFontSize = settings.EditorFontSize > 0 ? settings.EditorFontSize : 20;
+        AutoSaveDelaySeconds = settings.AutoSaveDelaySeconds > 0 ? settings.AutoSaveDelaySeconds : 1.5;
+
         _ = RefreshModelsSilentAsync();
+    }
+
+    [RelayCommand]
+    public void SelectCategory(string indexStr)
+    {
+        if (int.TryParse(indexStr, out int idx))
+        {
+            SelectedCategoryIndex = idx;
+        }
     }
 
     [RelayCommand]
@@ -220,5 +288,21 @@ public partial class SettingsViewModel : ObservableObject
         _settings.MaxChunkWords = MaxChunkWords;
         _settings.ContextParagraphCount = ContextParagraphCount;
         _settings.CustomSystemPrompt = CustomSystemPrompt ?? string.Empty;
+
+        // บันทึก Shortkeys
+        _settings.Shortkeys.TranslateKey = TranslateKey;
+        _settings.Shortkeys.TranslateAllKey = TranslateAllKey;
+        _settings.Shortkeys.SearchReplaceKey = SearchReplaceKey;
+        _settings.Shortkeys.SaveKey = SaveKey;
+        _settings.Shortkeys.FullScreenKey = FullScreenKey;
+        _settings.Shortkeys.FocusModeKey = FocusModeKey;
+        _settings.Shortkeys.PrevChapterKey = PrevChapterKey;
+        _settings.Shortkeys.NextChapterKey = NextChapterKey;
+        _settings.Shortkeys.ToggleSidebarKey = ToggleSidebarKey;
+
+        // บันทึก System & Appearance
+        _settings.EditorFontFamily = EditorFontFamily;
+        _settings.EditorFontSize = EditorFontSize;
+        _settings.AutoSaveDelaySeconds = AutoSaveDelaySeconds;
     }
 }

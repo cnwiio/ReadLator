@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using NovelTranslator.App.ViewModels;
@@ -34,6 +35,7 @@ public partial class MainWindow : Window
     private bool _dropAfter;
     private bool _isInternalSelectionSync;
     private readonly IBrush _dragIndicatorBrush = new SolidColorBrush(Color.Parse("#2563EB"));
+    private readonly Cursor _grabbingHandCursor = CreateGrabbingHandCursor();
 
     public MainWindow()
     {
@@ -48,6 +50,13 @@ public partial class MainWindow : Window
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         OriginalTextBox.AddHandler(ScrollViewer.ScrollChangedEvent, OnOriginalScrollChanged);
         TranslatedTextBox.AddHandler(ScrollViewer.ScrollChangedEvent, OnTranslatedScrollChanged);
+
+        ViewModel.RequestToggleFullScreen = () =>
+        {
+            WindowState = WindowState == WindowState.FullScreen
+                ? WindowState.Normal
+                : WindowState.FullScreen;
+        };
 
         // เชื่อมต่อการเปิดหน้าต่างย่อย
         ViewModel.RequestOpenSettings = async () =>
@@ -514,7 +523,7 @@ public partial class MainWindow : Window
             {
                 _isDragging = true;
                 DragGhostCanvas.IsVisible = true;
-                Cursor = new Cursor(StandardCursorType.DragMove);
+                Cursor = _grabbingHandCursor;
 
                 if (_movingChapters.Count > 1)
                 {
@@ -634,5 +643,24 @@ public partial class MainWindow : Window
         _draggedChapter = null;
         _targetChapter = null;
         _movingChapters.Clear();
+    }
+
+    private static Cursor CreateGrabbingHandCursor()
+    {
+        try
+        {
+            var size = new PixelSize(32, 32);
+            var rtb = new RenderTargetBitmap(size, new Vector(96, 96));
+            using (var ctx = rtb.CreateDrawingContext())
+            {
+                var geom = Geometry.Parse("M11,10 C10.4,10 10,10.4 10,11 L10,17 C10,17.6 10.4,18 11,18 C11.6,18 12,17.6 12,17 L12,11 C12,10.4 11.6,10 11,10 Z M14,9 C13.4,9 13,9.4 13,10 L13,17 C13,17.6 13.4,18 14,18 C14.6,18 15,17.6 15,17 L15,10 C15,9.4 14.6,9 14,9 Z M17,10 C16.4,10 16,10.4 16,11 L16,17 C16,17.6 16.4,18 17,18 C17.6,18 18,17.6 18,17 L18,11 C18,10.4 17.6,10 17,10 Z M8,11 C7.4,11 7,11.4 7,12 L7,17 C7,17.6 7.4,18 8,18 C8.6,18 9,17.6 9,17 L9,12 C9,11.4 8.6,11 8,11 Z M6,16 C6,21 10,24 13,24 C16,24 20,21 20,16 L20,15 C20,13.5 19,12 17.5,12 C17.3,12 17.1,12 17,12.1 C16.6,10.9 15.4,10 14,10 C13.7,10 13.4,10.1 13.1,10.2 C12.6,9.5 11.8,9 11,9 C10.6,9 10.3,9.1 10,9.3 L10,9 C10,7.5 9,6 7.5,6 C6.7,6 6,6.7 6,7.5 L6,16 Z");
+                ctx.DrawGeometry(Brushes.White, new Pen(Brushes.Black, 1.8), geom);
+            }
+            return new Cursor(rtb, new PixelPoint(13, 15));
+        }
+        catch
+        {
+            return new Cursor(StandardCursorType.DragMove);
+        }
     }
 }
