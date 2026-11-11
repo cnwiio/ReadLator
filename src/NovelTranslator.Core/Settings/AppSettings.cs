@@ -22,7 +22,8 @@ public class AppSettings
     public int ContextParagraphCount { get; set; } = 2;
     public string CustomSystemPrompt { get; set; } = string.Empty;
     public string ThemeMode { get; set; } = "Light"; // Light, Dark, Sepia
-    public int EditorFontSize { get; set; } = 16;
+    public int EditorFontSize { get; set; } = 20;
+    public string EditorFontFamily { get; set; } = "Sarabun, Noto Sans Thai, Tahoma, Segoe UI, sans-serif";
     public long? LastSelectedStoryId { get; set; }
     public long? LastSelectedChapterId { get; set; }
 

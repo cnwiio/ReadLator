@@ -236,7 +236,7 @@ public partial class MainWindow : Window
 
         if (e.PropertyName == nameof(MainViewModel.IsSidebarVisible))
         {
-            MainLayoutGrid.ColumnDefinitions[0].Width = ViewModel.IsSidebarVisible ? new GridLength(290) : new GridLength(0);
+            MainLayoutGrid.ColumnDefinitions[0].Width = ViewModel.IsSidebarVisible ? new GridLength(300) : new GridLength(0);
             MainLayoutGrid.ColumnDefinitions[1].Width = ViewModel.IsSidebarVisible ? new GridLength(6) : new GridLength(0);
         }
         else if (e.PropertyName == nameof(MainViewModel.IsReaderMode))

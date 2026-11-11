@@ -39,6 +39,15 @@ public partial class MainViewModel : ObservableObject
     private string _chapterSearchFilter = string.Empty;
 
     [ObservableProperty]
+    private int _chapterStatusFilterIndex; // 0: All, 1: NotTranslated, 2: Translated, 3: Edited
+
+    [ObservableProperty]
+    private string _storyProgressText = "0 / 0 ตอน (0%)";
+
+    [ObservableProperty]
+    private double _storyProgressPercentage;
+
+    [ObservableProperty]
     private string _chapterTitleEdit = string.Empty;
 
     [ObservableProperty]
@@ -58,10 +67,22 @@ public partial class MainViewModel : ObservableObject
     partial void OnIsSidebarVisibleChanged(bool value) => OnPropertyChanged(nameof(SidebarToggleText));
 
     [ObservableProperty]
+    private bool _isFocusMode;
+
+    private bool _sidebarBeforeFocusMode = true;
+    public bool IsHeaderVisible => !IsFocusMode;
+    public string FocusModeButtonText => IsFocusMode ? "⛶ ออกโฟกัส (F11)" : "⛶ โฟกัส (F11)";
+    partial void OnIsFocusModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsHeaderVisible));
+        OnPropertyChanged(nameof(FocusModeButtonText));
+    }
+
+    [ObservableProperty]
     private bool _isReaderMode;
 
     public bool IsOriginalPaneVisible => !IsReaderMode;
-    public string ReaderModeButtonText => IsReaderMode ? "📑 มุมมองคู่ขนาน (Split)" : "📖 โหมดอ่านคำแปลเต็มจอ";
+    public string ReaderModeButtonText => IsReaderMode ? "📑 คู่ขนาน (Split)" : "📖 โหมดอ่านเต็มจอ";
     partial void OnIsReaderModeChanged(bool value)
     {
         OnPropertyChanged(nameof(IsOriginalPaneVisible));
@@ -72,7 +93,28 @@ public partial class MainViewModel : ObservableObject
     private bool _isSyncScrollEnabled = true;
 
     [ObservableProperty]
-    private int _editorFontSize = 16;
+    private int _editorFontSize = 20;
+
+    public ObservableCollection<string> AvailableEditorFonts { get; } = new()
+    {
+        "Sarabun, Tahoma, Segoe UI, sans-serif",
+        "Noto Sans Thai, Tahoma, Segoe UI, sans-serif",
+        "Tahoma, Segoe UI, sans-serif",
+        "Segoe UI, Tahoma, sans-serif",
+        "Cordia New, Tahoma, sans-serif"
+    };
+
+    [ObservableProperty]
+    private string _editorFontFamily = "Sarabun, Tahoma, Segoe UI, sans-serif";
+
+    partial void OnEditorFontFamilyChanged(string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value) && _settings != null)
+        {
+            _settings.EditorFontFamily = value;
+            _settings.Save();
+        }
+    }
 
     [ObservableProperty]
     private string _themeMode = "Light";
@@ -117,6 +159,11 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _saveStatusText = string.Empty;
 
+    [ObservableProperty]
+    private string _saveStateColor = "#16A34A";
+
+    private bool _isLoadingChapter;
+
     // Error Debug Details
     [ObservableProperty]
     private string _lastErrorDetails = string.Empty;
@@ -145,7 +192,11 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         _settings = AppSettings.Load();
-        _editorFontSize = Math.Clamp(_settings.EditorFontSize > 0 ? _settings.EditorFontSize : 16, 12, 28);
+        _editorFontSize = Math.Clamp(_settings.EditorFontSize > 0 ? _settings.EditorFontSize : 20, 12, 32);
+        if (!string.IsNullOrWhiteSpace(_settings.EditorFontFamily) && AvailableEditorFonts.Contains(_settings.EditorFontFamily))
+        {
+            _editorFontFamily = _settings.EditorFontFamily;
+        }
         _themeMode = string.IsNullOrWhiteSpace(_settings.ThemeMode) ? "Light" : _settings.ThemeMode;
         UpdateActiveModelDisplay();
         _database = new NovelDatabase();
@@ -203,12 +254,28 @@ public partial class MainViewModel : ObservableObject
     public void ToggleSidebar() => IsSidebarVisible = !IsSidebarVisible;
 
     [RelayCommand]
+    public void ToggleFocusMode()
+    {
+        if (!IsFocusMode)
+        {
+            _sidebarBeforeFocusMode = IsSidebarVisible;
+            IsFocusMode = true;
+            IsSidebarVisible = false;
+        }
+        else
+        {
+            IsFocusMode = false;
+            IsSidebarVisible = _sidebarBeforeFocusMode;
+        }
+    }
+
+    [RelayCommand]
     public void ToggleReaderMode() => IsReaderMode = !IsReaderMode;
 
     [RelayCommand]
     public void IncreaseFontSize()
     {
-        EditorFontSize = Math.Clamp(EditorFontSize + 2, 12, 28);
+        EditorFontSize = Math.Clamp(EditorFontSize + 2, 12, 32);
         _settings.EditorFontSize = EditorFontSize;
         _settings.Save();
     }
@@ -216,7 +283,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void DecreaseFontSize()
     {
-        EditorFontSize = Math.Clamp(EditorFontSize - 2, 12, 28);
+        EditorFontSize = Math.Clamp(EditorFontSize - 2, 12, 32);
         _settings.EditorFontSize = EditorFontSize;
         _settings.Save();
     }
@@ -329,14 +396,26 @@ public partial class MainViewModel : ObservableObject
     }
 
     partial void OnChapterSearchFilterChanged(string value) => RefreshFilteredChapters();
+    partial void OnChapterStatusFilterIndexChanged(int value) => RefreshFilteredChapters();
 
     private void RefreshFilteredChapters()
     {
         var current = SelectedChapter;
         string q = ChapterSearchFilter?.Trim() ?? string.Empty;
-        var matches = string.IsNullOrEmpty(q)
-            ? Chapters
-            : Chapters.Where(c => c.Title.Contains(q, StringComparison.OrdinalIgnoreCase));
+        IEnumerable<Chapter> matches = Chapters;
+
+        if (!string.IsNullOrEmpty(q))
+        {
+            matches = matches.Where(c => c.Title.Contains(q, StringComparison.OrdinalIgnoreCase));
+        }
+
+        matches = ChapterStatusFilterIndex switch
+        {
+            1 => matches.Where(c => c.Status == ChapterStatus.NotTranslated),
+            2 => matches.Where(c => c.Status == ChapterStatus.Translated),
+            3 => matches.Where(c => c.Status == ChapterStatus.Edited),
+            _ => matches
+        };
 
         FilteredChapters.Clear();
         foreach (var c in matches)
@@ -348,66 +427,99 @@ public partial class MainViewModel : ObservableObject
         {
             SelectedChapter = current;
         }
+
+        UpdateStoryProgress();
+    }
+
+    private void UpdateStoryProgress()
+    {
+        int total = Chapters.Count;
+        if (total == 0)
+        {
+            StoryProgressText = "0 / 0 ตอน (0%)";
+            StoryProgressPercentage = 0;
+            return;
+        }
+
+        int done = Chapters.Count(c => c.Status is ChapterStatus.Translated or ChapterStatus.Edited);
+        double pct = Math.Round((double)done / total * 100, 0);
+        StoryProgressPercentage = pct;
+        StoryProgressText = $"แปลแล้ว {done} / {total} ตอน ({pct:0}%)";
     }
 
     partial void OnSelectedChapterChanged(Chapter? value)
     {
-        if (value != null)
+        _isLoadingChapter = true;
+        try
         {
-            // บันทึกตอนล่าสุด
-            _settings.LastSelectedChapterId = value.Id;
-            _settings.Save();
+            if (value != null)
+            {
+                // บันทึกตอนล่าสุด
+                _settings.LastSelectedChapterId = value.Id;
+                _settings.Save();
 
-            ChapterTitleEdit = value.Title ?? string.Empty;
-            OriginalText = value.OriginalText ?? string.Empty;
-            TranslatedText = value.TranslatedText ?? string.Empty;
-            UpdateChapterStatusDisplay(value.Status);
-            UpdateWordAndParagraphCounts(OriginalText);
-            TranslatedWordCount = Chunker.EstimateWordCount(TranslatedText);
-            SaveStatusText = $"แก้ไขล่าสุด: {value.UpdatedAt.ToLocalTime():HH:mm:ss}";
+                ChapterTitleEdit = value.Title ?? string.Empty;
+                OriginalText = value.OriginalText ?? string.Empty;
+                TranslatedText = value.TranslatedText ?? string.Empty;
+                UpdateChapterStatusDisplay(value.Status);
+                UpdateWordAndParagraphCounts(OriginalText);
+                TranslatedWordCount = Chunker.EstimateWordCount(TranslatedText);
+                SaveStatusText = $"🟢 บันทึกแล้ว ({value.UpdatedAt.ToLocalTime():HH:mm:ss})";
+                SaveStateColor = "#16A34A";
+            }
+            else
+            {
+                ChapterTitleEdit = string.Empty;
+                OriginalText = string.Empty;
+                TranslatedText = string.Empty;
+                TranslatedWordCount = 0;
+                ChapterStatusText = "";
+                SaveStatusText = "";
+            }
         }
-        else
+        finally
         {
-            ChapterTitleEdit = string.Empty;
-            OriginalText = string.Empty;
-            TranslatedText = string.Empty;
-            TranslatedWordCount = 0;
-            ChapterStatusText = "";
-            SaveStatusText = "";
+            _isLoadingChapter = false;
         }
+    }
+
+    private void MarkUnsavedChanges()
+    {
+        SaveStatusText = "🟡 มีการแก้ไข ยังไม่ได้บันทึก (Unsaved Changes)";
+        SaveStateColor = "#F59E0B";
+        _autoSaveTimer.Stop();
+        _autoSaveTimer.Start();
     }
 
     partial void OnChapterTitleEditChanged(string value)
     {
-        if (SelectedChapter != null && !string.IsNullOrWhiteSpace(value) && SelectedChapter.Title != value)
+        if (!_isLoadingChapter && SelectedChapter != null && !string.IsNullOrWhiteSpace(value) && SelectedChapter.Title != value)
         {
             SelectedChapter.Title = value;
-            _autoSaveTimer.Stop();
-            _autoSaveTimer.Start();
+            MarkUnsavedChanges();
         }
     }
 
     partial void OnOriginalTextChanged(string value)
     {
         UpdateWordAndParagraphCounts(value);
-        if (SelectedChapter != null && SelectedChapter.OriginalText != value)
+        if (!_isLoadingChapter && SelectedChapter != null && SelectedChapter.OriginalText != value)
         {
             SelectedChapter.OriginalText = value;
-            _autoSaveTimer.Stop();
-            _autoSaveTimer.Start();
+            MarkUnsavedChanges();
         }
     }
 
     partial void OnTranslatedTextChanged(string value)
     {
         TranslatedWordCount = Chunker.EstimateWordCount(value);
-        if (SelectedChapter != null && SelectedChapter.TranslatedText != value && !IsTranslating)
+        if (!_isLoadingChapter && SelectedChapter != null && SelectedChapter.TranslatedText != value && !IsTranslating)
         {
             SelectedChapter.TranslatedText = value;
             SelectedChapter.Status = ChapterStatus.Edited;
             UpdateChapterStatusDisplay(SelectedChapter.Status);
-            _autoSaveTimer.Stop();
-            _autoSaveTimer.Start();
+            UpdateStoryProgress();
+            MarkUnsavedChanges();
         }
     }
 
@@ -443,6 +555,39 @@ public partial class MainViewModel : ObservableObject
     public async Task StartTranslationAsync()
     {
         await StartTranslationInternalAsync(forceRetranslate: false);
+    }
+
+    [RelayCommand]
+    public async Task TranslateAllChaptersAsync()
+    {
+        if (SelectedStory == null || IsTranslating) return;
+
+        var pending = Chapters.Where(c => c.Status == ChapterStatus.NotTranslated && !string.IsNullOrWhiteSpace(c.OriginalText)).ToList();
+        if (pending.Count == 0)
+        {
+            ProgressText = "ทุกตอนที่มีเนื้อหาต้นฉบับแปลเสร็จหมดแล้ว!";
+            return;
+        }
+
+        if (RequestConfirmDialog != null)
+        {
+            bool ok = await RequestConfirmDialog($"ต้องการแปลต่อเนื่องทุกตอนที่ยังไม่แปล (จำนวน {pending.Count} ตอน) ใช่หรือไม่?");
+            if (!ok) return;
+        }
+
+        for (int i = 0; i < pending.Count; i++)
+        {
+            SelectedChapter = pending[i];
+            ProgressText = $"กำลังแปลต่อเนื่อง ({i + 1}/{pending.Count}): {SelectedChapter.Title}...";
+            await StartTranslationInternalAsync(forceRetranslate: false);
+
+            // หากถูกกดหยุดหรือเกิด Error ให้หยุดคิวทันที
+            if (HasError || SelectedChapter.Status != ChapterStatus.Translated)
+            {
+                break;
+            }
+        }
+        UpdateStoryProgress();
     }
 
     [RelayCommand]
@@ -510,9 +655,11 @@ public partial class MainViewModel : ObservableObject
             });
             TranslatedText = SelectedChapter.TranslatedText ?? string.Empty;
             UpdateChapterStatusDisplay(SelectedChapter.Status);
+            UpdateStoryProgress();
             ProgressText = "การแปลเสร็จสิ้นสมบูรณ์!";
             TranslationProgressPercentage = 100;
-            SaveStatusText = "บันทึกอัตโนมัติแล้ว";
+            SaveStatusText = $"🟢 บันทึกอัตโนมัติแล้ว ({DateTime.Now:HH:mm:ss})";
+            SaveStateColor = "#16A34A";
         }
         catch (OperationCanceledException)
         {
@@ -667,16 +814,45 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public void ToggleSelectAllChapters()
+    {
+        if (FilteredChapters.Count == 0) return;
+        bool allChecked = FilteredChapters.All(c => c.IsSelected);
+        foreach (var c in FilteredChapters)
+        {
+            c.IsSelected = !allChecked;
+        }
+    }
+
+    [RelayCommand]
     public async Task DeleteChapterAsync()
     {
-        if (SelectedChapter == null || RequestConfirmDialog == null) return;
-        bool ok = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอน \"{SelectedChapter.Title}\"?");
-        if (!ok) return;
+        if (RequestConfirmDialog == null) return;
+
+        var checkedChapters = Chapters.Where(c => c.IsSelected).ToList();
+        if (checkedChapters.Count > 0)
+        {
+            bool ok = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอนที่ติ๊กเลือกทั้งหมด {checkedChapters.Count} ตอน?");
+            if (!ok) return;
+
+            foreach (var ch in checkedChapters)
+            {
+                await _repository.DeleteChapterAsync(ch.Id);
+                Chapters.Remove(ch);
+            }
+            RefreshFilteredChapters();
+            SelectedChapter = FilteredChapters.FirstOrDefault() ?? Chapters.FirstOrDefault();
+            return;
+        }
+
+        if (SelectedChapter == null) return;
+        bool singleOk = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอน \"{SelectedChapter.Title}\"?");
+        if (!singleOk) return;
 
         await _repository.DeleteChapterAsync(SelectedChapter.Id);
         Chapters.Remove(SelectedChapter);
         RefreshFilteredChapters();
-        SelectedChapter = Chapters.FirstOrDefault();
+        SelectedChapter = FilteredChapters.FirstOrDefault() ?? Chapters.FirstOrDefault();
     }
 
     [RelayCommand]
@@ -755,13 +931,25 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedChapter == null) return;
 
-        SelectedChapter.OriginalText = OriginalText;
-        SelectedChapter.TranslatedText = TranslatedText;
-        await _repository.UpdateChapterAsync(SelectedChapter);
+        SaveStatusText = "⏳ กำลังบันทึก... (Saving...)";
+        SaveStateColor = "#F59E0B";
 
-        SaveStatusText = isAutoSave
-            ? $"บันทึกอัตโนมัติ ({DateTime.Now:HH:mm:ss})"
-            : $"บันทึกแล้ว ({DateTime.Now:HH:mm:ss})";
+        try
+        {
+            SelectedChapter.OriginalText = OriginalText;
+            SelectedChapter.TranslatedText = TranslatedText;
+            await _repository.UpdateChapterAsync(SelectedChapter);
+
+            SaveStatusText = isAutoSave
+                ? $"🟢 บันทึกอัตโนมัติ ({DateTime.Now:HH:mm:ss})"
+                : $"🟢 บันทึกสำเร็จ ({DateTime.Now:HH:mm:ss})";
+            SaveStateColor = "#16A34A";
+        }
+        catch (Exception ex)
+        {
+            SaveStatusText = $"🔴 บันทึกล้มเหลว: {ex.Message}";
+            SaveStateColor = "#DC2626";
+        }
     }
 
     [RelayCommand]
