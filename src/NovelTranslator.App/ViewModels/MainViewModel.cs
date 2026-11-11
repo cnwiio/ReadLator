@@ -999,6 +999,12 @@ public partial class MainViewModel : ObservableObject
         if (movingChapters == null || movingChapters.Count == 0 || targetChapter == null) return;
         if (movingChapters.Contains(targetChapter) && movingChapters.Count == 1) return;
 
+        var selectedIds = Chapters.Where(c => c.IsSelected).Select(c => c.Id).ToHashSet();
+        foreach (var m in movingChapters)
+        {
+            selectedIds.Add(m.Id);
+        }
+
         // กรองเอาเฉพาะตอนที่มีอยู่ใน Chapters และเรียงลำดับตาม Chapters เดิม
         var toMove = Chapters.Where(c => movingChapters.Contains(c)).ToList();
         if (toMove.Count == 0) return;
@@ -1029,10 +1035,14 @@ public partial class MainViewModel : ObservableObject
         await ResequenceOrdinalsAsync();
         RefreshFilteredChapters();
 
-        // คงสถานะเลือกให้กับตอนที่เพิ่งถูกย้าย
-        foreach (var c in toMove)
+        // คงสถานะเลือกให้กับตอนเดิมและตอนที่เพิ่งถูกย้าย
+        foreach (var c in Chapters)
         {
-            c.IsSelected = true;
+            c.IsSelected = selectedIds.Contains(c.Id);
+        }
+        if (toMove.Count > 0)
+        {
+            SelectedChapter = toMove[0];
         }
     }
 

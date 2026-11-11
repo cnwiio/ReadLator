@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private bool _isDragging;
     private ListBoxItem? _currentIndicatorItem;
     private bool _dropAfter;
+    private bool _isInternalSelectionSync;
     private readonly IBrush _dragIndicatorBrush = new SolidColorBrush(Color.Parse("#2563EB"));
 
     public MainWindow()
@@ -348,13 +349,44 @@ public partial class MainWindow : Window
         return text.Substring(start, end - start).Trim();
     }
 
+    private void OnChapterRowPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Control row && row.DataContext is Chapter chapter && ViewModel != null)
+        {
+            // บังคับให้อัปเดตตอนที่กำลังเปิดอ่าน/แก้ไขทางด้านขวาทันทีเมื่อมีการคลิก
+            ViewModel.SelectedChapter = chapter;
+        }
+    }
+
     private void OnChapterListBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (ViewModel == null) return;
+        if (ViewModel == null || _isInternalSelectionSync) return;
         var selectedSet = ChapterListBox.SelectedItems?.OfType<Chapter>().ToHashSet() ?? new HashSet<Chapter>();
         foreach (var c in ViewModel.Chapters)
         {
             c.IsSelected = selectedSet.Contains(c);
+        }
+    }
+
+    private void SyncListBoxSelectionFromViewModel()
+    {
+        if (ViewModel == null) return;
+        _isInternalSelectionSync = true;
+        try
+        {
+            ChapterListBox.SelectedItems?.Clear();
+            foreach (var c in ViewModel.Chapters.Where(ch => ch.IsSelected))
+            {
+                ChapterListBox.SelectedItems?.Add(c);
+            }
+            if (ViewModel.SelectedChapter != null)
+            {
+                ChapterListBox.SelectedItem = ViewModel.SelectedChapter;
+            }
+        }
+        finally
+        {
+            _isInternalSelectionSync = false;
         }
     }
 
@@ -369,8 +401,8 @@ public partial class MainWindow : Window
             _dragStartPoint = point.Position;
             _isDragging = false;
 
-            var selectedList = ChapterListBox.SelectedItems?.OfType<Chapter>().ToList() ?? new List<Chapter>();
-            if (selectedList.Contains(chapter))
+            var selectedList = ViewModel?.Chapters.Where(c => c.IsSelected).ToList() ?? new List<Chapter>();
+            if (selectedList.Contains(chapter) && selectedList.Count > 1)
             {
                 _movingChapters = selectedList;
             }
@@ -391,9 +423,19 @@ public partial class MainWindow : Window
         var currentPoint = e.GetCurrentPoint(this).Position;
         if (!_isDragging)
         {
-            if (Math.Abs(currentPoint.Y - _dragStartPoint.Y) > 4)
+            if (Math.Abs(currentPoint.Y - _dragStartPoint.Y) > 4 || Math.Abs(currentPoint.X - _dragStartPoint.X) > 4)
             {
                 _isDragging = true;
+                DragGhostCanvas.IsVisible = true;
+
+                if (_movingChapters.Count > 1)
+                {
+                    DragGhostText.Text = $"{_movingChapters[0].Title} (+อีก {_movingChapters.Count - 1} ตอน)";
+                }
+                else
+                {
+                    DragGhostText.Text = _movingChapters.FirstOrDefault()?.Title ?? _draggedChapter.Title;
+                }
             }
             else
             {
@@ -401,16 +443,19 @@ public partial class MainWindow : Window
             }
         }
 
-        var posInList = e.GetPosition(ChapterListBox);
-        var hit = ChapterListBox.InputHitTest(posInList) as Visual;
-        var targetItem = FindAncestorListBoxItem(hit);
+        // เคลื่อนที่ Floating Drag Ghost Card ตามพิกัดเมาส์
+        var canvasPt = e.GetPosition(DragGhostCanvas);
+        Canvas.SetLeft(DragGhostBorder, canvasPt.X + 16);
+        Canvas.SetTop(DragGhostBorder, canvasPt.Y - 14);
 
+        // หา ListBoxItem ใต้ตำแหน่งเมาส์
+        var targetItem = FindListBoxItemUnderPointer(e);
         ClearDragIndicator();
 
         if (targetItem != null && targetItem.DataContext is Chapter)
         {
             var itemPt = e.GetPosition(targetItem);
-            _dropAfter = itemPt.Y > (targetItem.Bounds.Height / 2);
+            _dropAfter = itemPt.Y > (targetItem.Bounds.Height / 2.0);
             _currentIndicatorItem = targetItem;
 
             targetItem.BorderBrush = _dragIndicatorBrush;
@@ -426,6 +471,8 @@ public partial class MainWindow : Window
             e.Pointer.Capture(null);
         }
 
+        DragGhostCanvas.IsVisible = false;
+
         if (_isDragging && _currentIndicatorItem?.DataContext is Chapter targetChapter && ViewModel != null)
         {
             var movingList = new List<Chapter>(_movingChapters);
@@ -436,15 +483,7 @@ public partial class MainWindow : Window
 
             await ViewModel.ReorderChaptersAsync(movingList, targetChapter, dropAfter);
 
-            ChapterListBox.SelectedItems?.Clear();
-            foreach (var c in movingList)
-            {
-                ChapterListBox.SelectedItems?.Add(c);
-            }
-            if (movingList.Count > 0)
-            {
-                ChapterListBox.SelectedItem = movingList[0];
-            }
+            SyncListBoxSelectionFromViewModel();
         }
         else
         {
@@ -457,6 +496,7 @@ public partial class MainWindow : Window
 
     private void OnDragHandlePointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
     {
+        DragGhostCanvas.IsVisible = false;
         ClearDragIndicator();
         ResetDragState();
     }
@@ -478,14 +518,35 @@ public partial class MainWindow : Window
         _movingChapters.Clear();
     }
 
-    private ListBoxItem? FindAncestorListBoxItem(Visual? visual)
+    private ListBoxItem? FindListBoxItemUnderPointer(PointerEventArgs e)
     {
-        var current = visual;
-        while (current != null && current != ChapterListBox)
+        var listPos = e.GetPosition(ChapterListBox);
+        var items = ChapterListBox.GetVisualDescendants().OfType<ListBoxItem>().Where(i => i.IsVisible).ToList();
+        if (items.Count == 0) return null;
+
+        foreach (var item in items)
         {
-            if (current is ListBoxItem lbi) return lbi;
-            current = current.GetVisualParent();
+            var pt = e.GetPosition(item);
+            if (pt.Y >= 0 && pt.Y <= item.Bounds.Height && listPos.X >= -60 && listPos.X <= ChapterListBox.Bounds.Width + 60)
+            {
+                return item;
+            }
         }
+
+        // หากลากเลยขอบบนของรายการ
+        if (listPos.Y < 0 && listPos.X >= -60 && listPos.X <= ChapterListBox.Bounds.Width + 60)
+        {
+            _dropAfter = false;
+            return items.FirstOrDefault();
+        }
+
+        // หากลากเลยขอบล่างของรายการ
+        if (listPos.Y > ChapterListBox.Bounds.Height && listPos.X >= -60 && listPos.X <= ChapterListBox.Bounds.Width + 60)
+        {
+            _dropAfter = true;
+            return items.LastOrDefault();
+        }
+
         return null;
     }
 }

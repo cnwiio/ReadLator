@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v1.5"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v1.6"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -188,7 +188,8 @@
                                  Background="Transparent">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid ColumnDefinitions="Auto, *, Auto" Height="28">
+                                    <Grid ColumnDefinitions="Auto, *, Auto" Height="28" Background="Transparent"
+                                          PointerPressed="OnChapterRowPointerPressed">
                                         <!-- ไอคอน 3 ขีดแนวนอน (Drag Handle ☰) -->
                                         <Border Background="Transparent" Width="20" Height="24" Margin="0,0,6,0"
                                                 Cursor="SizeNorthSouth" ToolTip.Tip="คลิกลากเพื่อย้ายลำดับตอน"
@@ -389,5 +390,19 @@
                 </Border>
             </Grid>
         </Grid>
+
+        <!-- Overlay Canvas สำหรับ Floating Drag Ghost Card -->
+        <Canvas x:Name="DragGhostCanvas" Grid.RowSpan="2" IsHitTestVisible="False" ZIndex="9999" IsVisible="False">
+            <Border x:Name="DragGhostBorder" Background="#26262B" BorderBrush="#3B82F6" BorderThickness="1.5"
+                    CornerRadius="8" Padding="12,8" BoxShadow="0 6 20 0 #60000000" Opacity="0.95">
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Path Data="M3,5 L17,5 M3,10 L17,10 M3,15 L17,15"
+                          Stroke="#3B82F6" StrokeThickness="2" StrokeLineCap="Round"
+                          Width="14" Height="12" Stretch="Uniform" VerticalAlignment="Center" />
+                    <TextBlock x:Name="DragGhostText" Text="ตอนที่ 1" FontSize="13" FontWeight="Medium"
+                               Foreground="#FFFFFF" VerticalAlignment="Center" />
+                </StackPanel>
+            </Border>
+        </Canvas>
     </Grid>
 </Window>
