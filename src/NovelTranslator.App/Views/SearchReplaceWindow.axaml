@@ -1,0 +1,50 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NovelTranslator.App.ViewModels"
+        x:Class="NovelTranslator.App.Views.SearchReplaceWindow"
+        x:DataType="vm:SearchReplaceViewModel"
+        Title="ค้นหาและแทนที่คำแปล"
+        Width="650" Height="500"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="16" RowDefinitions="Auto, Auto, *, Auto">
+        <!-- ฟอร์มค้นหาและแทนที่ -->
+        <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto, Auto, Auto" Margin="0,0,0,12">
+            <TextBlock Text="คำค้นหา:" FontWeight="SemiBold" Margin="0,0,0,4" />
+            <TextBlock Grid.Column="1" Text="แทนที่ด้วย:" FontWeight="SemiBold" Margin="8,0,0,4" />
+
+            <TextBox Grid.Row="1" Text="{Binding SearchText}" Watermark="ข้อความเดิมในคำแปล" />
+            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ReplaceText}" Margin="8,0,0,0" Watermark="ข้อความใหม่ที่ต้องการ" />
+
+            <TextBlock Grid.Row="2" Text="ขอบเขตการแทนที่:" FontWeight="SemiBold" Margin="0,8,0,4" />
+            <ComboBox Grid.Row="3" SelectedIndex="{Binding ScopeIndex}" HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="เฉพาะตอนนี้" />
+                <ComboBoxItem Content="ทั้งเรื่อง (ทุกตอน)" />
+            </ComboBox>
+
+            <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0">
+                <Button Content="ดูตัวอย่างจุดที่พบ" Command="{Binding PreviewMatchesCommand}" />
+                <Button Content="แทนที่ทั้งหมด" Classes="accent" Command="{Binding ApplyReplaceCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" Foreground="#2A7BDE" FontWeight="SemiBold" Margin="0,0,0,8" />
+
+        <!-- ตัวอย่างผลลัพธ์ -->
+        <Border Grid.Row="2" BorderThickness="1" BorderBrush="#DDD" CornerRadius="4">
+            <ListBox ItemsSource="{Binding Previews}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel Margin="4">
+                            <TextBlock Text="{Binding ChapterTitle}" FontWeight="Bold" Foreground="#333" />
+                            <TextBlock Text="{Binding MatchSnippet}" TextWrapping="Wrap" Foreground="#666" Margin="0,2,0,0" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Border>
+
+        <TextBlock Grid.Row="3" Text="* หมายเหตุ: การแทนที่จะทำการบันทึกและเปลี่ยนสถานะเป็น 'แก้ไขแล้ว' อัตโนมัติ"
+                   FontSize="12" Foreground="#888" Margin="0,8,0,0" />
+    </Grid>
+</Window>

@@ -1,0 +1,68 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NovelTranslator.App.ViewModels"
+        x:Class="NovelTranslator.App.Views.SettingsWindow"
+        x:DataType="vm:SettingsViewModel"
+        Title="ตั้งค่า AI และโปรแกรม"
+        Width="550" Height="620"
+        WindowStartupLocation="CenterOwner"
+        CanResize="False">
+
+    <ScrollViewer Margin="20">
+        <StackPanel Spacing="14">
+            <TextBlock Text="ตั้งค่าการเชื่อมต่อ AI" FontSize="18" FontWeight="Bold" />
+
+            <TextBlock Text="AI Backend:" FontWeight="SemiBold" />
+            <ComboBox SelectedIndex="{Binding BackendIndex}" HorizontalAlignment="Stretch">
+                <ComboBoxItem Content="Ollama (Local)" />
+                <ComboBoxItem Content="LM Studio (Local)" />
+                <ComboBoxItem Content="กำหนดเอง / Custom (OpenAI-compatible)" />
+            </ComboBox>
+
+            <TextBlock Text="Base URL:" FontWeight="SemiBold" />
+            <TextBox Text="{Binding BaseUrl}" Watermark="http://localhost:11434/v1" />
+
+            <TextBlock Text="API Key (ถ้ามี):" FontWeight="SemiBold" />
+            <TextBox Text="{Binding ApiKey}" PasswordChar="*" Watermark="ใส่ API key สำหรับบริการ Cloud หรือปล่อยว่างถ้าใช้ในเครื่อง" />
+
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <Button Content="ทดสอบการเชื่อมต่อ" Command="{Binding TestConnectionCommand}" IsEnabled="{Binding !IsBusy}" />
+                <TextBlock Text="{Binding ConnectionStatus}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="350" Foreground="#2A7BDE" />
+            </StackPanel>
+
+            <Separator Margin="0,5" />
+
+            <TextBlock Text="ชื่อโมเดล (Model):" FontWeight="SemiBold" />
+            <Grid ColumnDefinitions="*, Auto">
+                <AutoCompleteBox Text="{Binding ModelName}" ItemsSource="{Binding AvailableModels}"
+                                 Watermark="เลือกหรือพิมพ์ชื่อโมเดล (เช่น llama3.2, qwen2.5:7b)" />
+                <Button Grid.Column="1" Content="ดึงโมเดล Ollama" Command="{Binding PullModelCommand}"
+                        Margin="8,0,0,0" IsEnabled="{Binding !IsBusy}" />
+            </Grid>
+            <TextBlock Text="{Binding PullProgress}" Foreground="#E67E22" TextWrapping="Wrap" />
+
+            <Separator Margin="0,5" />
+
+            <TextBlock Text="พารามิเตอร์การแปล" FontSize="16" FontWeight="Bold" />
+
+            <Grid ColumnDefinitions="*, 80" RowDefinitions="Auto, Auto">
+                <TextBlock Text="Temperature (ความแม่นยำ vs จินตนาการ):" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding Temperature}" />
+
+                <TextBlock Grid.Row="1" Text="ขนาดชิ้นข้อความ (คำต่อ Chunk, ค่าแนะนำ 600):" VerticalAlignment="Center" Margin="0,10,0,0" />
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaxChunkWords}" Margin="0,10,0,0" />
+            </Grid>
+
+            <Grid ColumnDefinitions="*, 80">
+                <TextBlock Text="จำนวนย่อหน้าบริบทก่อนหน้า (Context Paragraphs):" VerticalAlignment="Center" />
+                <TextBox Grid.Column="1" Text="{Binding ContextParagraphCount}" />
+            </Grid>
+
+            <Separator Margin="0,10" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
+                <Button Content="บันทึกและปิด" Classes="accent" Command="{Binding SaveAndCloseCommand}" Width="120" HorizontalContentAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

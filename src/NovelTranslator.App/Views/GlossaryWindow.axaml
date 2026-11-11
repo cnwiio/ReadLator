@@ -1,0 +1,56 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:NovelTranslator.App.ViewModels"
+        xmlns:models="using:NovelTranslator.Core.Models"
+        x:Class="NovelTranslator.App.Views.GlossaryWindow"
+        x:DataType="vm:GlossaryViewModel"
+        Title="จัดการพจนานุกรมศัพท์เฉพาะ (Glossary)"
+        Width="750" Height="550"
+        WindowStartupLocation="CenterOwner">
+
+    <Grid Margin="16" RowDefinitions="Auto, *, Auto, Auto">
+        <!-- แถบด้านบน: นำเข้า/ส่งออก -->
+        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,0,0,12">
+            <Button Content="นำเข้าจาก CSV" Click="OnImportCsvClicked" />
+            <Button Content="ส่งออกเป็น CSV" Click="OnExportCsvClicked" />
+            <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" Foreground="#27AE60" FontWeight="SemiBold" />
+        </StackPanel>
+
+        <!-- ตารางแสดงรายการคำศัพท์ -->
+        <DataGrid Grid.Row="1" ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}"
+                  AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="All" BorderThickness="1" BorderBrush="#DDD">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="คำต้นฉบับ (Source)" Binding="{Binding SourceTerm}" Width="160" />
+                <DataGridTextColumn Header="คำแปล (Target)" Binding="{Binding TargetTerm}" Width="160" />
+                <DataGridTextColumn Header="ประเภท" Binding="{Binding Category}" Width="90" />
+                <DataGridTextColumn Header="หมายเหตุ" Binding="{Binding Notes}" Width="*" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- ฟอร์มเพิ่ม/แก้ไขคำศัพท์ -->
+        <Border Grid.Row="2" Background="#F9F9F9" CornerRadius="6" Padding="12" Margin="0,12,0,0" BorderBrush="#E0E0E0" BorderThickness="1">
+            <Grid ColumnDefinitions="*, *, 120, *" RowDefinitions="Auto, Auto">
+                <TextBlock Text="คำต้นฉบับ:" FontWeight="SemiBold" Margin="0,0,0,4" />
+                <TextBlock Grid.Column="1" Text="คำแปล:" FontWeight="SemiBold" Margin="8,0,0,4" />
+                <TextBlock Grid.Column="2" Text="หมวดหมู่:" FontWeight="SemiBold" Margin="8,0,0,4" />
+                <TextBlock Grid.Column="3" Text="หมายเหตุ:" FontWeight="SemiBold" Margin="8,0,0,4" />
+
+                <TextBox Grid.Row="1" Text="{Binding SourceTerm}" Watermark="เช่น Arthur, Excalibur" />
+                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding TargetTerm}" Margin="8,0,0,0" Watermark="เช่น อาเธอร์, เอ็กซ์คาลิเบอร์" />
+                <ComboBox Grid.Row="1" Grid.Column="2" SelectedIndex="{Binding CategoryIndex}" Margin="8,0,0,0" HorizontalAlignment="Stretch">
+                    <ComboBoxItem Content="ชื่อคน" />
+                    <ComboBoxItem Content="สถานที่" />
+                    <ComboBoxItem Content="ศัพท์ทั่วไป" />
+                </ComboBox>
+                <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding Notes}" Margin="8,0,0,0" Watermark="คำอธิบายเพิ่มเติม" />
+            </Grid>
+        </Border>
+
+        <!-- ปุ่มควบคุมด้านล่าง -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10" Margin="0,12,0,0">
+            <Button Content="ล้างฟอร์ม" Command="{Binding ClearInputsCommand}" />
+            <Button Content="ลบคำนี้" Command="{Binding DeleteEntryCommand}" Background="#E74C3C" Foreground="White" />
+            <Button Content="บันทึกคำศัพท์" Classes="accent" Command="{Binding SaveEntryCommand}" />
+        </StackPanel>
+    </Grid>
+</Window>

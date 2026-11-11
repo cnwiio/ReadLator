@@ -1,0 +1,84 @@
+using System.IO;
+using System.Text;
+using System.Threading.Tasks;
+using NovelTranslator.Core.Models;
+
+namespace NovelTranslator.Core.Export;
+
+public class TextExportImportService
+{
+    /// <summary>
+    /// ส่งออกตอนเดียวเป็นไฟล์ .txt
+    /// </summary>
+    public static async Task ExportChapterAsync(string filePath, Chapter chapter)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(chapter.Title);
+        sb.AppendLine(new string('=', chapter.Title.Length));
+        sb.AppendLine();
+        sb.AppendLine(chapter.TranslatedText);
+
+        await File.WriteAllTextAsync(filePath, sb.ToString(), Encoding.UTF8);
+    }
+
+    /// <summary>
+    /// ส่งออกทั้งเรื่องรวมเป็นไฟล์เดียว .txt
+    /// </summary>
+    public static async Task ExportStorySingleFileAsync(string filePath, Story story, IEnumerable<Chapter> chapters)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine(story.Title);
+        sb.AppendLine(new string('=', story.Title.Length));
+        sb.AppendLine();
+
+        foreach (var chap in chapters.OrderBy(c => c.Ordinal))
+        {
+            sb.AppendLine($"--- {chap.Title} ---");
+            sb.AppendLine();
+            sb.AppendLine(chap.TranslatedText);
+            sb.AppendLine();
+            sb.AppendLine();
+        }
+
+        await File.WriteAllTextAsync(filePath, sb.ToString(), Encoding.UTF8);
+    }
+
+    /// <summary>
+    /// ส่งออกทั้งเรื่องโดยแยก 1 ไฟล์ .txt ต่อ 1 ตอน ลงในโฟลเดอร์ที่กำหนด
+    /// </summary>
+    public static async Task ExportStoryMultipleFilesAsync(string folderPath, IEnumerable<Chapter> chapters)
+    {
+        if (!Directory.Exists(folderPath))
+        {
+            Directory.CreateDirectory(folderPath);
+        }
+
+        foreach (var chap in chapters.OrderBy(c => c.Ordinal))
+        {
+            string safeTitle = string.Join("_", chap.Title.Split(Path.GetInvalidFileNameChars())).Trim();
+            if (string.IsNullOrEmpty(safeTitle)) safeTitle = $"Chapter_{chap.Ordinal}";
+            string fileName = $"{chap.Ordinal:D3}_{safeTitle}.txt";
+            string fullPath = Path.Combine(folderPath, fileName);
+            await ExportChapterAsync(fullPath, chap);
+        }
+    }
+
+    /// <summary>
+    /// นำเข้าไฟล์ .txt (1 ไฟล์ = 1 ตอน)
+    /// </summary>
+    public static async Task<Chapter> ImportChapterFromFileAsync(string filePath, long storyId, int nextOrdinal)
+    {
+        string content = await File.ReadAllTextAsync(filePath, Encoding.UTF8);
+        string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+
+        return new Chapter
+        {
+            StoryId = storyId,
+            Ordinal = nextOrdinal,
+            Title = fileNameWithoutExt,
+            OriginalText = content,
+            TranslatedText = string.Empty,
+            Status = ChapterStatus.NotTranslated
+        };
+    }
+}

@@ -1,0 +1,13 @@
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\bin\Debug\net10.0\NovelTranslator.Core.deps.json
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\bin\Debug\net10.0\NovelTranslator.Core.dll
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\bin\Debug\net10.0\NovelTranslator.Core.pdb
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\obj\Debug\net10.0\NovelTranslator.Core.csproj.AssemblyReference.cache
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\obj\Debug\net10.0\NovelTranslator.Core.GeneratedMSBuildEditorConfig.editorconfig
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\obj\Debug\net10.0\NovelTranslator.Core.AssemblyInfoInputs.cache
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\obj\Debug\net10.0\NovelTranslator.Core.AssemblyInfo.cs
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\obj\Debug\net10.0\NovelTranslator.Core.csproj.CoreCompileInputs.cache
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\obj\Debug\net10.0\NovelTranslator.Core.sourcelink.json
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\obj\Debug\net10.0\NovelTranslator.Core.dll
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\obj\Debug\net10.0\refint\NovelTranslator.Core.dll
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\obj\Debug\net10.0\NovelTranslator.Core.pdb
+D:\Work\Other\ReadLator\src\NovelTranslator.Core\obj\Debug\net10.0\ref\NovelTranslator.Core.dll
