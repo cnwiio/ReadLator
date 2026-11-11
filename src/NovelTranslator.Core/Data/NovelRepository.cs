@@ -115,10 +115,16 @@ public class NovelRepository
         return chunks.ToList();
     }
 
-    public async Task SaveChunksAsync(long chapterId, List<string> chunkTexts)
+    public async Task SaveChunksAsync(long chapterId, List<string> chunkTexts, bool forceReset = false)
     {
         using var conn = _database.CreateConnection();
         using var transaction = conn.BeginTransaction();
+
+        // ดึง chunks เดิมของตอนนี้มาตรวจสอบว่ามีส่วนใดที่แปลเสร็จแล้วบ้าง
+        var existingChunks = (await conn.QueryAsync<ChapterChunk>(
+            "SELECT * FROM ChapterChunks WHERE ChapterId = @ChapterId ORDER BY ChunkIndex ASC",
+            new { ChapterId = chapterId },
+            transaction)).ToList();
 
         // ล้าง chunks เก่าของตอนนี้ออกก่อนสร้างใหม่
         await conn.ExecuteAsync(
@@ -128,15 +134,40 @@ public class NovelRepository
 
         const string sql = @"
             INSERT INTO ChapterChunks (ChapterId, ChunkIndex, SourceText, TranslatedText, IsCompleted, HasWarning, WarningMessage)
-            VALUES (@ChapterId, @ChunkIndex, @SourceText, '', 0, 0, '')";
+            VALUES (@ChapterId, @ChunkIndex, @SourceText, @TranslatedText, @IsCompleted, @HasWarning, @WarningMessage)";
 
         for (int i = 0; i < chunkTexts.Count; i++)
         {
+            string source = chunkTexts[i];
+            string translated = string.Empty;
+            bool isCompleted = false;
+            bool hasWarning = false;
+            string warningMessage = string.Empty;
+
+            if (!forceReset)
+            {
+                // ตรวจสอบว่ามี chunk เดิมที่ข้อความต้นฉบับตรงกันและแปลเสร็จแล้วหรือไม่ (เน้น chunk ลำดับตรงกันก่อน หรือหาตามเนื้อหา)
+                var matched = existingChunks.FirstOrDefault(c => c.ChunkIndex == i && c.SourceText == source && c.IsCompleted)
+                              ?? existingChunks.FirstOrDefault(c => c.SourceText == source && c.IsCompleted);
+
+                if (matched != null)
+                {
+                    translated = matched.TranslatedText;
+                    isCompleted = true;
+                    hasWarning = matched.HasWarning;
+                    warningMessage = matched.WarningMessage;
+                }
+            }
+
             await conn.ExecuteAsync(sql, new
             {
                 ChapterId = chapterId,
                 ChunkIndex = i,
-                SourceText = chunkTexts[i]
+                SourceText = source,
+                TranslatedText = translated,
+                IsCompleted = isCompleted ? 1 : 0,
+                HasWarning = hasWarning ? 1 : 0,
+                WarningMessage = warningMessage
             }, transaction);
         }
 

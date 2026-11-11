@@ -276,8 +276,40 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task StartTranslationAsync()
     {
+        await StartTranslationInternalAsync(forceRetranslate: false);
+    }
+
+    [RelayCommand]
+    public async Task RetranslateAllAsync()
+    {
+        if (SelectedChapter == null || string.IsNullOrWhiteSpace(OriginalText)) return;
+
+        if (RequestConfirmDialog != null)
+        {
+            bool ok = await RequestConfirmDialog("คุณต้องการล้างคำแปลเดิมแล้วแปลใหม่ทั้งหมดสำหรับตอนนี้ใช่หรือไม่?");
+            if (!ok) return;
+        }
+
+        await StartTranslationInternalAsync(forceRetranslate: true);
+    }
+
+    private async Task StartTranslationInternalAsync(bool forceRetranslate)
+    {
         if (SelectedStory == null || SelectedChapter == null) return;
         if (string.IsNullOrWhiteSpace(OriginalText)) return;
+
+        // ซิงค์ข้อความต้นฉบับล่าสุดเข้า Chapter ทันที
+        SelectedChapter.OriginalText = OriginalText;
+        if (forceRetranslate)
+        {
+            SelectedChapter.TranslatedText = string.Empty;
+            TranslatedText = string.Empty;
+        }
+        else
+        {
+            // แสดงเฉพาะคำแปลเดิมของตอนนี้เท่านั้น (ถ้ายังไม่มีก็จะเป็นค่าว่าง)
+            TranslatedText = SelectedChapter.TranslatedText ?? string.Empty;
+        }
 
         IsTranslating = true;
         HasError = false;
@@ -305,12 +337,12 @@ public partial class MainViewModel : ObservableObject
 
         try
         {
-            ProgressText = "กำลังเริ่มขั้นตอนการแปล...";
+            ProgressText = forceRetranslate ? "กำลังแปลใหม่ทั้งหมดตั้งแต่เริ่มต้น..." : "กำลังเริ่มขั้นตอนการแปล...";
             await Task.Run(async () =>
             {
-                await pipeline.TranslateChapterAsync(SelectedStory, SelectedChapter, progress, _translationCts.Token);
+                await pipeline.TranslateChapterAsync(SelectedStory, SelectedChapter, progress, forceRetranslate, _translationCts.Token);
             });
-            TranslatedText = SelectedChapter.TranslatedText;
+            TranslatedText = SelectedChapter.TranslatedText ?? string.Empty;
             UpdateChapterStatusDisplay(SelectedChapter.Status);
             ProgressText = "การแปลเสร็จสิ้นสมบูรณ์!";
             TranslationProgressPercentage = 100;
@@ -434,6 +466,13 @@ public partial class MainViewModel : ObservableObject
     public async Task CreateChapterAsync()
     {
         if (SelectedStory == null) return;
+
+        // บันทึกตอนปัจจุบันก่อนถ้ามี
+        if (SelectedChapter != null)
+        {
+            await SaveCurrentChapterInternalAsync(isAutoSave: false);
+        }
+
         int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
 
         var chapter = new Chapter
@@ -448,6 +487,16 @@ public partial class MainViewModel : ObservableObject
         chapter.Id = await _repository.InsertChapterAsync(chapter);
         Chapters.Add(chapter);
         SelectedChapter = chapter;
+
+        // ล้างค่าบนหน้าจอให้ว่างเปล่าสำหรับตอนใหม่ทันที
+        OriginalText = string.Empty;
+        TranslatedText = string.Empty;
+        ProgressText = string.Empty;
+        TranslationProgressPercentage = 0;
+        HasError = false;
+        LastErrorDetails = string.Empty;
+        UpdateChapterStatusDisplay(ChapterStatus.NotTranslated);
+        SaveStatusText = "ตอนใหม่ (ยังไม่มีข้อความ)";
     }
 
     [RelayCommand]

@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator)"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v1.0"
         Width="1200" Height="800"
         WindowStartupLocation="CenterScreen">
 
@@ -76,20 +76,24 @@
         <Grid Grid.Row="1" Grid.Column="1" RowDefinitions="Auto, *, Auto" Margin="14">
             <!-- แถบควบคุมการแปลด้านบน -->
             <Border Background="#F8F9F9" Padding="10" CornerRadius="6" BorderBrush="#E5E7E9" BorderThickness="1" Margin="0,0,0,10">
-                <Grid ColumnDefinitions="Auto, Auto, Auto, *, Auto">
-                    <Button Content="🚀 แปล / แปลต่อ" Classes="accent" Command="{Binding StartTranslationCommand}"
-                            IsEnabled="{Binding !IsTranslating}" Width="130" HorizontalContentAlignment="Center" />
-                    <Button Grid.Column="1" Content="⏹️ หยุด" Command="{Binding StopTranslationCommand}"
-                            IsEnabled="{Binding IsTranslating}" Background="#E67E22" Foreground="White" Width="90" Margin="8,0,0,0" HorizontalContentAlignment="Center" />
-                    <Button Grid.Column="2" Content="💾 บันทึก" Command="{Binding SaveCurrentChapterCommand}"
-                            Width="90" Margin="8,0,0,0" HorizontalContentAlignment="Center" />
+                <Grid ColumnDefinitions="Auto, Auto, Auto, Auto, *, Auto">
+                    <Button Content="🚀 แปลต่อ / ส่วนที่เพิ่ม" Classes="accent" Command="{Binding StartTranslationCommand}"
+                            IsEnabled="{Binding !IsTranslating}" Width="150" HorizontalContentAlignment="Center"
+                            ToolTip.Tip="แปลเฉพาะส่วนที่เพิ่มเข้ามาใหม่หรือยังไม่ได้แปล (ไม่แปลซ้ำของเดิม)" />
+                    <Button Grid.Column="1" Content="🔄 แปลใหม่ทั้งหมด" Command="{Binding RetranslateAllCommand}"
+                            IsEnabled="{Binding !IsTranslating}" Background="#8E44AD" Foreground="White" Width="130" Margin="8,0,0,0" HorizontalContentAlignment="Center"
+                            ToolTip.Tip="ล้างคำแปลเดิมของตอนนี้ทั้งหมดแล้วแปลใหม่ตั้งแต่ต้น" />
+                    <Button Grid.Column="2" Content="⏹️ หยุด" Command="{Binding StopTranslationCommand}"
+                            IsEnabled="{Binding IsTranslating}" Background="#E67E22" Foreground="White" Width="80" Margin="8,0,0,0" HorizontalContentAlignment="Center" />
+                    <Button Grid.Column="3" Content="💾 บันทึก" Command="{Binding SaveCurrentChapterCommand}"
+                            Width="80" Margin="8,0,0,0" HorizontalContentAlignment="Center" />
 
                     <!-- สถานะและความคืบหน้า -->
-                    <StackPanel Grid.Column="3" VerticalAlignment="Center" Margin="14,0">
+                    <StackPanel Grid.Column="4" VerticalAlignment="Center" Margin="14,0">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="{Binding ProgressText}" FontWeight="SemiBold"
                                        Foreground="{Binding HasError, Converter={x:Null}, FallbackValue='#2980B9'}"
-                                       TextTrimming="CharacterEllipsis" MaxWidth="400" />
+                                       TextTrimming="CharacterEllipsis" MaxWidth="350" />
                             <Button Content="📋 ก๊อปปี้ Error" Command="{Binding CopyErrorDetailsCommand}"
                                     IsVisible="{Binding HasError}" FontSize="11" Padding="6,2"
                                     Background="#E74C3C" Foreground="White" />
@@ -103,7 +107,7 @@
                         <TextBlock Text="{Binding SaveStatusText}" FontSize="12" Foreground="#7F8C8D" />
                     </StackPanel>
 
-                    <StackPanel Grid.Column="4" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                    <StackPanel Grid.Column="5" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
                         <TextBlock Text="สถานะ:" FontWeight="SemiBold" VerticalAlignment="Center" />
                         <Border Background="#D5D8DC" CornerRadius="4" Padding="8,4">
                             <TextBlock Text="{Binding ChapterStatusText}" FontWeight="Bold" Foreground="#2C3E50" />

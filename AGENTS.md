@@ -28,3 +28,15 @@ Take the first option that fully works:
 - A shortcut with a known limit gets a code comment in this form: `shortcut: <the limit>, <when to upgrade>`.
 
 Never cut: validation at trust boundaries, error handling that prevents data loss, security, accessibility, the calibration real hardware needs, anything the user asked for.
+
+## Post-Change Workflow Rules
+
+After finishing any code changes:
+1. **Auto-increment Version (+0.1)**: Bump version by +0.1 in `src/NovelTranslator.App/NovelTranslator.App.csproj` (`<Version>X.Y.0</Version>`) and `src/NovelTranslator.App/Views/MainWindow.axaml` (`Title="... vX.Y"`).
+2. **Update Graphify**: Run graphify update using `& "C:\Users\kritg\AppData\Roaming\uv\tools\graphifyy\Scripts\python.exe" -m graphify.cli update .` (with `BypassSandbox: true` on Windows) to keep the knowledge graph current.
+3. **Auto Git Commit (Local only)**: Stage all changes (`git add -A`) and commit using Conventional Commits format with version tag:
+   ```bash
+   git add -A
+   git commit -m "<type>: <concise description> (vX.Y)"
+   ```
+   (e.g. `git commit -m "feat: smart chunk reuse and separate translate button (v1.0)"`). Never `git push` unless requested.

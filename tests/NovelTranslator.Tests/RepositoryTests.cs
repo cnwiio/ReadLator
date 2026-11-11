@@ -69,4 +69,46 @@ public class RepositoryTests : IDisposable
         Assert.True(updatedChunks[0].IsCompleted);
         Assert.Equal("กาลครั้งหนึ่งนานมาแล้ว", updatedChunks[0].TranslatedText);
     }
+
+    [Fact]
+    public async Task SaveChunks_PreservesCompletedChunksWhenNewChunkAppended()
+    {
+        var story = new Story { Title = "Test Story", SourceLang = "English", TargetLang = "Thai" };
+        long storyId = await _repository.InsertStoryAsync(story);
+
+        var chapter = new Chapter
+        {
+            StoryId = storyId,
+            Ordinal = 1,
+            Title = "Chapter 1",
+            OriginalText = "Part 1"
+        };
+        long chapterId = await _repository.InsertChapterAsync(chapter);
+
+        // 1. First save with 1 chunk and complete it
+        await _repository.SaveChunksAsync(chapterId, new() { "Part 1" });
+        var chunks = await _repository.GetChunksByChapterAsync(chapterId);
+        chunks[0].TranslatedText = "แปลส่วนที่ 1";
+        chunks[0].IsCompleted = true;
+        await _repository.UpdateChunkAsync(chunks[0]);
+
+        // 2. Add Part 2 without force reset
+        await _repository.SaveChunksAsync(chapterId, new() { "Part 1", "Part 2" }, forceReset: false);
+        var newChunks = await _repository.GetChunksByChapterAsync(chapterId);
+
+        Assert.Equal(2, newChunks.Count);
+        // Part 1 should retain translation and completion status
+        Assert.Equal("แปลส่วนที่ 1", newChunks[0].TranslatedText);
+        Assert.True(newChunks[0].IsCompleted);
+        // Part 2 should be empty and not completed
+        Assert.Equal("", newChunks[1].TranslatedText);
+        Assert.False(newChunks[1].IsCompleted);
+
+        // 3. Force reset should clear all
+        await _repository.SaveChunksAsync(chapterId, new() { "Part 1", "Part 2" }, forceReset: true);
+        var resetChunks = await _repository.GetChunksByChapterAsync(chapterId);
+        Assert.Equal(2, resetChunks.Count);
+        Assert.False(resetChunks[0].IsCompleted);
+        Assert.Equal("", resetChunks[0].TranslatedText);
+    }
 }

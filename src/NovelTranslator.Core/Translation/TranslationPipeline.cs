@@ -42,6 +42,7 @@ public class TranslationPipeline
         Story story,
         Chapter chapter,
         IProgress<TranslationProgressInfo> progress,
+        bool forceRetranslate = false,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(chapter.OriginalText)) return;
@@ -50,15 +51,29 @@ public class TranslationPipeline
         var chunks = await _repository.GetChunksByChapterAsync(chapter.Id);
         var splitTexts = Chunker.SplitIntoChunks(chapter.OriginalText, _settings.MaxChunkWords);
 
-        // ตรวจสอบว่า chunks เดิมสอดคล้องกับ splitTexts ปัจจุบันหรือไม่
-        bool needsResplit = chunks.Count != splitTexts.Count ||
+        // ตรวจสอบว่า chunks เดิมสอดคล้องกับ splitTexts ปัจจุบันหรือไม่ หรือมีการสั่ง forceRetranslate
+        bool needsResplit = forceRetranslate || chunks.Count != splitTexts.Count ||
             !chunks.Select(c => c.SourceText).SequenceEqual(splitTexts);
 
         if (needsResplit)
         {
-            await _repository.SaveChunksAsync(chapter.Id, splitTexts);
+            await _repository.SaveChunksAsync(chapter.Id, splitTexts, forceRetranslate);
             chunks = await _repository.GetChunksByChapterAsync(chapter.Id);
         }
+
+        // ประกอบคำแปลรวมล่าสุดที่มีอยู่แล้ว
+        chapter.TranslatedText = string.Join("\n\n", chunks.Select(c => c.TranslatedText).Where(t => !string.IsNullOrEmpty(t)));
+
+        int completedCount = chunks.Count(c => c.IsCompleted && !string.IsNullOrEmpty(c.TranslatedText));
+        progress.Report(new TranslationProgressInfo
+        {
+            CurrentChunkIndex = completedCount,
+            TotalChunks = chunks.Count,
+            CombinedTranslatedTextSoFar = chapter.TranslatedText,
+            StatusMessage = completedCount == chunks.Count
+                ? "เนื้อหาทั้งหมดแปลเสร็จเรียบร้อยแล้ว"
+                : $"กำลังเตรียมแปล {chunks.Count - completedCount} ส่วนที่เหลือ (จากทั้งหมด {chunks.Count} ส่วน)..."
+        });
 
         var allGlossary = await _repository.GetGlossaryByStoryAsync(story.Id);
 
