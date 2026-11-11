@@ -4,9 +4,9 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v1.3"
-        Width="1360" Height="860"
-        MinWidth="960" MinHeight="620"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v1.4"
+        Width="1400" Height="880"
+        MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource MainBgBrush}">
 
@@ -22,50 +22,63 @@
     </Window.KeyBindings>
 
     <Grid RowDefinitions="Auto, *">
-        <!-- แถบเมนูด้านบนสุด (ซ่อนอัตโนมัติใน Focus Mode F11) -->
-        <Border Background="{DynamicResource HeaderBgBrush}" Padding="12,8" IsVisible="{Binding IsHeaderVisible}">
+        <!-- Application Header (Quiet Cool Graphite Chrome, 4px grid) -->
+        <Border Background="{DynamicResource HeaderBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="0,0,0,1" Padding="16,8" IsVisible="{Binding IsHeaderVisible}">
             <Grid ColumnDefinitions="Auto, *, Auto">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <!-- โลโก้หนังสือ + ชื่อแอป -->
-                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center" Margin="2,0,2,0">
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" Margin="0,0,4,0">
                         <Path Data="M2,4 C2,2.9 2.9,2 4,2 L10,2 C11.1,2 12,2.9 12,4 L12,18 C12,16.9 11.1,16 10,16 L4,16 C2.9,16 2,15.1 2,14 Z M22,4 C22,2.9 21.1,2 20,2 L14,2 C12.9,2 12,2.9 12,4 L12,18 C12,16.9 12.9,16 14,16 L20,16 C21.1,16 22,15.1 22,14 Z"
-                              Stroke="#38BDF8" StrokeThickness="1.8" Width="20" Height="18" Stretch="Uniform" VerticalAlignment="Center" />
-                        <TextBlock Text="NovelTranslator" Foreground="White" FontSize="16" FontWeight="Bold" VerticalAlignment="Center" />
+                              Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" />
+                        <TextBlock Text="NovelTranslator" Foreground="{DynamicResource TextPrimaryBrush}" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
                     </StackPanel>
 
-                    <!-- ปุ่มพับ/เปิดแถบซ้าย (อยู่หลังชื่อแอป ตามรูปที่ 2-3: โปร่งเมื่อซ่อน / ทึบเมื่อแสดง) -->
-                    <Button Command="{Binding ToggleSidebarCommand}" Background="#334155" Padding="7,6"
+                    <!-- ปุ่มพับ/เปิดแถบซ้าย (อยู่หลังชื่อแอป: โปร่งเมื่อซ่อน / ทึบเมื่อแสดง) -->
+                    <Button Command="{Binding ToggleSidebarCommand}" Padding="8,6" Height="32"
                             VerticalAlignment="Center" ToolTip.Tip="{Binding SidebarToggleText}">
-                        <Border Width="18" Height="14" CornerRadius="2.5" BorderBrush="#F1F5F9" BorderThickness="1.6">
+                        <Border Width="16" Height="13" CornerRadius="2" BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="1.5">
                             <Grid ColumnDefinitions="5, *">
-                                <!-- เส้นแบ่งแถบซ้าย (แสดงตลอด) + พื้นทึบเมื่อเปิดแถบซ้าย (รูปที่ 3) / โปร่งเมื่อซ่อน (รูปที่ 2) -->
-                                <Border Grid.Column="0" BorderBrush="#F1F5F9" BorderThickness="0,0,1.5,0">
-                                    <Border Background="#F1F5F9" IsVisible="{Binding IsSidebarVisible}" Margin="1" CornerRadius="0.5" />
+                                <Border Grid.Column="0" BorderBrush="{DynamicResource TextSecondaryBrush}" BorderThickness="0,0,1.5,0">
+                                    <Border Background="{DynamicResource TextSecondaryBrush}" IsVisible="{Binding IsSidebarVisible}" Margin="1" CornerRadius="0.5" />
                                 </Border>
                             </Grid>
                         </Border>
                     </Button>
 
-                    <Button Content="⚙️ ตั้งค่า AI" Command="{Binding OpenSettingsCommand}" Background="#334155" Foreground="White" />
-                    <Button Content="📚 Glossary" Command="{Binding OpenGlossaryCommand}" Background="#334155" Foreground="White" />
-                    <Button Content="🔍 ค้นหา/แทนที่" Command="{Binding OpenSearchReplaceCommand}" Background="#334155" Foreground="White" ToolTip.Tip="คีย์ลัด: Ctrl+F" />
-                    <Button Content="{Binding ActiveModelDisplay}" Command="{Binding OpenSettingsCommand}"
-                            Background="#0F172A" Foreground="#38BDF8" FontSize="12" Padding="10,4"
-                            ToolTip.Tip="คลิกเพื่อเปลี่ยนโมเดลหรือตั้งค่า AI" />
+                    <Button Content="ตั้งค่า AI" Command="{Binding OpenSettingsCommand}" Height="32" FontSize="13" />
+                    <Button Content="Glossary" Command="{Binding OpenGlossaryCommand}" Height="32" FontSize="13" />
+                    <Button Command="{Binding OpenSearchReplaceCommand}" Height="32" FontSize="13" ToolTip.Tip="ค้นหาและแทนที่คำแปล">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <TextBlock Text="ค้นหาและแทนที่" VerticalAlignment="Center" />
+                            <Border Classes="keycap" VerticalAlignment="Center">
+                                <TextBlock Text="Ctrl+F" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- ป้ายสถานะโมเดล AI ปัจจุบัน (จุดสถานะ 6px + ข้อความเรียบ) -->
+                    <Button Command="{Binding OpenSettingsCommand}" Classes="ghost" Height="32" Padding="10,4"
+                            ToolTip.Tip="คลิกเพื่อเปลี่ยนโมเดลหรือตั้งค่าการเชื่อมต่อ AI">
+                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Ellipse Width="6" Height="6" Fill="#4CC38A" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding ActiveModelDisplay}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <Button Content="{Binding ThemeButtonText}" Command="{Binding CycleThemeCommand}"
-                            Background="#334155" Foreground="White" ToolTip.Tip="สลับโหมดสี: สว่าง / มืด / ถนอมสายตา (Sepia)" />
-                    <Button Content="📥 นำเข้า .txt" Command="{Binding ImportTxtFilesCommand}" Background="#0D9488" Foreground="White" />
-                    <Button Content="📤 ส่งออก &amp; สำรองข้อมูล ▾" Background="#2563EB" Foreground="White">
+                    <Button Content="{Binding ThemeButtonText}" Command="{Binding CycleThemeCommand}" Height="32" FontSize="13"
+                            ToolTip.Tip="สลับโหมดสี: สว่าง / มืด / ถนอมสายตา" />
+                    <Button Content="นำเข้า .txt" Command="{Binding ImportTxtFilesCommand}" Height="32" FontSize="13" />
+                    <Button Content="ส่งออกและสำรอง ▾" Height="32" FontSize="13">
                         <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
-                                <MenuItem Header="📄 ส่งออกตอนนี้ (.txt)" Command="{Binding ExportCurrentChapterCommand}" />
-                                <MenuItem Header="📦 ส่งออกทั้งเรื่อง (.txt)" Command="{Binding ExportStoryCommand}" />
+                                <MenuItem Header="ส่งออกตอนนี้ (.txt)" Command="{Binding ExportCurrentChapterCommand}" />
+                                <MenuItem Header="ส่งออกทั้งเรื่อง (.txt)" Command="{Binding ExportStoryCommand}" />
                                 <Separator />
-                                <MenuItem Header="💾 สำรองฐานข้อมูล (.db)" Command="{Binding BackupDatabaseCommand}" />
-                                <MenuItem Header="♻️ กู้คืนฐานข้อมูล (.db)" Command="{Binding RestoreDatabaseCommand}" />
+                                <MenuItem Header="สำรองฐานข้อมูล (.db)" Command="{Binding BackupDatabaseCommand}" />
+                                <MenuItem Header="กู้คืนฐานข้อมูล (.db)" Command="{Binding RestoreDatabaseCommand}" />
                             </MenuFlyout>
                         </Button.Flyout>
                     </Button>
@@ -73,110 +86,113 @@
             </Grid>
         </Border>
 
-        <!-- พื้นที่ทำงานหลัก: แถบซ้าย (พับ/ปรับขนาดได้) + พื้นที่แปลด้านขวา -->
-        <Grid x:Name="MainLayoutGrid" Grid.Row="1" ColumnDefinitions="300, 6, *">
+        <!-- พื้นที่ทำงานหลัก: แถบซ้าย 280px + พื้นที่แปลด้านขวา -->
+        <Grid x:Name="MainLayoutGrid" Grid.Row="1" ColumnDefinitions="280, 4, *">
             <!-- แถบซ้าย: รายการเรื่องและตอน -->
             <Border Background="{DynamicResource SidebarBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                    BorderThickness="0,0,1,0" Padding="10" IsVisible="{Binding IsSidebarVisible}">
+                    BorderThickness="0,0,1,0" Padding="16" IsVisible="{Binding IsSidebarVisible}">
                 <Grid RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, *, Auto">
-                    <!-- เลือกเรื่อง -->
-                    <TextBlock Text="📚 นิยายที่เลือก:" FontWeight="Bold" Margin="0,0,0,4" />
-                    <Grid Grid.Row="1" ColumnDefinitions="*, Auto, Auto" Margin="0,0,0,6">
-                        <ComboBox ItemsSource="{Binding Stories}" SelectedItem="{Binding SelectedStory}" HorizontalAlignment="Stretch">
+                    <!-- หมวดนิยาย -->
+                    <TextBlock Text="นิยาย" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}" Margin="0,0,0,4" />
+                    <Grid Grid.Row="1" ColumnDefinitions="*, Auto, Auto" Margin="0,0,0,12">
+                        <ComboBox ItemsSource="{Binding Stories}" SelectedItem="{Binding SelectedStory}" Height="32" HorizontalAlignment="Stretch">
                             <ComboBox.ItemTemplate>
                                 <DataTemplate>
                                     <TextBlock Text="{Binding Title}" />
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <Button Grid.Column="1" Command="{Binding ToggleStoryDetailsCommand}" Padding="8,6"
-                                ToolTip.Tip="แก้ไขชื่อเรื่องและคำแนะนำสไตล์การแปล (Style Notes)" Margin="4,0,0,0">
+                        <Button Grid.Column="1" Command="{Binding ToggleStoryDetailsCommand}" Width="32" Height="32" Padding="0"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                ToolTip.Tip="แก้ไขชื่อเรื่องและคำแนะนำสำนวน (Style Notes)" Margin="4,0,0,0">
                             <Path Data="M3,17.25 L3,21 L6.75,21 L17.81,9.94 L14.06,6.19 L3,17.25 Z M20.71,7.04 C21.1,6.65 21.1,6.02 20.71,5.63 L18.37,3.29 C17.98,2.9 17.35,2.9 16.96,3.29 L15.13,5.12 L18.88,8.87 L20.71,7.04 Z"
-                                  Fill="{DynamicResource TextPrimaryBrush}" Width="13" Height="13" Stretch="Uniform" />
+                                  Fill="{DynamicResource TextSecondaryBrush}" Width="13" Height="13" Stretch="Uniform" />
                         </Button>
-                        <Button Grid.Column="2" Command="{Binding CreateStoryCommand}" Padding="8,6"
+                        <Button Grid.Column="2" Command="{Binding CreateStoryCommand}" Width="32" Height="32" Padding="0"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                 ToolTip.Tip="สร้างเรื่องใหม่" Margin="4,0,0,0">
                             <Path Data="M19,13 L13,13 L13,19 L11,19 L11,13 L5,13 L5,11 L11,11 L11,5 L13,5 L13,11 L19,11 L19,13 Z"
-                                  Fill="{DynamicResource TextPrimaryBrush}" Width="13" Height="13" Stretch="Uniform" />
+                                  Fill="{DynamicResource TextSecondaryBrush}" Width="13" Height="13" Stretch="Uniform" />
                         </Button>
                     </Grid>
 
                     <!-- แผงแก้ไขชื่อเรื่องและ Style Notes -->
                     <Border Grid.Row="2" IsVisible="{Binding IsStoryDetailsExpanded}"
                             Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,8">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="ชื่อเรื่อง:" FontSize="12" FontWeight="SemiBold" />
+                            BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,0,0,12">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="ชื่อเรื่อง" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                             <TextBox Text="{Binding StoryTitleEdit}" PlaceholderText="ชื่อเรื่องนิยาย" />
-                            <TextBlock Text="Style Notes (คำแนะนำสำนวนของเรื่องนี้):" FontSize="12" FontWeight="SemiBold" />
+                            <TextBlock Text="คำแนะนำสำนวน (Style Notes)" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                             <TextBox Text="{Binding StoryStyleNotesEdit}" AcceptsReturn="True" TextWrapping="Wrap" Height="64"
-                                     PlaceholderText="เช่น นิยายจีนกำลังภายใน ใช้ ข้า/เจ้า..." />
+                                     PlaceholderText="เช่น นิยายจีนกำลังภายใน ใช้ ข้า/เจ้า" />
                             <Grid ColumnDefinitions="*, Auto" Margin="0,4,0,0">
-                                <Button Content="💾 บันทึกเรื่อง" Classes="accent" Command="{Binding SaveStoryDetailsCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
-                                <Button Grid.Column="1" Content="🗑️ ลบเรื่อง" Command="{Binding DeleteStoryCommand}"
-                                        Background="#DC2626" Foreground="White" Margin="6,0,0,0" ToolTip.Tip="ลบนิยายเรื่องนี้และทุกตอน" />
+                                <Button Content="บันทึก" Classes="primary" Command="{Binding SaveStoryDetailsCommand}" Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                                <Button Grid.Column="1" Content="ลบเรื่อง" Classes="danger" Command="{Binding DeleteStoryCommand}" Height="32"
+                                        Margin="8,0,0,0" ToolTip.Tip="ลบนิยายเรื่องนี้และทุกตอน" />
                             </Grid>
                         </StackPanel>
                     </Border>
 
-                    <!-- ความคืบหน้าของทั้งเรื่อง (Story Progress) -->
+                    <!-- ความคืบหน้าของทั้งเรื่อง -->
                     <Border Grid.Row="3" Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1" CornerRadius="6" Padding="8,6" Margin="0,0,0,8">
-                        <StackPanel Spacing="4">
+                            BorderThickness="1" CornerRadius="8" Padding="12,8" Margin="0,0,0,16">
+                        <StackPanel Spacing="6">
                             <Grid ColumnDefinitions="*, Auto">
-                                <TextBlock Text="ความคืบหน้าทั้งเรื่อง" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" FontWeight="SemiBold" />
-                                <TextBlock Grid.Column="1" Text="{Binding StoryProgressText}" FontSize="11" FontWeight="Bold" Foreground="#2563EB" />
+                                <TextBlock Text="ความคืบหน้า" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                                <TextBlock Grid.Column="1" Text="{Binding StoryProgressText}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" />
                             </Grid>
-                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding StoryProgressPercentage}" Height="4" />
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding StoryProgressPercentage}" Height="4" Foreground="#2563EB" />
                         </StackPanel>
                     </Border>
 
                     <!-- หัวข้อรายการตอน -->
-                    <Grid Grid.Row="4" ColumnDefinitions="*, Auto, Auto, Auto" Margin="0,2,0,4">
-                        <TextBlock Text="📑 รายการตอน:" FontWeight="Bold" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="▲" Command="{Binding MoveChapterUpCommand}" ToolTip.Tip="เลื่อนตอนขึ้น" Margin="2,0" Padding="6,2" />
-                        <Button Grid.Column="2" Content="▼" Command="{Binding MoveChapterDownCommand}" ToolTip.Tip="เลื่อนตอนลง" Margin="2,0" Padding="6,2" />
-                        <Button Grid.Column="3" Content="➕ เพิ่มตอน" Command="{Binding CreateChapterCommand}" ToolTip.Tip="เพิ่มตอนใหม่" Margin="2,0" Padding="8,2" />
+                    <Grid Grid.Row="4" ColumnDefinitions="*, Auto, Auto, Auto" Margin="0,0,0,8">
+                        <TextBlock Text="รายการตอน" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                        <Button Grid.Column="1" Content="▲" Command="{Binding MoveChapterUpCommand}" ToolTip.Tip="เลื่อนตอนขึ้น" Width="28" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="11" Margin="2,0" />
+                        <Button Grid.Column="2" Content="▼" Command="{Binding MoveChapterDownCommand}" ToolTip.Tip="เลื่อนตอนลง" Width="28" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="11" Margin="2,0" />
+                        <Button Grid.Column="3" Content="เพิ่มตอน" Command="{Binding CreateChapterCommand}" ToolTip.Tip="เพิ่มตอนใหม่" Height="28" Padding="8,0" FontSize="12" Margin="2,0,0,0" VerticalContentAlignment="Center" />
                     </Grid>
 
                     <!-- ช่องค้นหาและกรองสถานะตอน -->
-                    <Grid Grid.Row="5" ColumnDefinitions="*, 115" Margin="0,0,0,6">
-                        <TextBox Text="{Binding ChapterSearchFilter}" PlaceholderText="🔍 ค้นหาตอน..." />
-                        <ComboBox Grid.Column="1" SelectedIndex="{Binding ChapterStatusFilterIndex}" Margin="4,0,0,0" HorizontalAlignment="Stretch"
-                                  ToolTip.Tip="กรองรายการตอนตามสถานะการแปล">
+                    <Grid Grid.Row="5" ColumnDefinitions="*, 104" Margin="0,0,0,8">
+                        <TextBox Text="{Binding ChapterSearchFilter}" PlaceholderText="ค้นหาตอน" Height="32" VerticalContentAlignment="Center" />
+                        <ComboBox Grid.Column="1" SelectedIndex="{Binding ChapterStatusFilterIndex}" Height="32" Margin="4,0,0,0" HorizontalAlignment="Stretch"
+                                  FontSize="12" ToolTip.Tip="กรองรายการตอนตามสถานะ">
                             <ComboBoxItem Content="ทั้งหมด" />
-                            <ComboBoxItem Content="⚪ ยังไม่แปล" />
-                            <ComboBoxItem Content="🟢 แปลแล้ว" />
-                            <ComboBoxItem Content="✏️ แก้ไขแล้ว" />
+                            <ComboBoxItem Content="ยังไม่แปล" />
+                            <ComboBoxItem Content="แปลแล้ว" />
+                            <ComboBoxItem Content="แก้ไขแล้ว" />
                         </ComboBox>
                     </Grid>
 
-                    <!-- รายการตอน (รองรับติ๊กเลือกหลายตอน Multi-select) -->
+                    <!-- รายการตอน (6px Status Dot + Multi-select) -->
                     <Border Grid.Row="6" Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1" CornerRadius="6">
+                            BorderThickness="1" CornerRadius="8" Padding="4">
                         <ListBox ItemsSource="{Binding FilteredChapters}" SelectedItem="{Binding SelectedChapter}" Background="Transparent">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid ColumnDefinitions="Auto, *, Auto" Margin="2,1">
-                                        <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,6,0"
-                                                  ToolTip.Tip="ติ๊กเพื่อเลือกหลายตอนพร้อมกัน" />
-                                        <TextBlock Grid.Column="1" Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Column="2" Text="{Binding StatusBadgeText}" FontSize="11"
-                                                   Foreground="{Binding StatusBadgeColor}" FontWeight="SemiBold"
-                                                   VerticalAlignment="Center" Margin="8,0,0,0" />
+                                    <Grid ColumnDefinitions="Auto, *, Auto" Height="28">
+                                        <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,8,0"
+                                                  ToolTip.Tip="เลือกหลายตอนพร้อมกัน" />
+                                        <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="8,0,0,0">
+                                            <Ellipse Width="6" Height="6" Fill="{Binding StatusBadgeColor}" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding StatusBadgeText}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                                        </StackPanel>
                                     </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
                     </Border>
 
-                    <!-- ปุ่มเลือกทั้งหมด & ลบตอนด้านล่าง -->
-                    <Grid Grid.Row="7" ColumnDefinitions="Auto, *" Margin="0,8,0,0">
-                        <Button Content="☑️ เลือกทั้งหมด" Command="{Binding ToggleSelectAllChaptersCommand}"
-                                FontSize="12" Padding="8,5" ToolTip.Tip="เลือกหรือยกเลิกการเลือกทุกตอนที่แสดงอยู่" />
-                        <Button Grid.Column="1" Content="🗑️ ลบตอน (ที่ติ๊ก/ที่เลือก)" Command="{Binding DeleteChapterCommand}"
-                                Background="#DC2626" Foreground="White" Margin="6,0,0,0" FontSize="12" Padding="8,5"
-                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+                    <!-- ปุ่มเลือกทั้งหมด & ลบตอนด้านล่าง (Quiet Danger style) -->
+                    <Grid Grid.Row="7" ColumnDefinitions="Auto, *" Margin="0,12,0,0">
+                        <Button Content="เลือกทั้งหมด" Command="{Binding ToggleSelectAllChaptersCommand}"
+                                Height="32" FontSize="12" Padding="10,0" VerticalContentAlignment="Center" />
+                        <Button Grid.Column="1" Content="ลบตอนที่เลือก" Classes="danger" Command="{Binding DeleteChapterCommand}"
+                                Height="32" FontSize="12" Margin="8,0,0,0"
+                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
                     </Grid>
                 </Grid>
             </Border>
@@ -184,136 +200,164 @@
             <!-- ตัวลากปรับขนาดแถบซ้าย -->
             <GridSplitter Grid.Column="1" Background="Transparent" ResizeDirection="Columns" IsVisible="{Binding IsSidebarVisible}" />
 
-            <!-- พื้นที่หลักด้านขวา: หัวข้อตอน + แถบควบคุมการแปล + ช่องแปลซ้าย/ขวา -->
-            <Grid Grid.Column="2" RowDefinitions="Auto, *, Auto" Margin="12,10,12,8">
-                <!-- แถบหัวข้อตอนและควบคุมการแปล -->
-                <Border Background="{DynamicResource CardBgBrush}" Padding="12,10" CornerRadius="8"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Margin="0,0,0,10">
+            <!-- พื้นที่หลักด้านขวา -->
+            <Grid Grid.Column="2" RowDefinitions="Auto, *, Auto" Margin="16,12,16,12">
+                <!-- แถบควบคุมหลักเหนือช่องแปล (สะอาดตา มีปุ่ม Primary สีน้ำเงินเพียงจุดเดียว) -->
+                <Border Background="{DynamicResource CardBgBrush}" Padding="12,8" CornerRadius="8"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" Margin="0,0,0,12">
                     <StackPanel Spacing="8">
-                        <!-- แถวที่ 1: นำทางตอน + แก้ไขชื่อตอน + ฟอนต์/มุมมองการอ่าน/Focus Mode -->
                         <Grid ColumnDefinitions="Auto, *, Auto, Auto">
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <Button Content="◀ ตอนก่อนหน้า" Command="{Binding PreviousChapterCommand}" Padding="8,4" FontSize="12"
-                                        ToolTip.Tip="คีย์ลัด: Alt + Left" />
-                                <Button Content="ตอนถัดไป ▶" Command="{Binding NextChapterCommand}" Padding="8,4" FontSize="12"
-                                        ToolTip.Tip="คีย์ลัด: Alt + Right" />
-                            </StackPanel>
-
-                            <TextBox Grid.Column="1" Text="{Binding ChapterTitleEdit}" PlaceholderText="ตั้งชื่อตอน..."
-                                     FontWeight="Bold" FontSize="15" Margin="10,0" VerticalAlignment="Center" />
-
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="0,0,10,0">
-                                <CheckBox Content="🔗 เลื่อนพร้อมกัน" IsChecked="{Binding IsSyncScrollEnabled}"
-                                          IsVisible="{Binding IsOriginalPaneVisible}" VerticalAlignment="Center" Margin="0,0,4,0"
-                                          ToolTip.Tip="เลื่อนหน้าจอต้นฉบับและคำแปลไปพร้อมกันอัตโนมัติ" />
-                                <ComboBox ItemsSource="{Binding AvailableEditorFonts}" SelectedItem="{Binding EditorFontFamily}"
-                                          Width="135" FontSize="12" VerticalAlignment="Center" ToolTip.Tip="เลือกฟอนต์สำหรับช่องอ่านและแปลนิยาย" />
-                                <Button Content="A-" Command="{Binding DecreaseFontSizeCommand}" Padding="8,4" FontSize="12" ToolTip.Tip="ลดขนาดตัวอักษร Editor" />
-                                <TextBlock Text="{Binding EditorFontSize, StringFormat='{}{0}px'}" VerticalAlignment="Center" FontSize="12" Width="34" TextAlignment="Center" />
-                                <Button Content="A+" Command="{Binding IncreaseFontSizeCommand}" Padding="8,4" FontSize="12" ToolTip.Tip="เพิ่มขนาดตัวอักษร Editor" />
-                                <Button Content="{Binding ReaderModeButtonText}" Command="{Binding ToggleReaderModeCommand}"
-                                        Padding="8,4" FontSize="12" ToolTip.Tip="สลับระหว่างมุมมองคู่ขนานซ้าย-ขวา กับโหมดอ่านคำแปลเต็มจอ" />
-                                <Button Command="{Binding ToggleFocusModeCommand}"
-                                        Padding="8,4" FontSize="12" ToolTip.Tip="โหมดโฟกัสไร้สิ่งรบกวน ซ่อนแถบเมนูบนและแถบข้าง (คีย์ลัด F11)">
-                                    <StackPanel Orientation="Horizontal" Spacing="5" VerticalAlignment="Center">
-                                        <Path Data="M3,3 L9,3 L9,5 L5,5 L5,9 L3,9 L3,3 Z M15,3 L21,3 L21,9 L19,9 L19,5 L15,5 L15,3 Z M3,15 L5,15 L5,19 L9,19 L9,21 L3,21 L3,15 Z M19,15 L21,15 L21,21 L15,21 L15,19 L19,19 L19,15 Z"
-                                              Fill="{DynamicResource TextPrimaryBrush}" Width="12" Height="12" Stretch="Uniform" VerticalAlignment="Center" />
-                                        <TextBlock Text="โฟกัส (F11)" VerticalAlignment="Center" />
-                                    </StackPanel>
+                            <!-- ปุ่มตอนก่อนหน้า / ถัดไป -->
+                            <StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+                                <Button Command="{Binding PreviousChapterCommand}" Width="32" Height="32" Padding="0"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="ตอนก่อนหน้า (Alt+Left)">
+                                    <Path Data="M15,18 L9,12 L15,6" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="12" Height="12" Stretch="Uniform" />
+                                </Button>
+                                <Button Command="{Binding NextChapterCommand}" Width="32" Height="32" Padding="0"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="ตอนถัดไป (Alt+Right)">
+                                    <Path Data="M9,18 L15,12 L9,6" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="12" Height="12" Stretch="Uniform" />
                                 </Button>
                             </StackPanel>
 
-                            <Border Grid.Column="3" Background="{DynamicResource BadgeBgBrush}" CornerRadius="6" Padding="10,4" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding ChapterStatusText}" FontWeight="Bold" />
-                            </Border>
-                        </Grid>
+                            <!-- ชื่อตอน + จุดสถานะ -->
+                            <Grid Grid.Column="1" ColumnDefinitions="*, Auto" Margin="8,0,12,0" VerticalAlignment="Center">
+                                <TextBox Text="{Binding ChapterTitleEdit}" PlaceholderText="ตั้งชื่อตอน"
+                                         FontWeight="Medium" FontSize="14" Height="32" VerticalContentAlignment="Center" />
+                                <Border Grid.Column="1" Background="{DynamicResource BadgeBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                        BorderThickness="1" CornerRadius="6" Padding="10,0" Height="32" Margin="8,0,0,0">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <Ellipse Width="6" Height="6" Fill="{Binding ChapterStatusColor}" VerticalAlignment="Center" />
+                                        <TextBlock Text="{Binding ChapterStatusText}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
 
-                        <!-- แถวที่ 2: ปุ่มสั่งแปล + แถบสถานะความคืบหน้า -->
-                        <Grid ColumnDefinitions="Auto, Auto, Auto, Auto, Auto, *">
-                            <Button Content="🚀 แปลตอนนี้ (Ctrl+Enter)" Classes="accent" Command="{Binding StartTranslationCommand}"
-                                    IsEnabled="{Binding !IsTranslating}" Padding="14,6" FontWeight="Bold"
-                                    ToolTip.Tip="แปลเฉพาะส่วนที่เพิ่มเข้ามาใหม่หรือยังไม่ได้แปล (คีย์ลัด Ctrl+Enter หรือ F5)" />
-                            <Button Grid.Column="1" Content="📚 แปลทุกตอนที่เหลือ" Command="{Binding TranslateAllChaptersCommand}"
-                                    IsEnabled="{Binding !IsTranslating}" Background="#0D9488" Foreground="White" Padding="12,6" Margin="6,0,0,0"
-                                    ToolTip.Tip="แปลต่อเนื่องทุกตอนที่ยังไม่ได้แปลในเรื่องนี้ (คีย์ลัด Ctrl+Shift+Enter)" />
-                            <Button Grid.Column="2" Content="🔄 แปลใหม่" Command="{Binding RetranslateAllCommand}"
-                                    IsEnabled="{Binding !IsTranslating}" Background="#7C3AED" Foreground="White" Padding="10,6" Margin="6,0,0,0"
-                                    ToolTip.Tip="ล้างคำแปลเดิมของตอนนี้ทั้งหมดแล้วแปลใหม่ตั้งแต่ต้น" />
-                            <Button Grid.Column="3" Content="⏹️ หยุด" Command="{Binding StopTranslationCommand}"
-                                    IsEnabled="{Binding IsTranslating}" Background="#EA580C" Foreground="White" Padding="12,6" Margin="6,0,0,0" />
-                            <Button Grid.Column="4" Content="💾 บันทึก" Command="{Binding SaveCurrentChapterCommand}"
-                                    Padding="10,6" Margin="6,0,0,0" ToolTip.Tip="บันทึกตอนนี้ทันที (คีย์ลัด Ctrl+S)" />
-
-                            <!-- สถานะและความคืบหน้า -->
-                            <StackPanel Grid.Column="5" VerticalAlignment="Center" Margin="12,0,0,0">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <TextBlock Text="{Binding ProgressText}" FontWeight="SemiBold"
-                                               Foreground="#2563EB" TextTrimming="CharacterEllipsis" MaxWidth="380" />
-                                    <Button Content="📋 ก๊อปปี้ Error" Command="{Binding CopyErrorDetailsCommand}"
-                                            IsVisible="{Binding HasError}" FontSize="11" Padding="6,2"
-                                            Background="#DC2626" Foreground="White" />
-                                    <Button Content="🔍 ดู Error" Command="{Binding ShowErrorDialogCommand}"
-                                            IsVisible="{Binding HasError}" FontSize="11" Padding="6,2"
-                                            Background="#64748B" Foreground="White" />
-                                </StackPanel>
-                                <ProgressBar Minimum="0" Maximum="100" Value="{Binding TranslationProgressPercentage}"
-                                             IsIndeterminate="{Binding IsTranslatingIndeterminate}"
-                                             IsVisible="{Binding IsTranslating}" Height="5" Margin="0,4,0,0" />
+                            <!-- ปุ่มควบคุมการแปล (Primary เพียงปุ่มเดียว + Keycap) -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Button Classes="primary" Command="{Binding StartTranslationCommand}"
+                                        IsEnabled="{Binding !IsTranslating}" Height="32" Padding="12,0"
+                                        ToolTip.Tip="แปลเฉพาะส่วนที่เพิ่มเข้ามาใหม่หรือยังไม่ได้แปล (Ctrl+Enter หรือ F5)">
+                                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <TextBlock Text="แปลตอนนี้" FontWeight="Medium" VerticalAlignment="Center" />
+                                        <Border Background="#1D4ED8" CornerRadius="4" Padding="4,1" VerticalAlignment="Center">
+                                            <TextBlock Text="Ctrl+Enter" FontSize="11" Foreground="#DBEAFE" />
+                                        </Border>
+                                    </StackPanel>
+                                </Button>
+                                <Button Content="แปลทุกตอนที่เหลือ" Command="{Binding TranslateAllChaptersCommand}"
+                                        IsEnabled="{Binding !IsTranslating}" Height="32" FontSize="13"
+                                        ToolTip.Tip="แปลต่อเนื่องทุกตอนที่ยังไม่ได้แปลในเรื่องนี้ (Ctrl+Shift+Enter)" />
+                                <Button Content="แปลใหม่" Command="{Binding RetranslateAllCommand}"
+                                        IsEnabled="{Binding !IsTranslating}" Height="32" FontSize="13"
+                                        ToolTip.Tip="ล้างคำแปลเดิมของตอนนี้แล้วแปลใหม่ตั้งแต่ต้น" />
+                                <Button Content="หยุด" Command="{Binding StopTranslationCommand}"
+                                        IsEnabled="{Binding IsTranslating}" Height="32" FontSize="13" />
+                                <Button Content="บันทึก" Command="{Binding SaveCurrentChapterCommand}"
+                                        Height="32" FontSize="13" ToolTip.Tip="บันทึกตอนนี้ (Ctrl+S)" />
                             </StackPanel>
                         </Grid>
+
+                        <!-- แถบความคืบหน้าการแปลและแจ้งข้อผิดพลาด (แสดงเฉพาะเมื่อมีข้อความสถานะหรือกำลังแปล) -->
+                        <StackPanel Spacing="6" IsVisible="{Binding ProgressText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                            <Grid ColumnDefinitions="*, Auto">
+                                <TextBlock Text="{Binding ProgressText}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" IsVisible="{Binding HasError}">
+                                    <Button Content="คัดลอกข้อผิดพลาด" Command="{Binding CopyErrorDetailsCommand}" Height="24" FontSize="11" Padding="8,0" />
+                                    <Button Content="ดูรายละเอียด" Command="{Binding ShowErrorDialogCommand}" Height="24" FontSize="11" Padding="8,0" />
+                                </StackPanel>
+                            </Grid>
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding TranslationProgressPercentage}"
+                                         IsIndeterminate="{Binding IsTranslatingIndeterminate}"
+                                         IsVisible="{Binding IsTranslating}" Height="4" Foreground="#2563EB" />
+                        </StackPanel>
                     </StackPanel>
                 </Border>
 
-                <!-- ช่องข้อความซ้าย (ต้นฉบับ) และขวา (คำแปล) -->
-                <Grid x:Name="EditorSplitGrid" Grid.Row="1" ColumnDefinitions="*, 10, *">
+                <!-- พื้นที่กระดาษคู่ขนาน: ต้นฉบับ (ซ้าย) และ คำแปล (ขวา) -->
+                <Grid x:Name="EditorSplitGrid" Grid.Row="1" ColumnDefinitions="*, 12, *">
                     <!-- ช่องต้นฉบับ -->
                     <Grid RowDefinitions="Auto, *" IsVisible="{Binding IsOriginalPaneVisible}">
-                        <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,6">
-                            <TextBlock Text="📄 ต้นฉบับ (Original Text)" FontWeight="Bold" VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
-                                <Button Content="➕ เพิ่มคำที่คลุมเข้า Glossary" Click="OnAddSelectedToGlossaryClicked" FontSize="12" Padding="8,3" />
-                                <Button Content="🔄 แปลซ้ำย่อหน้านี้" Click="OnRetranslateSelectedParagraphClicked" FontSize="12" Padding="8,3" />
+                        <Grid ColumnDefinitions="*, Auto" Height="32" Margin="0,0,0,8">
+                            <TextBlock Text="ต้นฉบับ" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Button Content="เพิ่มเข้า Glossary" Click="OnAddSelectedToGlossaryClicked" Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center" />
+                                <Button Content="แปลซ้ำย่อหน้านี้" Click="OnRetranslateSelectedParagraphClicked" Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center" />
                             </StackPanel>
                         </Grid>
                         <TextBox x:Name="OriginalTextBox" Grid.Row="1" Text="{Binding OriginalText, Mode=TwoWay}"
-                                 FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="30" Padding="16"
+                                 FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
                                  Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                 AcceptsReturn="True" TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                                 CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto" />
                     </Grid>
 
-                    <GridSplitter Grid.Column="1" Width="10" HorizontalAlignment="Stretch" Background="Transparent"
+                    <GridSplitter Grid.Column="1" Width="12" HorizontalAlignment="Stretch" Background="Transparent"
                                   IsVisible="{Binding IsOriginalPaneVisible}" />
 
                     <!-- ช่องคำแปล -->
                     <Grid Grid.Column="2" RowDefinitions="Auto, *">
-                        <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,6">
-                            <TextBlock Text="🇹🇭 คำแปล (Translated Text)" FontWeight="Bold" VerticalAlignment="Center" />
+                        <Grid ColumnDefinitions="*, Auto" Height="32" Margin="0,0,0,8">
+                            <TextBlock Text="คำแปล" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button Content="➕ เพิ่มคำที่คลุมเข้า Glossary" Click="OnAddSelectedToGlossaryClicked"
-                                        IsVisible="{Binding IsReaderMode}" FontSize="12" Padding="8,3" />
-                                <TextBlock Text="✏️ แก้ไขได้โดยตรง · Ctrl+Z ย้อนกลับ · Ctrl+S บันทึก" FontSize="12"
-                                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                                <Button Content="เพิ่มเข้า Glossary" Click="OnAddSelectedToGlossaryClicked"
+                                        IsVisible="{Binding IsReaderMode}" Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center" />
+                                <Button Content="{Binding ReaderModeButtonText}" Command="{Binding ToggleReaderModeCommand}"
+                                        Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center"
+                                        ToolTip.Tip="สลับระหว่างมุมมองคู่ขนานซ้าย-ขวา กับโหมดอ่านคำแปลเต็มจอ" />
+                                <Button Command="{Binding ToggleFocusModeCommand}" Height="28" FontSize="12" Padding="8,0"
+                                        ToolTip.Tip="โหมดโฟกัสไร้สิ่งรบกวน (F11)">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding FocusModeButtonText}" VerticalAlignment="Center" />
+                                        <Border Classes="keycap" VerticalAlignment="Center">
+                                            <TextBlock Text="F11" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" />
+                                        </Border>
+                                    </StackPanel>
+                                </Button>
+
+                                <!-- เมนูย่อยตั้งค่าตัวอักษรและมุมมอง -->
+                                <Button Content="ตัวอักษรและมุมมอง ▾" Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center">
+                                    <Button.Flyout>
+                                        <Flyout Placement="BottomEdgeAlignedRight">
+                                            <StackPanel Spacing="12" Width="240" Margin="4">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="ฟอนต์เนื้อหา" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    <ComboBox ItemsSource="{Binding AvailableEditorFonts}" SelectedItem="{Binding EditorFontFamily}"
+                                                              HorizontalAlignment="Stretch" FontSize="12" />
+                                                </StackPanel>
+                                                <Grid ColumnDefinitions="*, Auto, Auto, Auto">
+                                                    <TextBlock Text="ขนาดตัวอักษร" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                                    <Button Grid.Column="1" Content="A-" Command="{Binding DecreaseFontSizeCommand}" Width="32" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding EditorFontSize, StringFormat='{}{0}px'}" FontSize="12" Width="40" TextAlignment="Center" VerticalAlignment="Center" />
+                                                    <Button Grid.Column="3" Content="A+" Command="{Binding IncreaseFontSizeCommand}" Width="32" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                                                </Grid>
+                                                <CheckBox Content="เลื่อนหน้าจอซ้าย-ขวาพร้อมกัน" IsChecked="{Binding IsSyncScrollEnabled}" FontSize="12" />
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
                             </StackPanel>
                         </Grid>
                         <TextBox x:Name="TranslatedTextBox" Grid.Row="1" Text="{Binding TranslatedText, Mode=TwoWay}"
-                                 FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="30" Padding="16"
+                                 FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
                                  Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                 AcceptsReturn="True" TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                                 CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto" />
                     </Grid>
                 </Grid>
 
-                <!-- แถบสถานะและสถิติด้านล่างสุด (พร้อม 4-State Auto-save Feedback) -->
-                <Border Grid.Row="2" Margin="0,8,0,0" Padding="10,5" Background="{DynamicResource CardBgBrush}"
-                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="6">
+                <!-- แถบสถานะด้านล่าง (Quiet Metadata + 6px Save Status Dot) -->
+                <Border Grid.Row="2" Margin="0,12,0,0" Padding="12,6" Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8">
                     <Grid ColumnDefinitions="*, Auto">
-                        <StackPanel Orientation="Horizontal" Spacing="18" VerticalAlignment="Center">
-                            <TextBlock Text="{Binding OriginalWordCount, StringFormat='📄 คำต้นฉบับ: {0:N0} คำ'}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" />
-                            <TextBlock Text="{Binding OriginalParagraphCount, StringFormat='📑 ย่อหน้า: {0:N0} ย่อหน้า'}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" />
-                            <TextBlock Text="{Binding TranslatedWordCount, StringFormat='🇹🇭 คำแปลประเมิน: {0:N0} คำ'}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" />
-                            <TextBlock Text="{Binding StoryProgressText, StringFormat='📊 ทั้งเรื่อง: {0}'}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" />
+                        <StackPanel Orientation="Horizontal" Spacing="16" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding OriginalWordCount, StringFormat='ต้นฉบับ {0:N0} คำ'}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" />
+                            <TextBlock Text="{Binding OriginalParagraphCount, StringFormat='{}{0:N0} ย่อหน้า'}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" />
+                            <TextBlock Text="{Binding TranslatedWordCount, StringFormat='คำแปล {0:N0} คำ'}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" />
+                            <TextBlock Text="{Binding StoryProgressText}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" />
                         </StackPanel>
-                        <TextBlock Grid.Column="1" Text="{Binding SaveStatusText}" FontSize="12" FontWeight="SemiBold"
-                                   Foreground="{Binding SaveStateColor}" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Ellipse Width="6" Height="6" Fill="{Binding SaveStateColor}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding SaveStatusText}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Grid>
                 </Border>
             </Grid>

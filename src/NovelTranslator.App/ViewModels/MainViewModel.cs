@@ -63,7 +63,7 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSidebarVisible = true;
 
-    public string SidebarToggleText => IsSidebarVisible ? "◀ ซ่อนแถบตอน" : "▶ แสดงแถบตอน";
+    public string SidebarToggleText => IsSidebarVisible ? "ซ่อนแถบข้าง" : "แสดงแถบข้าง";
     partial void OnIsSidebarVisibleChanged(bool value) => OnPropertyChanged(nameof(SidebarToggleText));
 
     [ObservableProperty]
@@ -71,7 +71,7 @@ public partial class MainViewModel : ObservableObject
 
     private bool _sidebarBeforeFocusMode = true;
     public bool IsHeaderVisible => !IsFocusMode;
-    public string FocusModeButtonText => IsFocusMode ? "⛶ ออกโฟกัส (F11)" : "⛶ โฟกัส (F11)";
+    public string FocusModeButtonText => IsFocusMode ? "ออกโหมดโฟกัส" : "โหมดโฟกัส";
     partial void OnIsFocusModeChanged(bool value)
     {
         OnPropertyChanged(nameof(IsHeaderVisible));
@@ -82,7 +82,7 @@ public partial class MainViewModel : ObservableObject
     private bool _isReaderMode;
 
     public bool IsOriginalPaneVisible => !IsReaderMode;
-    public string ReaderModeButtonText => IsReaderMode ? "📑 คู่ขนาน (Split)" : "📖 โหมดอ่านเต็มจอ";
+    public string ReaderModeButtonText => IsReaderMode ? "มุมมองคู่ขนาน" : "อ่านเต็มจอ";
     partial void OnIsReaderModeChanged(bool value)
     {
         OnPropertyChanged(nameof(IsOriginalPaneVisible));
@@ -121,14 +121,14 @@ public partial class MainViewModel : ObservableObject
 
     public string ThemeButtonText => ThemeMode switch
     {
-        "Dark" => "🌙 โหมดมืด",
-        "Sepia" => "📜 ถนอมสายตา (Sepia)",
-        _ => "☀️ โหมดสว่าง"
+        "Dark" => "โหมดมืด",
+        "Sepia" => "ถนอมสายตา",
+        _ => "โหมดสว่าง"
     };
     partial void OnThemeModeChanged(string value) => OnPropertyChanged(nameof(ThemeButtonText));
 
     [ObservableProperty]
-    private string _activeModelDisplay = "🤖 ยังไม่ได้ตั้งค่าโมเดล";
+    private string _activeModelDisplay = "ยังไม่ได้ตั้งค่าโมเดล";
 
     // ช่องข้อความหลัก
     [ObservableProperty]
@@ -149,6 +149,9 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private string _chapterStatusText = "ยังไม่แปล";
+
+    [ObservableProperty]
+    private string _chapterStatusColor = "#737373";
 
     [ObservableProperty]
     private string _progressText = string.Empty;
@@ -233,7 +236,7 @@ public partial class MainViewModel : ObservableObject
     private void UpdateActiveModelDisplay()
     {
         string model = string.IsNullOrWhiteSpace(_settings.ModelName) ? "ยังไม่ระบุโมเดล" : _settings.ModelName;
-        ActiveModelDisplay = $"🤖 {_settings.Backend}: {model}";
+        ActiveModelDisplay = $"{_settings.Backend} · {model}";
     }
 
     [RelayCommand]
@@ -464,8 +467,8 @@ public partial class MainViewModel : ObservableObject
                 UpdateChapterStatusDisplay(value.Status);
                 UpdateWordAndParagraphCounts(OriginalText);
                 TranslatedWordCount = Chunker.EstimateWordCount(TranslatedText);
-                SaveStatusText = $"🟢 บันทึกแล้ว ({value.UpdatedAt.ToLocalTime():HH:mm:ss})";
-                SaveStateColor = "#16A34A";
+                SaveStatusText = $"บันทึกแล้ว {value.UpdatedAt.ToLocalTime():HH:mm:ss}";
+                SaveStateColor = "#4CC38A";
             }
             else
             {
@@ -485,7 +488,7 @@ public partial class MainViewModel : ObservableObject
 
     private void MarkUnsavedChanges()
     {
-        SaveStatusText = "🟡 มีการแก้ไข ยังไม่ได้บันทึก (Unsaved Changes)";
+        SaveStatusText = "ยังไม่ได้บันทึก";
         SaveStateColor = "#F59E0B";
         _autoSaveTimer.Stop();
         _autoSaveTimer.Start();
@@ -542,10 +545,18 @@ public partial class MainViewModel : ObservableObject
         ChapterStatusText = status switch
         {
             ChapterStatus.NotTranslated => "ยังไม่แปล",
-            ChapterStatus.Translating => "กำลังแปล...",
+            ChapterStatus.Translating => "กำลังแปล",
             ChapterStatus.Translated => "แปลแล้ว",
             ChapterStatus.Edited => "แก้ไขแล้ว",
             _ => ""
+        };
+        ChapterStatusColor = status switch
+        {
+            ChapterStatus.NotTranslated => "#737373",
+            ChapterStatus.Translating => "#F59E0B",
+            ChapterStatus.Translated => "#4CC38A",
+            ChapterStatus.Edited => "#3B82F6",
+            _ => "#737373"
         };
     }
 
@@ -565,20 +576,20 @@ public partial class MainViewModel : ObservableObject
         var pending = Chapters.Where(c => c.Status == ChapterStatus.NotTranslated && !string.IsNullOrWhiteSpace(c.OriginalText)).ToList();
         if (pending.Count == 0)
         {
-            ProgressText = "ทุกตอนที่มีเนื้อหาต้นฉบับแปลเสร็จหมดแล้ว!";
+            ProgressText = "แปลครบทุกตอนแล้ว";
             return;
         }
 
         if (RequestConfirmDialog != null)
         {
-            bool ok = await RequestConfirmDialog($"ต้องการแปลต่อเนื่องทุกตอนที่ยังไม่แปล (จำนวน {pending.Count} ตอน) ใช่หรือไม่?");
+            bool ok = await RequestConfirmDialog($"ต้องการแปลต่อเนื่องทุกตอนที่ยังไม่แปล จำนวน {pending.Count} ตอน ใช่หรือไม่?");
             if (!ok) return;
         }
 
         for (int i = 0; i < pending.Count; i++)
         {
             SelectedChapter = pending[i];
-            ProgressText = $"กำลังแปลต่อเนื่อง ({i + 1}/{pending.Count}): {SelectedChapter.Title}...";
+            ProgressText = $"กำลังแปลต่อเนื่อง {i + 1}/{pending.Count} · {SelectedChapter.Title}";
             await StartTranslationInternalAsync(forceRetranslate: false);
 
             // หากถูกกดหยุดหรือเกิด Error ให้หยุดคิวทันที
@@ -656,14 +667,14 @@ public partial class MainViewModel : ObservableObject
             TranslatedText = SelectedChapter.TranslatedText ?? string.Empty;
             UpdateChapterStatusDisplay(SelectedChapter.Status);
             UpdateStoryProgress();
-            ProgressText = "การแปลเสร็จสิ้นสมบูรณ์!";
+            ProgressText = "แปลเสร็จสิ้น";
             TranslationProgressPercentage = 100;
-            SaveStatusText = $"🟢 บันทึกอัตโนมัติแล้ว ({DateTime.Now:HH:mm:ss})";
-            SaveStateColor = "#16A34A";
+            SaveStatusText = $"บันทึกอัตโนมัติ {DateTime.Now:HH:mm:ss}";
+            SaveStateColor = "#4CC38A";
         }
         catch (OperationCanceledException)
         {
-            ProgressText = "หยุดการแปลแล้ว (สามารถกดแปลต่อได้)";
+            ProgressText = "หยุดการแปลแล้ว";
             SelectedChapter.Status = ChapterStatus.Edited;
             UpdateChapterStatusDisplay(SelectedChapter.Status);
         }
@@ -672,7 +683,7 @@ public partial class MainViewModel : ObservableObject
             HasError = true;
             LastErrorDetails = ex.ToString();
             string firstLine = ex.Message.Split('\n')[0];
-            ProgressText = $"เกิดข้อผิดพลาด: {firstLine}";
+            ProgressText = $"ข้อผิดพลาด · {firstLine}";
         }
         finally
         {
@@ -687,7 +698,7 @@ public partial class MainViewModel : ObservableObject
         if (!string.IsNullOrEmpty(LastErrorDetails) && RequestCopyToClipboard != null)
         {
             await RequestCopyToClipboard(LastErrorDetails);
-            SaveStatusText = "คัดลอกรายละเอียด Error ลงคลิปบอร์ดแล้ว!";
+            SaveStatusText = "คัดลอกรายละเอียดข้อผิดพลาดแล้ว";
         }
     }
 
@@ -723,7 +734,7 @@ public partial class MainViewModel : ObservableObject
             {
                 return await pipeline.RetranslateParagraphAsync(SelectedStory, selectedParagraph, null);
             });
-            ProgressText = "แปลซ้ำย่อหน้านั้นสำเร็จ!";
+            ProgressText = "แปลซ้ำย่อหน้านี้แล้ว";
             // แจ้งเตือนผู้ใช้ให้นำผลแปลไปวาง
             if (RequestPromptDialog != null)
             {
@@ -732,7 +743,7 @@ public partial class MainViewModel : ObservableObject
         }
         catch (Exception ex)
         {
-            ProgressText = $"แปลซ้ำไม่สำเร็จ: {ex.Message}";
+            ProgressText = $"แปลซ้ำไม่สำเร็จ · {ex.Message}";
         }
         finally
         {
@@ -931,7 +942,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedChapter == null) return;
 
-        SaveStatusText = "⏳ กำลังบันทึก... (Saving...)";
+        SaveStatusText = "กำลังบันทึก";
         SaveStateColor = "#F59E0B";
 
         try
@@ -941,14 +952,14 @@ public partial class MainViewModel : ObservableObject
             await _repository.UpdateChapterAsync(SelectedChapter);
 
             SaveStatusText = isAutoSave
-                ? $"🟢 บันทึกอัตโนมัติ ({DateTime.Now:HH:mm:ss})"
-                : $"🟢 บันทึกสำเร็จ ({DateTime.Now:HH:mm:ss})";
-            SaveStateColor = "#16A34A";
+                ? $"บันทึกอัตโนมัติ {DateTime.Now:HH:mm:ss}"
+                : $"บันทึกแล้ว {DateTime.Now:HH:mm:ss}";
+            SaveStateColor = "#4CC38A";
         }
         catch (Exception ex)
         {
-            SaveStatusText = $"🔴 บันทึกล้มเหลว: {ex.Message}";
-            SaveStateColor = "#DC2626";
+            SaveStatusText = $"บันทึกล้มเหลว · {ex.Message}";
+            SaveStateColor = "#E5484D";
         }
     }
 
@@ -957,7 +968,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedStory == null || RequestOpenFilesDialog == null) return;
 
-        var files = await RequestOpenFilesDialog("เลือกไฟล์ .txt ต้นฉบับ (เลือกได้หลายไฟล์)");
+        var files = await RequestOpenFilesDialog("เลือกไฟล์ .txt ต้นฉบับ");
         if (files == null || files.Length == 0) return;
 
         int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
@@ -969,7 +980,7 @@ public partial class MainViewModel : ObservableObject
         }
 
         RefreshFilteredChapters();
-        SaveStatusText = $"นำเข้าสำเร็จ {files.Length} ตอน";
+        SaveStatusText = $"นำเข้าแล้ว {files.Length} ตอน";
     }
 
     [RelayCommand]
@@ -980,7 +991,7 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(path)) return;
 
         await TextExportImportService.ExportChapterAsync(path, SelectedChapter);
-        SaveStatusText = "ส่งออกตอนนี้สำเร็จ!";
+        SaveStatusText = "ส่งออกตอนนี้แล้ว";
     }
 
     [RelayCommand]
@@ -991,7 +1002,7 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(path)) return;
 
         await TextExportImportService.ExportStorySingleFileAsync(path, SelectedStory, Chapters);
-        SaveStatusText = "ส่งออกทั้งเรื่องสำเร็จ!";
+        SaveStatusText = "ส่งออกทั้งเรื่องแล้ว";
     }
 
     // ================= เปิดหน้าต่างเสริม =================
@@ -1040,7 +1051,7 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrEmpty(path)) return;
 
         _database.BackupTo(path);
-        SaveStatusText = "สำรองฐานข้อมูลสำเร็จ!";
+        SaveStatusText = "สำรองฐานข้อมูลแล้ว";
     }
 
     [RelayCommand]
@@ -1055,6 +1066,6 @@ public partial class MainViewModel : ObservableObject
 
         _database.RestoreFrom(files[0]);
         await LoadInitialDataAsync();
-        SaveStatusText = "กู้คืนฐานข้อมูลเรียบร้อยแล้ว!";
+        SaveStatusText = "กู้คืนฐานข้อมูลแล้ว";
     }
 }

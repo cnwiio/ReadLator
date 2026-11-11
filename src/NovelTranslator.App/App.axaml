@@ -5,15 +5,18 @@
              RequestedThemeVariant="Light">
 
     <Application.Resources>
-        <SolidColorBrush x:Key="HeaderBgBrush" Color="#1E293B" />
-        <SolidColorBrush x:Key="SidebarBgBrush" Color="#F1F5F9" />
-        <SolidColorBrush x:Key="MainBgBrush" Color="#F8FAFC" />
+        <SolidColorBrush x:Key="HeaderBgBrush" Color="#F4F4F5" />
+        <SolidColorBrush x:Key="SidebarBgBrush" Color="#F4F4F5" />
+        <SolidColorBrush x:Key="MainBgBrush" Color="#FAFAFA" />
         <SolidColorBrush x:Key="CardBgBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="EditorBgBrush" Color="#FFFFFF" />
-        <SolidColorBrush x:Key="BorderSubtleBrush" Color="#CBD5E1" />
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#0F172A" />
-        <SolidColorBrush x:Key="TextMutedBrush" Color="#64748B" />
-        <SolidColorBrush x:Key="BadgeBgBrush" Color="#E2E8F0" />
+        <SolidColorBrush x:Key="RaisedBgBrush" Color="#F4F4F5" />
+        <SolidColorBrush x:Key="BorderSubtleBrush" Color="#E4E4E7" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="#171717" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="#525252" />
+        <SolidColorBrush x:Key="TextMutedBrush" Color="#737373" />
+        <SolidColorBrush x:Key="BadgeBgBrush" Color="#F4F4F5" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#2563EB" />
     </Application.Resources>
 
     <Application.DataTemplates>
@@ -32,10 +35,41 @@
         </Style>
         <Style Selector="TextBox">
             <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />
+            <Setter Property="CornerRadius" Value="6" />
         </Style>
         <Style Selector="Button">
             <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />
             <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource RaisedBgBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="12,6" />
+        </Style>
+        <Style Selector="Button.primary">
+            <Setter Property="Background" Value="#2563EB" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BorderBrush" Value="#1D4ED8" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontWeight" Value="Medium" />
+        </Style>
+        <Style Selector="Button.danger">
+            <Setter Property="Background" Value="{DynamicResource RaisedBgBrush}" />
+            <Setter Property="Foreground" Value="#E5484D" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Button.ghost">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,6" />
+        </Style>
+        <Style Selector="Border.keycap">
+            <Setter Property="Background" Value="{DynamicResource MainBgBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Padding" Value="4,1" />
         </Style>
         <Style Selector="ComboBox">
             <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />

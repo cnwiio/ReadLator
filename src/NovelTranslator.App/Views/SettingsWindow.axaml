@@ -3,111 +3,111 @@
         xmlns:vm="using:NovelTranslator.App.ViewModels"
         x:Class="NovelTranslator.App.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
-        Title="⚙️ ตั้งค่า AI และพารามิเตอร์การแปล"
-        Width="640" Height="740"
+        Title="ตั้งค่า AI และพารามิเตอร์การแปล"
+        Width="640" Height="720"
         MinWidth="540" MinHeight="560"
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource MainBgBrush}">
 
     <Grid RowDefinitions="*, Auto">
-        <ScrollViewer Padding="20,16">
-            <StackPanel Spacing="14">
+        <ScrollViewer Padding="24,20">
+            <StackPanel Spacing="16">
 
                 <!-- หมวด 1: การเชื่อมต่อ AI -->
                 <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                        BorderThickness="1" CornerRadius="8" Padding="16">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="🔌 การเชื่อมต่อ AI (Backend Connection)" FontSize="16" FontWeight="Bold" />
+                        BorderThickness="1" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="การเชื่อมต่อ AI" FontSize="15" FontWeight="SemiBold" />
 
-                        <Grid ColumnDefinitions="140, *" RowDefinitions="Auto, Auto, Auto" RowSpacing="10">
-                            <TextBlock Text="ผู้ให้บริการ AI:" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            <ComboBox Grid.Column="1" SelectedIndex="{Binding BackendIndex}" HorizontalAlignment="Stretch">
-                                <ComboBoxItem Content="🦙 Ollama (รันในเครื่อง Local)" />
-                                <ComboBoxItem Content="🖥️ LM Studio (รันในเครื่อง Local)" />
-                                <ComboBoxItem Content="🌐 กำหนดเอง / Cloud (OpenAI-compatible)" />
+                        <Grid ColumnDefinitions="136, *" RowDefinitions="Auto, Auto, Auto" RowSpacing="12">
+                            <TextBlock Text="ผู้ให้บริการ" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            <ComboBox Grid.Column="1" SelectedIndex="{Binding BackendIndex}" Height="32" HorizontalAlignment="Stretch">
+                                <ComboBoxItem Content="Ollama (Local)" />
+                                <ComboBoxItem Content="LM Studio (Local)" />
+                                <ComboBoxItem Content="กำหนดเอง / Cloud (OpenAI-compatible)" />
                             </ComboBox>
 
-                            <TextBlock Grid.Row="1" Text="Base URL:" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding BaseUrl}" PlaceholderText="เช่น http://localhost:11434/v1 หรือ https://openrouter.ai/api/v1" />
+                            <TextBlock Grid.Row="1" Text="Base URL" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding BaseUrl}" Height="32" VerticalContentAlignment="Center" PlaceholderText="เช่น http://localhost:11434/v1" />
 
-                            <TextBlock Grid.Row="2" Text="API Key:" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="2" Text="API Key" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                             <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*, Auto">
-                                <TextBox Text="{Binding ApiKey}" PasswordChar="{Binding ApiKeyPasswordChar}"
-                                         PlaceholderText="ใส่ API Key สำหรับบริการ Cloud (เว้นว่างได้ถ้าใช้ Ollama/LM Studio)" />
-                                <Button Grid.Column="1" Content="👁" Command="{Binding ToggleApiKeyVisibilityCommand}"
-                                        ToolTip.Tip="แสดง/ซ่อน API Key" Margin="6,0,0,0" />
+                                <TextBox Text="{Binding ApiKey}" PasswordChar="{Binding ApiKeyPasswordChar}" Height="32" VerticalContentAlignment="Center"
+                                         PlaceholderText="เว้นว่างได้หากใช้ Ollama หรือ LM Studio ในเครื่อง" />
+                                <Button Grid.Column="1" Content="แสดง/ซ่อน" Command="{Binding ToggleApiKeyVisibilityCommand}"
+                                        Height="32" FontSize="12" Margin="8,0,0,0" />
                             </Grid>
                         </Grid>
 
-                        <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0">
-                            <Button Content="🔄 ทดสอบการเชื่อมต่อ &amp; ดึงรายชื่อโมเดล" Command="{Binding TestConnectionCommand}" IsEnabled="{Binding !IsBusy}" />
-                            <TextBlock Text="{Binding ConnectionStatus}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="320" Foreground="#2980B9" FontWeight="SemiBold" />
+                        <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
+                            <Button Content="ทดสอบการเชื่อมต่อและดึงรายชื่อโมเดล" Command="{Binding TestConnectionCommand}" IsEnabled="{Binding !IsBusy}" Height="32" FontSize="13" />
+                            <TextBlock Text="{Binding ConnectionStatus}" VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="300" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
 
                 <!-- หมวด 2: โมเดล AI -->
                 <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                        BorderThickness="1" CornerRadius="8" Padding="16">
-                    <StackPanel Spacing="10">
-                        <TextBlock Text="🤖 เลือกโมเดล AI (Model Selection)" FontSize="16" FontWeight="Bold" />
+                        BorderThickness="1" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="12">
+                        <TextBlock Text="โมเดล AI" FontSize="15" FontWeight="SemiBold" />
 
-                        <Grid ColumnDefinitions="140, *" RowDefinitions="Auto, Auto" RowSpacing="8">
-                            <TextBlock Text="เลือกจากรายการ:" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        <Grid ColumnDefinitions="136, *" RowDefinitions="Auto, Auto" RowSpacing="12">
+                            <TextBlock Text="เลือกจากรายการ" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                             <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding ModelName}"
-                                      PlaceholderText="คลิกเพื่อเลือกโมเดลที่ตรวจพบในระบบ..." HorizontalAlignment="Stretch" />
+                                      Height="32" PlaceholderText="เลือกโมเดลที่ตรวจพบในระบบ" HorizontalAlignment="Stretch" />
 
-                            <TextBlock Grid.Row="1" Text="หรือระบุชื่อโมเดล:" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            <TextBlock Grid.Row="1" Text="หรือระบุชื่อโมเดล" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                             <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, Auto">
-                                <TextBox Text="{Binding ModelName}" PlaceholderText="พิมพ์ชื่อโมเดล เช่น qwen2.5:7b, llama3.2, google/gemini-2.5-flash" />
-                                <Button Grid.Column="1" Content="📥 ดึงโมเดล Ollama" Command="{Binding PullModelCommand}"
-                                        Margin="8,0,0,0" IsEnabled="{Binding !IsBusy}" ToolTip.Tip="ดาวน์โหลดโมเดลที่ระบุเข้าสู่ Ollama" />
+                                <TextBox Text="{Binding ModelName}" Height="32" VerticalContentAlignment="Center" PlaceholderText="เช่น qwen2.5:7b, llama3.2, google/gemma-4-e4b" />
+                                <Button Grid.Column="1" Content="ดึงโมเดล Ollama" Command="{Binding PullModelCommand}"
+                                        Height="32" FontSize="12" Margin="8,0,0,0" IsEnabled="{Binding !IsBusy}" />
                             </Grid>
                         </Grid>
 
-                        <TextBlock Text="{Binding PullProgress}" Foreground="#E67E22" TextWrapping="Wrap"
+                        <TextBlock Text="{Binding PullProgress}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"
                                    IsVisible="{Binding PullProgress, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                     </StackPanel>
                 </Border>
 
                 <!-- หมวด 3: พารามิเตอร์และคำสั่งแปล -->
                 <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                        BorderThickness="1" CornerRadius="8" Padding="16">
-                    <StackPanel Spacing="12">
-                        <TextBlock Text="🎛️ พารามิเตอร์และคำสั่งการแปล (Translation Parameters)" FontSize="16" FontWeight="Bold" />
+                        BorderThickness="1" CornerRadius="12" Padding="20">
+                    <StackPanel Spacing="16">
+                        <TextBlock Text="พารามิเตอร์และคำสั่งการแปล" FontSize="15" FontWeight="SemiBold" />
 
-                        <Grid ColumnDefinitions="*, Auto, 70">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="Temperature (ความสร้างสรรค์ของสำนวน):" FontWeight="SemiBold" />
-                                <TextBlock Text="ค่าต่ำ (0.1-0.3) แปลแม่นยำคงเส้นคงวา · ค่าสูง (0.5-0.8) สำนวนพลิ้วไหวขึ้น" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                        <Grid ColumnDefinitions="*, Auto, 64">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="Temperature" FontSize="13" FontWeight="Medium" />
+                                <TextBlock Text="0.1–0.3 แปลแม่นยำคงเส้นคงวา · 0.5–0.8 สำนวนพลิ้วไหว" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
                             </StackPanel>
                             <Slider Grid.Column="1" Minimum="0.0" Maximum="1.2" TickFrequency="0.05" IsSnapToTickEnabled="True"
-                                    Value="{Binding Temperature}" Width="150" VerticalAlignment="Center" Margin="12,0" />
-                            <TextBox Grid.Column="2" Text="{Binding Temperature}" VerticalAlignment="Center" HorizontalContentAlignment="Center" />
+                                    Value="{Binding Temperature}" Width="144" VerticalAlignment="Center" Margin="12,0" />
+                            <TextBox Grid.Column="2" Text="{Binding Temperature}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
                         </Grid>
 
-                        <Grid ColumnDefinitions="*, 90" RowDefinitions="Auto, Auto" RowSpacing="10">
-                            <StackPanel VerticalAlignment="Center">
-                                <TextBlock Text="ขนาดชิ้นข้อความต่อรอบ (คำต่อ Chunk):" FontWeight="SemiBold" />
-                                <TextBlock Text="ค่าแนะนำ 500–800 คำ เพื่อให้ AI แปลละเอียดไม่ตกหล่น" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                        <Grid ColumnDefinitions="*, 88" RowDefinitions="Auto, Auto" RowSpacing="12">
+                            <StackPanel Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="ขนาดชิ้นข้อความต่อรอบ (คำต่อ Chunk)" FontSize="13" FontWeight="Medium" />
+                                <TextBlock Text="แนะนำ 500–800 คำ เพื่อให้แปลละเอียดครบถ้วน" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
                             </StackPanel>
-                            <TextBox Grid.Column="1" Text="{Binding MaxChunkWords}" VerticalAlignment="Center" HorizontalContentAlignment="Center" />
+                            <TextBox Grid.Column="1" Text="{Binding MaxChunkWords}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
 
-                            <StackPanel Grid.Row="1" VerticalAlignment="Center">
-                                <TextBlock Text="จำนวนย่อหน้าบริบทก่อนหน้า (Context Paragraphs):" FontWeight="SemiBold" />
-                                <TextBlock Text="ส่งย่อหน้าก่อนหน้าไปให้ AI อ้างอิงความต่อเนื่อง (แนะนำ 2 ย่อหน้า)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                            <StackPanel Grid.Row="1" Spacing="2" VerticalAlignment="Center">
+                                <TextBlock Text="ย่อหน้าบริบทก่อนหน้า (Context Paragraphs)" FontSize="13" FontWeight="Medium" />
+                                <TextBlock Text="ส่งย่อหน้าก่อนหน้าให้ AI อ้างอิงความต่อเนื่อง แนะนำ 2 ย่อหน้า" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
                             </StackPanel>
-                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ContextParagraphCount}" VerticalAlignment="Center" HorizontalContentAlignment="Center" />
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ContextParagraphCount}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
                         </Grid>
 
-                        <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,2" />
+                        <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,4" />
 
                         <StackPanel Spacing="6">
-                            <TextBlock Text="📝 คำสั่งพิเศษเพิ่มเติม (Custom System Prompt):" FontWeight="SemiBold" />
-                            <TextBlock Text="คำสั่งนี้จะถูกแนบต่อท้ายกฎการแปลหลักในทุกเรื่อง (เช่น ห้ามทับศัพท์ภาษาอังกฤษ, ให้ใช้คำราชาศัพท์ ฯลฯ)"
+                            <TextBlock Text="คำสั่งพิเศษเพิ่มเติม (Custom System Prompt)" FontSize="13" FontWeight="Medium" />
+                            <TextBlock Text="แนบต่อท้ายกฎการแปลหลักในทุกเรื่อง เช่น ห้ามทับศัพท์ภาษาอังกฤษ หรือกำหนดระดับภาษา"
                                        FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
                             <TextBox Text="{Binding CustomSystemPrompt}" AcceptsReturn="True" TextWrapping="Wrap"
-                                     Height="80" PlaceholderText="เว้นว่างไว้หากต้องการใช้เฉพาะกฎมาตรฐานและ Style Notes ของแต่ละเรื่อง..." />
+                                     Height="80" Padding="12" PlaceholderText="เว้นว่างไว้หากต้องการใช้เฉพาะกฎมาตรฐานและ Style Notes ของแต่ละเรื่อง" />
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -117,10 +117,10 @@
 
         <!-- แถบปุ่มบันทึกด้านล่าง -->
         <Border Grid.Row="1" Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="0,1,0,0" Padding="20,12">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="10">
-                <Button Content="💾 บันทึกและปิด" Classes="accent" Command="{Binding SaveAndCloseCommand}"
-                        Width="150" HorizontalContentAlignment="Center" FontWeight="Bold" />
+                BorderThickness="0,1,0,0" Padding="24,12">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                <Button Content="บันทึกและปิด" Classes="primary" Command="{Binding SaveAndCloseCommand}"
+                        Height="32" Padding="20,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
             </StackPanel>
         </Border>
     </Grid>

@@ -40,41 +40,47 @@ public partial class App : Application
         {
             case "Dark":
                 Current.RequestedThemeVariant = ThemeVariant.Dark;
-                SetBrush("HeaderBgBrush", "#090D16");
-                SetBrush("SidebarBgBrush", "#111827");
-                SetBrush("MainBgBrush", "#0F172A");
-                SetBrush("CardBgBrush", "#1E293B");
-                SetBrush("EditorBgBrush", "#1E293B");
-                SetBrush("BorderSubtleBrush", "#334155");
-                SetBrush("TextPrimaryBrush", "#F1F5F9");
-                SetBrush("TextMutedBrush", "#94A3B8");
-                SetBrush("BadgeBgBrush", "#334155");
+                SetBrush("HeaderBgBrush", "#0F0F10");
+                SetBrush("SidebarBgBrush", "#0F0F10");
+                SetBrush("MainBgBrush", "#141415");
+                SetBrush("CardBgBrush", "#19191B");
+                SetBrush("EditorBgBrush", "#19191B");
+                SetBrush("RaisedBgBrush", "#232325");
+                SetBrush("BorderSubtleBrush", "#27272A");
+                SetBrush("TextPrimaryBrush", "#EDEDED");
+                SetBrush("TextSecondaryBrush", "#A1A1A6");
+                SetBrush("TextMutedBrush", "#85858B");
+                SetBrush("BadgeBgBrush", "#232325");
                 break;
 
             case "Sepia":
                 Current.RequestedThemeVariant = ThemeVariant.Light;
-                SetBrush("HeaderBgBrush", "#3E3026");
-                SetBrush("SidebarBgBrush", "#EFE5D1");
-                SetBrush("MainBgBrush", "#F6EEDF");
-                SetBrush("CardBgBrush", "#FBF6EC");
-                SetBrush("EditorBgBrush", "#FDF9F1");
-                SetBrush("BorderSubtleBrush", "#D8C9B0");
-                SetBrush("TextPrimaryBrush", "#3B2F26");
-                SetBrush("TextMutedBrush", "#786452");
-                SetBrush("BadgeBgBrush", "#E6D8C0");
+                SetBrush("HeaderBgBrush", "#EFE9DF");
+                SetBrush("SidebarBgBrush", "#EFE9DF");
+                SetBrush("MainBgBrush", "#F7F4EE");
+                SetBrush("CardBgBrush", "#FDFBF7");
+                SetBrush("EditorBgBrush", "#FDFBF7");
+                SetBrush("RaisedBgBrush", "#EFE9DF");
+                SetBrush("BorderSubtleBrush", "#E0D8CA");
+                SetBrush("TextPrimaryBrush", "#1F1B16");
+                SetBrush("TextSecondaryBrush", "#5E554A");
+                SetBrush("TextMutedBrush", "#7B7266");
+                SetBrush("BadgeBgBrush", "#EFE9DF");
                 break;
 
-            default: // Light
+            default: // Light Graphite
                 Current.RequestedThemeVariant = ThemeVariant.Light;
-                SetBrush("HeaderBgBrush", "#1E293B");
-                SetBrush("SidebarBgBrush", "#F1F5F9");
-                SetBrush("MainBgBrush", "#F8FAFC");
+                SetBrush("HeaderBgBrush", "#F4F4F5");
+                SetBrush("SidebarBgBrush", "#F4F4F5");
+                SetBrush("MainBgBrush", "#FAFAFA");
                 SetBrush("CardBgBrush", "#FFFFFF");
                 SetBrush("EditorBgBrush", "#FFFFFF");
-                SetBrush("BorderSubtleBrush", "#CBD5E1");
-                SetBrush("TextPrimaryBrush", "#0F172A");
-                SetBrush("TextMutedBrush", "#64748B");
-                SetBrush("BadgeBgBrush", "#E2E8F0");
+                SetBrush("RaisedBgBrush", "#F4F4F5");
+                SetBrush("BorderSubtleBrush", "#E4E4E7");
+                SetBrush("TextPrimaryBrush", "#171717");
+                SetBrush("TextSecondaryBrush", "#525252");
+                SetBrush("TextMutedBrush", "#737373");
+                SetBrush("BadgeBgBrush", "#F4F4F5");
                 break;
         }
     }

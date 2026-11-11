@@ -180,7 +180,7 @@ public partial class MainWindow : Window
         ViewModel.RequestShowErrorDialog = (errorDetails) =>
         {
             var closeBtn = new Button { Content = "ปิด", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Width = 80 };
-            var copyBtn = new Button { Content = "📋 คัดลอก", Width = 90 };
+            var copyBtn = new Button { Content = "คัดลอก", Width = 90 };
             var tb = new TextBox
             {
                 Text = errorDetails,
@@ -193,7 +193,7 @@ public partial class MainWindow : Window
 
             var dialog = new Window
             {
-                Title = "รายละเอียด Error สำหรับ Debug",
+                Title = "รายละเอียดข้อผิดพลาด",
                 Width = 650,
                 Height = 350,
                 WindowStartupLocation = WindowStartupLocation.CenterOwner,
@@ -202,13 +202,13 @@ public partial class MainWindow : Window
                     Margin = new Avalonia.Thickness(16),
                     Children =
                     {
-                        new TextBlock { Text = "เกิดข้อผิดพลาดในการแปลหรือเชื่อมต่อ AI:", FontWeight = Avalonia.Media.FontWeight.Bold },
+                        new TextBlock { Text = "เกิดข้อผิดพลาดในการแปลหรือเชื่อมต่อ AI", FontWeight = Avalonia.Media.FontWeight.SemiBold },
                         tb,
                         new StackPanel
                         {
                             Orientation = Avalonia.Layout.Orientation.Horizontal,
                             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-                            Spacing = 10,
+                            Spacing = 8,
                             Children = { copyBtn, closeBtn }
                         }
                     }
@@ -221,7 +221,7 @@ public partial class MainWindow : Window
                 if (topLevel?.Clipboard != null)
                 {
                     await topLevel.Clipboard.SetTextAsync(errorDetails);
-                    copyBtn.Content = "✅ คัดลอกแล้ว";
+                    copyBtn.Content = "คัดลอกแล้ว";
                 }
             };
             closeBtn.Click += (_, _) => dialog.Close();
@@ -236,13 +236,13 @@ public partial class MainWindow : Window
 
         if (e.PropertyName == nameof(MainViewModel.IsSidebarVisible))
         {
-            MainLayoutGrid.ColumnDefinitions[0].Width = ViewModel.IsSidebarVisible ? new GridLength(300) : new GridLength(0);
-            MainLayoutGrid.ColumnDefinitions[1].Width = ViewModel.IsSidebarVisible ? new GridLength(6) : new GridLength(0);
+            MainLayoutGrid.ColumnDefinitions[0].Width = ViewModel.IsSidebarVisible ? new GridLength(280) : new GridLength(0);
+            MainLayoutGrid.ColumnDefinitions[1].Width = ViewModel.IsSidebarVisible ? new GridLength(4) : new GridLength(0);
         }
         else if (e.PropertyName == nameof(MainViewModel.IsReaderMode))
         {
             EditorSplitGrid.ColumnDefinitions[0].Width = ViewModel.IsReaderMode ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-            EditorSplitGrid.ColumnDefinitions[1].Width = ViewModel.IsReaderMode ? new GridLength(0) : new GridLength(10);
+            EditorSplitGrid.ColumnDefinitions[1].Width = ViewModel.IsReaderMode ? new GridLength(0) : new GridLength(12);
         }
     }
 

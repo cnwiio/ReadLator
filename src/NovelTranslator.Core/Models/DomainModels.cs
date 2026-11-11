@@ -89,20 +89,20 @@ public class Chapter : INotifyPropertyChanged
 
     public string StatusBadgeText => Status switch
     {
-        ChapterStatus.NotTranslated => "⚪ ยังไม่แปล",
-        ChapterStatus.Translating => "⏳ กำลังแปล",
-        ChapterStatus.Translated => "🟢 แปลแล้ว",
-        ChapterStatus.Edited => "✏️ แก้ไขแล้ว",
+        ChapterStatus.NotTranslated => "ยังไม่แปล",
+        ChapterStatus.Translating => "กำลังแปล",
+        ChapterStatus.Translated => "แปลแล้ว",
+        ChapterStatus.Edited => "แก้ไขแล้ว",
         _ => ""
     };
 
     public string StatusBadgeColor => Status switch
     {
-        ChapterStatus.NotTranslated => "#94A3B8",
-        ChapterStatus.Translating => "#E67E22",
-        ChapterStatus.Translated => "#16A085",
-        ChapterStatus.Edited => "#2980B9",
-        _ => "#94A3B8"
+        ChapterStatus.NotTranslated => "#737373",
+        ChapterStatus.Translating => "#F59E0B",
+        ChapterStatus.Translated => "#4CC38A",
+        ChapterStatus.Edited => "#3B82F6",
+        _ => "#737373"
     };
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -142,8 +142,8 @@ public class GlossaryEntry
 
     public string CategoryDisplay => Category switch
     {
-        GlossaryCategory.Person => "👤 ชื่อคน",
-        GlossaryCategory.Location => "📍 สถานที่",
-        _ => "📘 ศัพท์ทั่วไป"
+        GlossaryCategory.Person => "ชื่อคน",
+        GlossaryCategory.Location => "สถานที่",
+        _ => "ศัพท์ทั่วไป"
     };
 }
