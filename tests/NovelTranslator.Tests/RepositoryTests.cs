@@ -111,4 +111,36 @@ public class RepositoryTests : IDisposable
         Assert.False(resetChunks[0].IsCompleted);
         Assert.Equal("", resetChunks[0].TranslatedText);
     }
+
+    [Fact]
+    public async Task UpdateChapterOrdinals_BatchUpdatesCorrectly()
+    {
+        var story = new Story { Title = "Story For Ordinals" };
+        long storyId = await _repository.InsertStoryAsync(story);
+
+        var ch1 = new Chapter { StoryId = storyId, Ordinal = 1, Title = "Ch 1" };
+        var ch2 = new Chapter { StoryId = storyId, Ordinal = 2, Title = "Ch 2" };
+        var ch3 = new Chapter { StoryId = storyId, Ordinal = 3, Title = "Ch 3" };
+        ch1.Id = await _repository.InsertChapterAsync(ch1);
+        ch2.Id = await _repository.InsertChapterAsync(ch2);
+        ch3.Id = await _repository.InsertChapterAsync(ch3);
+
+        // Swap order: 3, 1, 2
+        var updates = new (long, int)[]
+        {
+            (ch3.Id, 1),
+            (ch1.Id, 2),
+            (ch2.Id, 3)
+        };
+        await _repository.UpdateChapterOrdinalsAsync(updates);
+
+        var fetched = await _repository.GetChaptersByStoryAsync(storyId);
+        Assert.Equal(3, fetched.Count);
+        Assert.Equal("Ch 3", fetched[0].Title);
+        Assert.Equal(1, fetched[0].Ordinal);
+        Assert.Equal("Ch 1", fetched[1].Title);
+        Assert.Equal(2, fetched[1].Ordinal);
+        Assert.Equal("Ch 2", fetched[2].Title);
+        Assert.Equal(3, fetched[2].Ordinal);
+    }
 }

@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v1.4"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v1.5"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -147,11 +147,23 @@
                     </Border>
 
                     <!-- หัวข้อรายการตอน -->
-                    <Grid Grid.Row="4" ColumnDefinitions="*, Auto, Auto, Auto" Margin="0,0,0,8">
+                    <Grid Grid.Row="4" ColumnDefinitions="*, Auto, Auto" Margin="0,0,0,8">
                         <TextBlock Text="รายการตอน" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
-                        <Button Grid.Column="1" Content="▲" Command="{Binding MoveChapterUpCommand}" ToolTip.Tip="เลื่อนตอนขึ้น" Width="28" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="11" Margin="2,0" />
-                        <Button Grid.Column="2" Content="▼" Command="{Binding MoveChapterDownCommand}" ToolTip.Tip="เลื่อนตอนลง" Width="28" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" FontSize="11" Margin="2,0" />
-                        <Button Grid.Column="3" Content="เพิ่มตอน" Command="{Binding CreateChapterCommand}" ToolTip.Tip="เพิ่มตอนใหม่" Height="28" Padding="8,0" FontSize="12" Margin="2,0,0,0" VerticalContentAlignment="Center" />
+                        <Button Grid.Column="1" Content="เพิ่มตอน" Command="{Binding CreateChapterCommand}" ToolTip.Tip="เพิ่มตอนใหม่" Height="28" Padding="8,0" FontSize="12" Margin="2,0,0,0" VerticalContentAlignment="Center" />
+                        <Button Grid.Column="2" Width="28" Height="28" Padding="0" Margin="4,0,0,0"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                ToolTip.Tip="ตัวเลือกการเพิ่มตอน">
+                            <Path Data="M12,6 C13.1,6 14,5.1 14,4 C14,2.9 13.1,2 12,2 C10.9,2 10,2.9 10,4 C10,5.1 10.9,6 12,6 Z M12,14 C13.1,14 14,13.1 14,12 C14,10.9 13.1,10 12,10 C10.9,10 10,10.9 10,12 C10,13.1 10.9,14 12,14 Z M12,22 C13.1,22 14,21.1 14,20 C14,18.9 13.1,18 12,18 C10.9,18 10,18.9 10,20 C10,21.1 10.9,22 12,22 Z"
+                                  Fill="{DynamicResource TextSecondaryBrush}" Width="4" Height="14" Stretch="Uniform" />
+                            <Button.Flyout>
+                                <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                    <MenuItem Header="แทรกตอนก่อนหน้าตอนที่เลือก" Command="{Binding InsertChapterBeforeCommand}" />
+                                    <MenuItem Header="แทรกตอนต่อจากตอนที่เลือก" Command="{Binding InsertChapterAfterCommand}" />
+                                    <Separator />
+                                    <MenuItem Header="เพิ่มหลายตอนพร้อมกัน..." Command="{Binding AddMultipleChaptersCommand}" />
+                                </MenuFlyout>
+                            </Button.Flyout>
+                        </Button>
                     </Grid>
 
                     <!-- ช่องค้นหาและกรองสถานะตอน -->
@@ -166,15 +178,30 @@
                         </ComboBox>
                     </Grid>
 
-                    <!-- รายการตอน (6px Status Dot + Multi-select) -->
+                    <!-- รายการตอน (Drag Handle ☰ + Multi-select) -->
                     <Border Grid.Row="6" Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                             BorderThickness="1" CornerRadius="8" Padding="4">
-                        <ListBox ItemsSource="{Binding FilteredChapters}" SelectedItem="{Binding SelectedChapter}" Background="Transparent">
+                        <ListBox x:Name="ChapterListBox"
+                                 ItemsSource="{Binding FilteredChapters}"
+                                 SelectedItem="{Binding SelectedChapter}"
+                                 SelectionMode="Multiple"
+                                 Background="Transparent">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnDefinitions="Auto, *, Auto" Height="28">
-                                        <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,8,0"
-                                                  ToolTip.Tip="เลือกหลายตอนพร้อมกัน" />
+                                        <!-- ไอคอน 3 ขีดแนวนอน (Drag Handle ☰) -->
+                                        <Border Background="Transparent" Width="20" Height="24" Margin="0,0,6,0"
+                                                Cursor="SizeNorthSouth" ToolTip.Tip="คลิกลากเพื่อย้ายลำดับตอน"
+                                                PointerPressed="OnDragHandlePointerPressed"
+                                                PointerMoved="OnDragHandlePointerMoved"
+                                                PointerReleased="OnDragHandlePointerReleased"
+                                                PointerCaptureLost="OnDragHandlePointerCaptureLost">
+                                            <Path Data="M3,5 L17,5 M3,10 L17,10 M3,15 L17,15"
+                                                  Stroke="{DynamicResource TextMutedBrush}"
+                                                  StrokeThickness="1.5" StrokeLineCap="Round"
+                                                  Width="14" Height="12" Stretch="Uniform"
+                                                  VerticalAlignment="Center" HorizontalAlignment="Center" />
+                                        </Border>
                                         <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                                         <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="8,0,0,0">
                                             <Ellipse Width="6" Height="6" Fill="{Binding StatusBadgeColor}" VerticalAlignment="Center" />

@@ -98,6 +98,20 @@ public class NovelRepository
         await conn.ExecuteAsync(sql, chapter);
     }
 
+    public async Task UpdateChapterOrdinalsAsync(IEnumerable<(long Id, int Ordinal)> ordinals)
+    {
+        using var conn = _database.CreateConnection();
+        using var transaction = conn.BeginTransaction();
+        foreach (var (id, ord) in ordinals)
+        {
+            await conn.ExecuteAsync(
+                "UPDATE Chapters SET Ordinal = @Ordinal WHERE Id = @Id",
+                new { Id = id, Ordinal = ord },
+                transaction);
+        }
+        transaction.Commit();
+    }
+
     public async Task DeleteChapterAsync(long id)
     {
         using var conn = _database.CreateConnection();

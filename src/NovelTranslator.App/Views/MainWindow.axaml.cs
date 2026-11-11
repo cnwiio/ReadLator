@@ -1,12 +1,15 @@
 using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using NovelTranslator.App.ViewModels;
@@ -20,6 +23,15 @@ public partial class MainWindow : Window
 {
     private MainViewModel? ViewModel => DataContext as MainViewModel;
     private bool _isSyncingScroll;
+
+    // สถานะสำหรับการ Drag & Drop จัดลำดับตอน
+    private Chapter? _draggedChapter;
+    private List<Chapter> _movingChapters = new();
+    private Point _dragStartPoint;
+    private bool _isDragging;
+    private ListBoxItem? _currentIndicatorItem;
+    private bool _dropAfter;
+    private readonly IBrush _dragIndicatorBrush = new SolidColorBrush(Color.Parse("#2563EB"));
 
     public MainWindow()
     {
@@ -228,6 +240,11 @@ public partial class MainWindow : Window
 
             dialog.ShowDialog(this);
         };
+
+        // ซิงโครไนซ์การเลือกหลายตอนกับ ViewModel
+        ChapterListBox.SelectionChanged += OnChapterListBoxSelectionChanged;
+        ViewModel.RequestSelectAllChapters = () => ChapterListBox.SelectAll();
+        ViewModel.RequestClearChapterSelection = () => ChapterListBox.UnselectAll();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -329,5 +346,146 @@ public partial class MainWindow : Window
         end = end < 0 ? text.Length : end;
 
         return text.Substring(start, end - start).Trim();
+    }
+
+    private void OnChapterListBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (ViewModel == null) return;
+        var selectedSet = ChapterListBox.SelectedItems?.OfType<Chapter>().ToHashSet() ?? new HashSet<Chapter>();
+        foreach (var c in ViewModel.Chapters)
+        {
+            c.IsSelected = selectedSet.Contains(c);
+        }
+    }
+
+    private void OnDragHandlePointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(this);
+        if (!point.Properties.IsLeftButtonPressed) return;
+
+        if (sender is Control handle && handle.DataContext is Chapter chapter)
+        {
+            _draggedChapter = chapter;
+            _dragStartPoint = point.Position;
+            _isDragging = false;
+
+            var selectedList = ChapterListBox.SelectedItems?.OfType<Chapter>().ToList() ?? new List<Chapter>();
+            if (selectedList.Contains(chapter))
+            {
+                _movingChapters = selectedList;
+            }
+            else
+            {
+                _movingChapters = new List<Chapter> { chapter };
+            }
+
+            e.Pointer.Capture(handle);
+            e.Handled = true;
+        }
+    }
+
+    private void OnDragHandlePointerMoved(object? sender, PointerEventArgs e)
+    {
+        if (_draggedChapter == null) return;
+
+        var currentPoint = e.GetCurrentPoint(this).Position;
+        if (!_isDragging)
+        {
+            if (Math.Abs(currentPoint.Y - _dragStartPoint.Y) > 4)
+            {
+                _isDragging = true;
+            }
+            else
+            {
+                return;
+            }
+        }
+
+        var posInList = e.GetPosition(ChapterListBox);
+        var hit = ChapterListBox.InputHitTest(posInList) as Visual;
+        var targetItem = FindAncestorListBoxItem(hit);
+
+        ClearDragIndicator();
+
+        if (targetItem != null && targetItem.DataContext is Chapter)
+        {
+            var itemPt = e.GetPosition(targetItem);
+            _dropAfter = itemPt.Y > (targetItem.Bounds.Height / 2);
+            _currentIndicatorItem = targetItem;
+
+            targetItem.BorderBrush = _dragIndicatorBrush;
+            targetItem.BorderThickness = _dropAfter ? new Thickness(0, 0, 0, 2) : new Thickness(0, 2, 0, 0);
+        }
+        e.Handled = true;
+    }
+
+    private async void OnDragHandlePointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is Control handle)
+        {
+            e.Pointer.Capture(null);
+        }
+
+        if (_isDragging && _currentIndicatorItem?.DataContext is Chapter targetChapter && ViewModel != null)
+        {
+            var movingList = new List<Chapter>(_movingChapters);
+            bool dropAfter = _dropAfter;
+
+            ClearDragIndicator();
+            ResetDragState();
+
+            await ViewModel.ReorderChaptersAsync(movingList, targetChapter, dropAfter);
+
+            ChapterListBox.SelectedItems?.Clear();
+            foreach (var c in movingList)
+            {
+                ChapterListBox.SelectedItems?.Add(c);
+            }
+            if (movingList.Count > 0)
+            {
+                ChapterListBox.SelectedItem = movingList[0];
+            }
+        }
+        else
+        {
+            ClearDragIndicator();
+            ResetDragState();
+        }
+
+        e.Handled = true;
+    }
+
+    private void OnDragHandlePointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        ClearDragIndicator();
+        ResetDragState();
+    }
+
+    private void ClearDragIndicator()
+    {
+        if (_currentIndicatorItem != null)
+        {
+            _currentIndicatorItem.BorderThickness = new Thickness(0);
+            _currentIndicatorItem.BorderBrush = null;
+            _currentIndicatorItem = null;
+        }
+    }
+
+    private void ResetDragState()
+    {
+        _isDragging = false;
+        _draggedChapter = null;
+        _movingChapters.Clear();
+    }
+
+    private ListBoxItem? FindAncestorListBoxItem(Visual? visual)
+    {
+        var current = visual;
+        while (current != null && current != ChapterListBox)
+        {
+            if (current is ListBoxItem lbi) return lbi;
+            current = current.GetVisualParent();
+        }
+        return null;
     }
 }

@@ -191,6 +191,8 @@ public partial class MainViewModel : ObservableObject
     public Func<string, Task<bool>>? RequestConfirmDialog { get; set; }
     public Func<string, Task>? RequestCopyToClipboard { get; set; }
     public Action<string>? RequestShowErrorDialog { get; set; }
+    public Action? RequestSelectAllChapters { get; set; }
+    public Action? RequestClearChapterSelection { get; set; }
 
     public MainViewModel()
     {
@@ -825,13 +827,135 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public async Task InsertChapterBeforeAsync()
+    {
+        if (SelectedStory == null) return;
+        int targetIndex = SelectedChapter != null ? Chapters.IndexOf(SelectedChapter) : 0;
+        if (targetIndex < 0) targetIndex = 0;
+
+        int newOrdinal = targetIndex + 1;
+        var chapter = new Chapter
+        {
+            StoryId = SelectedStory.Id,
+            Ordinal = newOrdinal,
+            Title = $"ตอนที่ {newOrdinal}",
+            OriginalText = string.Empty,
+            TranslatedText = string.Empty,
+            Status = ChapterStatus.NotTranslated
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        Chapters.Insert(targetIndex, chapter);
+        await ResequenceOrdinalsAsync();
+        RefreshFilteredChapters();
+        SelectedChapter = chapter;
+
+        OriginalText = string.Empty;
+        TranslatedText = string.Empty;
+        ProgressText = string.Empty;
+        TranslationProgressPercentage = 0;
+        HasError = false;
+        LastErrorDetails = string.Empty;
+        UpdateChapterStatusDisplay(ChapterStatus.NotTranslated);
+        SaveStatusText = $"แทรกตอนใหม่ก่อนหน้าแล้ว";
+    }
+
+    [RelayCommand]
+    public async Task InsertChapterAfterAsync()
+    {
+        if (SelectedStory == null) return;
+        int targetIndex = SelectedChapter != null ? Chapters.IndexOf(SelectedChapter) + 1 : Chapters.Count;
+        if (targetIndex > Chapters.Count || targetIndex < 0) targetIndex = Chapters.Count;
+
+        int newOrdinal = targetIndex + 1;
+        var chapter = new Chapter
+        {
+            StoryId = SelectedStory.Id,
+            Ordinal = newOrdinal,
+            Title = $"ตอนที่ {newOrdinal}",
+            OriginalText = string.Empty,
+            TranslatedText = string.Empty,
+            Status = ChapterStatus.NotTranslated
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        Chapters.Insert(targetIndex, chapter);
+        await ResequenceOrdinalsAsync();
+        RefreshFilteredChapters();
+        SelectedChapter = chapter;
+
+        OriginalText = string.Empty;
+        TranslatedText = string.Empty;
+        ProgressText = string.Empty;
+        TranslationProgressPercentage = 0;
+        HasError = false;
+        LastErrorDetails = string.Empty;
+        UpdateChapterStatusDisplay(ChapterStatus.NotTranslated);
+        SaveStatusText = $"แทรกตอนใหม่ต่อจากนี้แล้ว";
+    }
+
+    [RelayCommand]
+    public async Task AddMultipleChaptersAsync()
+    {
+        if (SelectedStory == null) return;
+        if (RequestPromptDialog == null) return;
+
+        string? input = await RequestPromptDialog("เพิ่มหลายตอนพร้อมกัน", "กรุณาระบุจำนวนตอนที่ต้องการเพิ่ม (1-100):");
+        if (string.IsNullOrWhiteSpace(input) || !int.TryParse(input.Trim(), out int count) || count <= 0)
+        {
+            return;
+        }
+        if (count > 200) count = 200;
+
+        int startOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
+        Chapter? firstNew = null;
+
+        for (int i = 0; i < count; i++)
+        {
+            int ord = startOrdinal + i;
+            var chapter = new Chapter
+            {
+                StoryId = SelectedStory.Id,
+                Ordinal = ord,
+                Title = $"ตอนที่ {ord}",
+                OriginalText = string.Empty,
+                TranslatedText = string.Empty,
+                Status = ChapterStatus.NotTranslated
+            };
+            chapter.Id = await _repository.InsertChapterAsync(chapter);
+            Chapters.Add(chapter);
+            firstNew ??= chapter;
+        }
+
+        await ResequenceOrdinalsAsync();
+        RefreshFilteredChapters();
+        if (firstNew != null)
+        {
+            SelectedChapter = firstNew;
+        }
+        SaveStatusText = $"เพิ่ม {count} ตอนใหม่แล้ว";
+    }
+
+    [RelayCommand]
     public void ToggleSelectAllChapters()
     {
         if (FilteredChapters.Count == 0) return;
         bool allChecked = FilteredChapters.All(c => c.IsSelected);
-        foreach (var c in FilteredChapters)
+        if (allChecked)
         {
-            c.IsSelected = !allChecked;
+            RequestClearChapterSelection?.Invoke();
+            foreach (var c in FilteredChapters)
+            {
+                c.IsSelected = false;
+            }
+        }
+        else
+        {
+            RequestSelectAllChapters?.Invoke();
+            foreach (var c in FilteredChapters)
+            {
+                c.IsSelected = true;
+            }
         }
     }
 
@@ -841,9 +965,9 @@ public partial class MainViewModel : ObservableObject
         if (RequestConfirmDialog == null) return;
 
         var checkedChapters = Chapters.Where(c => c.IsSelected).ToList();
-        if (checkedChapters.Count > 0)
+        if (checkedChapters.Count > 1)
         {
-            bool ok = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอนที่ติ๊กเลือกทั้งหมด {checkedChapters.Count} ตอน?");
+            bool ok = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอนที่เลือกทั้งหมด {checkedChapters.Count} ตอน?");
             if (!ok) return;
 
             foreach (var ch in checkedChapters)
@@ -851,19 +975,83 @@ public partial class MainViewModel : ObservableObject
                 await _repository.DeleteChapterAsync(ch.Id);
                 Chapters.Remove(ch);
             }
+            await ResequenceOrdinalsAsync();
             RefreshFilteredChapters();
             SelectedChapter = FilteredChapters.FirstOrDefault() ?? Chapters.FirstOrDefault();
             return;
         }
 
-        if (SelectedChapter == null) return;
-        bool singleOk = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอน \"{SelectedChapter.Title}\"?");
+        var target = checkedChapters.FirstOrDefault() ?? SelectedChapter;
+        if (target == null) return;
+
+        bool singleOk = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอน \"{target.Title}\"?");
         if (!singleOk) return;
 
-        await _repository.DeleteChapterAsync(SelectedChapter.Id);
-        Chapters.Remove(SelectedChapter);
+        await _repository.DeleteChapterAsync(target.Id);
+        Chapters.Remove(target);
+        await ResequenceOrdinalsAsync();
         RefreshFilteredChapters();
         SelectedChapter = FilteredChapters.FirstOrDefault() ?? Chapters.FirstOrDefault();
+    }
+
+    public async Task ReorderChaptersAsync(IList<Chapter> movingChapters, Chapter targetChapter, bool dropAfter)
+    {
+        if (movingChapters == null || movingChapters.Count == 0 || targetChapter == null) return;
+        if (movingChapters.Contains(targetChapter) && movingChapters.Count == 1) return;
+
+        // กรองเอาเฉพาะตอนที่มีอยู่ใน Chapters และเรียงลำดับตาม Chapters เดิม
+        var toMove = Chapters.Where(c => movingChapters.Contains(c)).ToList();
+        if (toMove.Count == 0) return;
+
+        // นำ moving chapters ออกจากรายการชั่วคราว
+        foreach (var c in toMove)
+        {
+            Chapters.Remove(c);
+        }
+
+        int targetIdx = Chapters.IndexOf(targetChapter);
+        if (targetIdx < 0)
+        {
+            targetIdx = Chapters.Count;
+        }
+        else if (dropAfter)
+        {
+            targetIdx++;
+        }
+
+        if (targetIdx > Chapters.Count) targetIdx = Chapters.Count;
+
+        for (int i = 0; i < toMove.Count; i++)
+        {
+            Chapters.Insert(targetIdx + i, toMove[i]);
+        }
+
+        await ResequenceOrdinalsAsync();
+        RefreshFilteredChapters();
+
+        // คงสถานะเลือกให้กับตอนที่เพิ่งถูกย้าย
+        foreach (var c in toMove)
+        {
+            c.IsSelected = true;
+        }
+    }
+
+    public async Task ResequenceOrdinalsAsync()
+    {
+        var updates = new List<(long Id, int Ordinal)>();
+        for (int i = 0; i < Chapters.Count; i++)
+        {
+            int newOrd = i + 1;
+            if (Chapters[i].Ordinal != newOrd)
+            {
+                Chapters[i].Ordinal = newOrd;
+                updates.Add((Chapters[i].Id, newOrd));
+            }
+        }
+        if (updates.Count > 0)
+        {
+            await _repository.UpdateChapterOrdinalsAsync(updates);
+        }
     }
 
     [RelayCommand]
