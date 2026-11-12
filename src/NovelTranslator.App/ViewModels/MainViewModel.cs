@@ -93,7 +93,8 @@ public partial class MainViewModel : ObservableObject
             return $"ตอนที่ {idx + 1} จาก {Chapters.Count}";
         }
     }
-    public double ReadingLineHeight => Math.Round(EditorFontSize * 1.65);
+    public double ReadingLineHeight => Math.Round(EditorFontSize * 1.75);
+    public bool HasTranslatedContent => !string.IsNullOrWhiteSpace(TranslatedText);
 
     partial void OnIsFocusModeChanged(bool value)
     {
@@ -529,6 +530,7 @@ public partial class MainViewModel : ObservableObject
     partial void OnSelectedChapterChanged(Chapter? value)
     {
         OnPropertyChanged(nameof(ReadingChapterPositionText));
+        OnPropertyChanged(nameof(HasTranslatedContent));
         _isLoadingChapter = true;
         try
         {
@@ -593,6 +595,7 @@ public partial class MainViewModel : ObservableObject
     partial void OnTranslatedTextChanged(string value)
     {
         TranslatedWordCount = Chunker.EstimateWordCount(value);
+        OnPropertyChanged(nameof(HasTranslatedContent));
         if (!_isLoadingChapter && SelectedChapter != null && SelectedChapter.TranslatedText != value && !IsTranslating)
         {
             SelectedChapter.TranslatedText = value;

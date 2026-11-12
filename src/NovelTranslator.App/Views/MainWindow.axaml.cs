@@ -577,7 +577,17 @@ public partial class MainWindow : Window
             }
         };
 
-        // ตรวจจับเมาส์ระดับ Window เพื่อป้องกันการหลุด capture ขณะลากวาง
+        // ตรวจจับการเลื่อนหน้าในโหมดอ่านหนังสือเพื่อควบคุม Auto-hide แถบ Minimal ด้านบน
+        ReadingScrollViewer.ScrollChanged += (_, _) =>
+        {
+            if (ViewModel?.IsFocusMode != true || ReadingTopBar == null) return;
+            if (ReadingScrollViewer.Offset.Y <= 30)
+            {
+                ReadingTopBar.Classes.Set("is-active", true);
+            }
+        };
+
+        // ตรวจจับเมาส์ระดับ Window เพื่อป้องกันการหลุด capture ขณะลากวาง และควบคุมการแสดงแถบด้านบน
         AddHandler(PointerMovedEvent, OnWindowPointerMoved, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
         AddHandler(PointerReleasedEvent, OnWindowPointerReleased, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
     }
@@ -605,6 +615,7 @@ public partial class MainWindow : Window
             if (ViewModel.IsFocusMode)
             {
                 ReadingScrollViewer?.ScrollToHome();
+                ReadingTopBar?.Classes.Set("is-active", true);
             }
         }
         else if (e.PropertyName == nameof(MainViewModel.SelectedChapter))
@@ -612,6 +623,7 @@ public partial class MainWindow : Window
             if (ViewModel.IsFocusMode)
             {
                 ReadingScrollViewer?.ScrollToHome();
+                ReadingTopBar?.Classes.Set("is-active", true);
             }
         }
     }
@@ -973,6 +985,20 @@ public partial class MainWindow : Window
 
     private void OnWindowPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (ViewModel?.IsFocusMode == true && ReadingTopBar != null)
+        {
+            var pt = e.GetPosition(this);
+            bool nearTop = pt.Y <= 60;
+            if (nearTop || (ReadingScrollViewer?.Offset.Y ?? 0) <= 30)
+            {
+                ReadingTopBar.Classes.Set("is-active", true);
+            }
+            else
+            {
+                ReadingTopBar.Classes.Set("is-active", false);
+            }
+        }
+
         if (_draggedChapter == null) return;
 
         var point = e.GetCurrentPoint(this);

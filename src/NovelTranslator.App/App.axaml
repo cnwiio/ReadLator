@@ -91,6 +91,35 @@
             <Setter Property="CornerRadius" Value="4" />
             <Setter Property="Padding" Value="4,1" />
         </Style>
+        <Style Selector="Border.reading-top-bar">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+            <Setter Property="RenderTransform" Value="translateY(-12px)" />
+            <Setter Property="Transitions">
+                <Transitions>
+                    <DoubleTransition Property="Opacity" Duration="0:0:0.25" />
+                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.25" />
+                </Transitions>
+            </Setter>
+        </Style>
+        <Style Selector="Border.reading-top-bar.is-active">
+            <Setter Property="Opacity" Value="1" />
+            <Setter Property="IsHitTestVisible" Value="True" />
+            <Setter Property="RenderTransform" Value="translateY(0px)" />
+        </Style>
+        <Style Selector="Button.reading-action">
+            <Setter Property="Background" Value="{DynamicResource CardBgBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderSubtleBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="16,8" />
+        </Style>
+        <Style Selector="Button.reading-action.primary">
+            <Setter Property="Background" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MainBgBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
         <Style Selector="ComboBox">
             <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />
             <Setter Property="CornerRadius" Value="6" />
