@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -806,29 +806,14 @@ public partial class MainWindow : Window
                     var endBottomPoint = presenter.TranslatePoint(new Point(endCharRect.Right, endCharRect.Bottom), tb)
                                          ?? new Point(endCharRect.Right, endCharRect.Bottom);
 
-                    const double popupHeight = 26;
-                    const double popupWidth = 114;
-
-                    // Center horizontally relative to the selection span
-                    double selectionCenterX = (startTopPoint.X + endBottomPoint.X) / 2.0;
-                    double targetX = Math.Clamp(selectionCenterX - (popupWidth / 2.0), 10, Math.Max(10, tb.Bounds.Width - popupWidth - 10));
-
-                    // Place directly underneath the highlighted text (just 4px below the character bottom)
-                    // If near the bottom edge of the TextBox, flip right above the selection
-                    double targetY;
-                    if (endBottomPoint.Y + popupHeight + 4 <= tb.Bounds.Height - 10)
-                    {
-                        targetY = endBottomPoint.Y + 4;
-                    }
-                    else
-                    {
-                        targetY = Math.Max(6, startTopPoint.Y - popupHeight - 4);
-                    }
-
-                    GlossaryPopup.Placement = Avalonia.Controls.PlacementMode.TopEdgeAlignedLeft;
+                    // Anchor popup top-left at the end of the selection (bottom of the last character)
+                    GlossaryPopup.Placement = Avalonia.Controls.PlacementMode.AnchorAndGravity;
+                    GlossaryPopup.PlacementAnchor = Avalonia.Controls.Primitives.PopupPositioning.PopupAnchor.TopLeft;
+                    GlossaryPopup.PlacementGravity = Avalonia.Controls.Primitives.PopupPositioning.PopupGravity.BottomRight;
                     GlossaryPopup.PlacementTarget = tb;
-                    GlossaryPopup.HorizontalOffset = targetX;
-                    GlossaryPopup.VerticalOffset = targetY;
+                    GlossaryPopup.PlacementRect = new Rect(endBottomPoint.X - endCharRect.Width, endBottomPoint.Y + 2, 0, 0);
+                    GlossaryPopup.HorizontalOffset = 0;
+                    GlossaryPopup.VerticalOffset = 0;
                 }
                 else
                 {
