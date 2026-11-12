@@ -143,4 +143,30 @@ public class RepositoryTests : IDisposable
         Assert.Equal("Ch 2", fetched[2].Title);
         Assert.Equal(3, fetched[2].Ordinal);
     }
+
+    [Fact]
+    public async Task GetPreviousTranslatedChapter_ReturnsLatestTranslatedChapterBeforeCurrent()
+    {
+        var story = new Story { Title = "Cross Chapter Test" };
+        long storyId = await _repository.InsertStoryAsync(story);
+
+        var ch1 = new Chapter { StoryId = storyId, Ordinal = 1, Title = "ตอนที่ 1", OriginalText = "P1", TranslatedText = "บทแปล 1" };
+        var ch2 = new Chapter { StoryId = storyId, Ordinal = 2, Title = "ตอนที่ 2", OriginalText = "P2", TranslatedText = "" }; // ยังไม่แปล
+        var ch3 = new Chapter { StoryId = storyId, Ordinal = 3, Title = "ตอนที่ 3", OriginalText = "P3", TranslatedText = "บทแปล 3" };
+        var ch4 = new Chapter { StoryId = storyId, Ordinal = 4, Title = "ตอนที่ 4", OriginalText = "P4", TranslatedText = "" }; // ตอนปัจจุบัน
+
+        ch1.Id = await _repository.InsertChapterAsync(ch1);
+        ch2.Id = await _repository.InsertChapterAsync(ch2);
+        ch3.Id = await _repository.InsertChapterAsync(ch3);
+        ch4.Id = await _repository.InsertChapterAsync(ch4);
+
+        var prev = await _repository.GetPreviousTranslatedChapterAsync(storyId, 4);
+        Assert.NotNull(prev);
+        Assert.Equal(ch3.Id, prev.Id);
+        Assert.Equal("ตอนที่ 3", prev.Title);
+
+        // ตอนที่ 1 ไม่มีตอนก่อนหน้า
+        var none = await _repository.GetPreviousTranslatedChapterAsync(storyId, 1);
+        Assert.Null(none);
+    }
 }

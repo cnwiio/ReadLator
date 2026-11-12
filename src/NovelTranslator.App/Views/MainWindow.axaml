@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v3.3"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v3.4"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -125,9 +125,22 @@
                         <StackPanel Spacing="8">
                             <TextBlock Text="ชื่อเรื่อง" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
                             <TextBox Text="{Binding StoryTitleEdit}" PlaceholderText="ชื่อเรื่องนิยาย" />
-                            <TextBlock Text="คำแนะนำสำนวน (Style Notes)" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <Grid ColumnDefinitions="*, Auto">
+                                <TextBlock Text="คำแนะนำสำนวน (Style Notes)" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            </Grid>
+                            <!-- ปุ่มเลือก Preset สไตล์สำเร็จรูป -->
+                            <StackPanel Orientation="Horizontal" Spacing="4">
+                                <Button Content="ปัจจุบัน" Command="{Binding ApplyStylePresetCommand}" CommandParameter="Modern"
+                                        Padding="6,2" FontSize="11" Height="24" ToolTip.Tip="ใช้ ผม/ฉัน บทสนทนาธรรมชาติ" />
+                                <Button Content="จีนโบราณ" Command="{Binding ApplyStylePresetCommand}" CommandParameter="Wuxia"
+                                        Padding="6,2" FontSize="11" Height="24" ToolTip.Tip="ใช้ ข้า/เจ้า/ท่าน สำนวนยุทธภพ" />
+                                <Button Content="แฟนตาซี" Command="{Binding ApplyStylePresetCommand}" CommandParameter="Fantasy"
+                                        Padding="6,2" FontSize="11" Height="24" ToolTip.Tip="สากล สรรพนามตามฐานะตัวละคร" />
+                                <Button Content="ดาร์ก/ขรึม" Command="{Binding ApplyStylePresetCommand}" CommandParameter="Dark"
+                                        Padding="6,2" FontSize="11" Height="24" ToolTip.Tip="น้ำเสียงขรึม กระชับ ไม่ฟุ่มเฟือย" />
+                            </StackPanel>
                             <TextBox Text="{Binding StoryStyleNotesEdit}" AcceptsReturn="True" TextWrapping="Wrap" Height="64"
-                                     PlaceholderText="เช่น นิยายจีนกำลังภายใน ใช้ ข้า/เจ้า" />
+                                     PlaceholderText="เช่น นิยายจีนกำลังภายใน ใช้ ข้า/เจ้า หรือกดปุ่มด้านบน" />
                             <Grid ColumnDefinitions="*, Auto" Margin="0,4,0,0">
                                 <Button Content="บันทึก" Classes="primary" Command="{Binding SaveStoryDetailsCommand}" Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
                                 <Button Grid.Column="1" Content="ลบเรื่อง" Classes="danger" Command="{Binding DeleteStoryCommand}" Height="32"

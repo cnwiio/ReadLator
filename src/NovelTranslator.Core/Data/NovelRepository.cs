@@ -75,6 +75,20 @@ public class NovelRepository
         return await conn.QuerySingleOrDefaultAsync<Chapter>("SELECT * FROM Chapters WHERE Id = @Id", new { Id = id });
     }
 
+    public async Task<Chapter?> GetPreviousTranslatedChapterAsync(long storyId, int currentOrdinal)
+    {
+        using var conn = _database.CreateConnection();
+        const string sql = @"
+            SELECT * FROM Chapters
+            WHERE StoryId = @StoryId 
+              AND Ordinal < @CurrentOrdinal 
+              AND TranslatedText IS NOT NULL 
+              AND TRIM(TranslatedText) != ''
+            ORDER BY Ordinal DESC
+            LIMIT 1";
+        return await conn.QueryFirstOrDefaultAsync<Chapter>(sql, new { StoryId = storyId, CurrentOrdinal = currentOrdinal });
+    }
+
     public async Task<long> InsertChapterAsync(Chapter chapter)
     {
         using var conn = _database.CreateConnection();

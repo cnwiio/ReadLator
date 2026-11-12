@@ -371,6 +371,24 @@ public partial class MainViewModel : ObservableObject
     public void ToggleStoryDetails() => IsStoryDetailsExpanded = !IsStoryDetailsExpanded;
 
     [RelayCommand]
+    public void ApplyStylePreset(string presetKey)
+    {
+        string preset = presetKey switch
+        {
+            "Modern" => "นิยายยุคปัจจุบัน/ไลท์โนเวล: บุรุษที่ 1 ใช้ ผม/ฉัน บทสนทนาเป็นธรรมชาติ ลื่นไหล ไม่ใช้คำราชาศัพท์หรือสำนวนโบราณ",
+            "Wuxia" => "นิยายจีนโบราณ/กำลังภายใน: ใช้สรรพนาม ข้า/เจ้า/ท่าน คำบรรยายสละสลวยทรงพลัง คงกลิ่นอายยุทธภพ",
+            "Fantasy" => "นิยายแฟนตาซี/ผจญภัย: สำนวนนิยายแปลสากล กระชับ เห็นภาพฉากแอ็กชันและเวทมนตร์ชัดเจน สรรพนามตามฐานะตัวละคร",
+            "Dark" => "นิยายดาร์ก/สืบสวน/จริงจัง: น้ำเสียงขรึม กระชับ ลุ่มลึก ไม่ใช้คำฟุ่มเฟือย สื่ออารมณ์กดดันได้ชัดเจน",
+            _ => string.Empty
+        };
+
+        if (!string.IsNullOrEmpty(preset))
+        {
+            StoryStyleNotesEdit = preset;
+        }
+    }
+
+    [RelayCommand]
     public async Task SaveStoryDetailsAsync()
     {
         if (SelectedStory == null || string.IsNullOrWhiteSpace(StoryTitleEdit)) return;

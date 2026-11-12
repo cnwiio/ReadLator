@@ -85,6 +85,14 @@ public class TranslationPipeline
         string? previousSourceContext = null;
         string? previousTranslationContext = null;
 
+        // เชื่อมโยงบริบทข้ามตอน (Cross-Chapter Continuity): ถ้าชิ้นแรกยังไม่มีบริบท ดึงตอนก่อนหน้าที่แปลแล้วมาต่อทันที
+        var prevChapter = await _repository.GetPreviousTranslatedChapterAsync(story.Id, chapter.Ordinal);
+        if (prevChapter != null && !string.IsNullOrWhiteSpace(prevChapter.OriginalText) && !string.IsNullOrWhiteSpace(prevChapter.TranslatedText))
+        {
+            previousSourceContext = GetLastParagraphs(prevChapter.OriginalText, _settings.ContextParagraphCount);
+            previousTranslationContext = GetLastParagraphs(prevChapter.TranslatedText, _settings.ContextParagraphCount);
+        }
+
         for (int i = 0; i < chunks.Count; i++)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -96,6 +104,13 @@ public class TranslationPipeline
                 previousSourceContext = GetLastParagraphs(chunk.SourceText, _settings.ContextParagraphCount);
                 previousTranslationContext = GetLastParagraphs(chunk.TranslatedText, _settings.ContextParagraphCount);
                 continue;
+            }
+
+            // Look-Ahead Context: ดึงย่อหน้าแรกของชิ้นถัดไปเพื่อช่วยคาดเดาผู้พูด/ทิศทางฉาก
+            string? nextSourceContext = null;
+            if (i + 1 < chunks.Count)
+            {
+                nextSourceContext = GetFirstParagraphs(chunks[i + 1].SourceText, Math.Min(2, _settings.ContextParagraphCount));
             }
 
             // ชิ้นนี้ต้องแปล
@@ -115,7 +130,8 @@ public class TranslationPipeline
                     previousSourceContext,
                     previousTranslationContext,
                     retryHint,
-                    _settings.CustomSystemPrompt);
+                    _settings.CustomSystemPrompt,
+                    nextSourceContext);
 
                 var chunkSb = new StringBuilder();
 
@@ -231,6 +247,14 @@ public class TranslationPipeline
         if (string.IsNullOrWhiteSpace(text) || count <= 0) return string.Empty;
         var pList = text.Replace("\r\n", "\n").Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
         var take = pList.TakeLast(count);
+        return string.Join("\n\n", take);
+    }
+
+    private static string GetFirstParagraphs(string text, int count)
+    {
+        if (string.IsNullOrWhiteSpace(text) || count <= 0) return string.Empty;
+        var pList = text.Replace("\r\n", "\n").Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries);
+        var take = pList.Take(count);
         return string.Join("\n\n", take);
     }
 
