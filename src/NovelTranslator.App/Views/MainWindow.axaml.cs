@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Input;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -12,6 +13,7 @@ using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NovelTranslator.App.ViewModels;
 using NovelTranslator.Core.Data;
@@ -48,6 +50,7 @@ public partial class MainWindow : Window
 
         ViewModel.PropertyChanged += OnViewModelPropertyChanged;
         ApplyEditorFont(ViewModel.EditorFontFamily);
+        ApplyKeyBindings();
         OriginalTextBox.AddHandler(ScrollViewer.ScrollChangedEvent, OnOriginalScrollChanged);
         TranslatedTextBox.AddHandler(ScrollViewer.ScrollChangedEvent, OnTranslatedScrollChanged);
 
@@ -61,11 +64,13 @@ public partial class MainWindow : Window
         // เชื่อมต่อการเปิดหน้าต่างย่อย
         ViewModel.RequestOpenSettings = async () =>
         {
-            var settings = AppSettings.Load();
+            var settings = ViewModel.Settings;
             var vm = new SettingsViewModel(settings);
             var win = new SettingsWindow(vm);
             await win.ShowDialog(this);
             ViewModel.ReloadSettings();
+            ApplyEditorFont(ViewModel.EditorFontFamily);
+            ApplyKeyBindings();
         };
 
         ViewModel.RequestOpenGlossary = async (story) =>
@@ -344,6 +349,107 @@ public partial class MainWindow : Window
         catch
         {
             // fallback
+        }
+    }
+
+    public void ApplyKeyBindings()
+    {
+        if (ViewModel == null) return;
+        KeyBindings.Clear();
+
+        void AddBinding(string? gestureStr, ICommand command)
+        {
+            if (string.IsNullOrWhiteSpace(gestureStr)) return;
+            try
+            {
+                var gesture = KeyGesture.Parse(gestureStr);
+                if (gesture != null)
+                {
+                    KeyBindings.Add(new KeyBinding { Gesture = gesture, Command = command });
+                }
+            }
+            catch
+            {
+                // Ignore invalid gesture syntax
+            }
+        }
+
+        var s = ViewModel.Settings.Shortkeys;
+        AddBinding(s.SaveKey, ViewModel.SaveCurrentChapterCommand);
+        AddBinding(s.TranslateKey, ViewModel.StartTranslationCommand);
+        AddBinding(s.TranslateAllKey, ViewModel.TranslateAllChaptersCommand);
+        AddBinding(s.SearchReplaceKey, ViewModel.OpenSearchReplaceCommand);
+        AddBinding(s.FullScreenKey, ViewModel.ToggleFullScreenCommand);
+        AddBinding(s.FocusModeKey, ViewModel.ToggleFocusModeCommand);
+        AddBinding(s.PrevChapterKey, ViewModel.PreviousChapterCommand);
+        AddBinding(s.NextChapterKey, ViewModel.NextChapterCommand);
+        AddBinding(s.ToggleSidebarKey, ViewModel.ToggleSidebarCommand);
+    }
+
+    protected override void OnKeyDown(KeyEventArgs e)
+    {
+        base.OnKeyDown(e);
+        if (e.Key == Key.F2 && ViewModel?.SelectedChapter != null && !ViewModel.SelectedChapter.IsEditingTitle)
+        {
+            ViewModel.StartRenameChapter(ViewModel.SelectedChapter);
+            e.Handled = true;
+        }
+    }
+
+    private void OnChapterTitleDoubleTapped(object? sender, TappedEventArgs e)
+    {
+        if (sender is TextBlock tb && tb.DataContext is Chapter chapter && ViewModel != null)
+        {
+            ViewModel.StartRenameChapter(chapter);
+            e.Handled = true;
+        }
+    }
+
+    private void OnRenameChapterMenuItemClicked(object? sender, RoutedEventArgs e)
+    {
+        if (sender is MenuItem mi && mi.DataContext is Chapter chapter && ViewModel != null)
+        {
+            ViewModel.StartRenameChapter(chapter);
+        }
+    }
+
+    private void OnChapterRenameTextBoxAttached(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                tb.Focus();
+                tb.SelectAll();
+            }, DispatcherPriority.Input);
+        }
+    }
+
+    private async void OnChapterRenameTextBoxKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (sender is TextBox tb && tb.DataContext is Chapter chapter && ViewModel != null)
+        {
+            if (e.Key == Key.Enter)
+            {
+                e.Handled = true;
+                await ViewModel.CommitRenameChapterAsync(chapter);
+            }
+            else if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                ViewModel.CancelRenameChapter(chapter);
+            }
+        }
+    }
+
+    private async void OnChapterRenameTextBoxLostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (sender is TextBox tb && tb.DataContext is Chapter chapter && ViewModel != null)
+        {
+            if (chapter.IsEditingTitle)
+            {
+                await ViewModel.CommitRenameChapterAsync(chapter);
+            }
         }
     }
 

@@ -21,6 +21,7 @@ public partial class MainViewModel : ObservableObject
     private readonly NovelDatabase _database;
     private readonly NovelRepository _repository;
     private readonly AppSettings _settings;
+    public AppSettings Settings => _settings;
     private CancellationTokenSource? _translationCts;
     private readonly DispatcherTimer _autoSaveTimer;
 
@@ -94,6 +95,15 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private int _editorFontSize = 20;
+
+    partial void OnEditorFontSizeChanged(int value)
+    {
+        if (value > 0 && _settings != null)
+        {
+            _settings.EditorFontSize = value;
+            _settings.Save();
+        }
+    }
 
     public ObservableCollection<string> AvailableEditorFonts { get; } = new()
     {
@@ -308,16 +318,12 @@ public partial class MainViewModel : ObservableObject
     public void IncreaseFontSize()
     {
         EditorFontSize = Math.Clamp(EditorFontSize + 2, 12, 32);
-        _settings.EditorFontSize = EditorFontSize;
-        _settings.Save();
     }
 
     [RelayCommand]
     public void DecreaseFontSize()
     {
         EditorFontSize = Math.Clamp(EditorFontSize - 2, 12, 32);
-        _settings.EditorFontSize = EditorFontSize;
-        _settings.Save();
     }
 
     [RelayCommand]
@@ -919,6 +925,50 @@ public partial class MainViewModel : ObservableObject
         LastErrorDetails = string.Empty;
         UpdateChapterStatusDisplay(ChapterStatus.NotTranslated);
         SaveStatusText = $"แทรกตอนใหม่ต่อจากนี้แล้ว";
+    }
+
+    [RelayCommand]
+    public void StartRenameChapter(Chapter? chapter)
+    {
+        chapter ??= SelectedChapter;
+        if (chapter == null) return;
+
+        foreach (var c in Chapters)
+        {
+            if (c != chapter && c.IsEditingTitle)
+            {
+                c.IsEditingTitle = false;
+            }
+        }
+
+        chapter.EditingTitle = chapter.Title;
+        chapter.IsEditingTitle = true;
+    }
+
+    [RelayCommand]
+    public async Task CommitRenameChapterAsync(Chapter? chapter)
+    {
+        chapter ??= SelectedChapter;
+        if (chapter == null || !chapter.IsEditingTitle) return;
+
+        string newTitle = chapter.EditingTitle?.Trim() ?? string.Empty;
+        if (!string.IsNullOrWhiteSpace(newTitle) && newTitle != chapter.Title)
+        {
+            chapter.Title = newTitle;
+            await _repository.UpdateChapterAsync(chapter);
+            RefreshFilteredChapters();
+        }
+
+        chapter.IsEditingTitle = false;
+    }
+
+    [RelayCommand]
+    public void CancelRenameChapter(Chapter? chapter)
+    {
+        chapter ??= SelectedChapter;
+        if (chapter == null) return;
+        chapter.EditingTitle = chapter.Title;
+        chapter.IsEditingTitle = false;
     }
 
     [RelayCommand]

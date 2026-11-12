@@ -130,6 +130,7 @@ public partial class SettingsViewModel : ObservableObject
         {
             RecordingAction = null;
         }
+        SaveSettings();
     }
 
     [RelayCommand]
@@ -146,6 +147,7 @@ public partial class SettingsViewModel : ObservableObject
         NextChapterKey = defaults.NextChapterKey;
         ToggleSidebarKey = defaults.ToggleSidebarKey;
         RecordingAction = null;
+        SaveSettings();
     }
 
     public void SetShortcut(string action, string key)
@@ -163,6 +165,7 @@ public partial class SettingsViewModel : ObservableObject
             case nameof(ToggleSidebarKey): ToggleSidebarKey = key; break;
         }
         RecordingAction = null;
+        SaveSettings();
     }
 
     // หมวด System & Appearance

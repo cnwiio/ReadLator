@@ -20,6 +20,7 @@ public class TranslationProgressInfo
     public string FullCurrentChunkText { get; set; } = string.Empty;
     public string CombinedTranslatedTextSoFar { get; set; } = string.Empty;
     public string? StatusMessage { get; set; }
+    public int StreamedWordCount { get; set; }
 }
 
 public class TranslationPipeline
@@ -125,9 +126,22 @@ public class TranslationPipeline
                     StatusMessage = $"กำลังแปลส่วนที่ {i + 1}/{chunks.Count} (รอบที่ {attempt})..."
                 });
 
+                int tokenCount = 0;
                 await foreach (var delta in _llmClient.StreamChatAsync(messages, _settings.Temperature, cancellationToken))
                 {
                     chunkSb.Append(delta);
+                    tokenCount++;
+                    if (tokenCount % 6 == 0 || delta.Contains('\n'))
+                    {
+                        int wordCount = chunkSb.ToString().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+                        progress.Report(new TranslationProgressInfo
+                        {
+                            CurrentChunkIndex = i + 1,
+                            TotalChunks = chunks.Count,
+                            StreamedWordCount = wordCount,
+                            StatusMessage = $"กำลังแปลส่วนที่ {i + 1}/{chunks.Count} (สตรีมสด {wordCount} คำ)..."
+                        });
+                    }
                 }
 
                 string rawResult = chunkSb.ToString();

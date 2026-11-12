@@ -47,9 +47,23 @@ public class Chapter : INotifyPropertyChanged
     private string _title = string.Empty;
     private ChapterStatus _status = ChapterStatus.NotTranslated;
     private bool _isSelected;
+    private bool _isEditingTitle;
+    private string _editingTitle = string.Empty;
 
     public long Id { get; set; }
     public long StoryId { get; set; }
+
+    public bool IsEditingTitle
+    {
+        get => _isEditingTitle;
+        set { if (_isEditingTitle != value) { _isEditingTitle = value; OnPropertyChanged(); } }
+    }
+
+    public string EditingTitle
+    {
+        get => _editingTitle;
+        set { if (_editingTitle != value) { _editingTitle = value; OnPropertyChanged(); } }
+    }
 
     public bool IsSelected
     {

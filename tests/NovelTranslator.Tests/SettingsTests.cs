@@ -44,4 +44,33 @@ public class SettingsTests
         Assert.Equal("Ctrl+Enter", defaults.TranslateKey);
         Assert.Equal("F11", defaults.FullScreenKey);
     }
+
+    [Fact]
+    public void Chapter_InlineRenameProperties_WorkAsExpected()
+    {
+        var chapter = new NovelTranslator.Core.Models.Chapter { Title = "ตอนที่ 1" };
+        Assert.False(chapter.IsEditingTitle);
+        Assert.Equal(string.Empty, chapter.EditingTitle);
+
+        chapter.EditingTitle = "ตอนที่ 1: การเริ่มต้นใหม่";
+        chapter.IsEditingTitle = true;
+
+        Assert.True(chapter.IsEditingTitle);
+        Assert.Equal("ตอนที่ 1: การเริ่มต้นใหม่", chapter.EditingTitle);
+    }
+
+    [Fact]
+    public void TranslationProgressInfo_StreamedWordCount_CanBeRecorded()
+    {
+        var info = new NovelTranslator.Core.Translation.TranslationProgressInfo
+        {
+            CurrentChunkIndex = 1,
+            TotalChunks = 3,
+            StreamedWordCount = 120,
+            StatusMessage = "กำลังแปลส่วนที่ 1/3 (สตรีมสด 120 คำ)..."
+        };
+
+        Assert.Equal(120, info.StreamedWordCount);
+        Assert.Contains("120 คำ", info.StatusMessage);
+    }
 }
