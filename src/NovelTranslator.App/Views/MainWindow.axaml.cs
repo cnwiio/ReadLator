@@ -798,10 +798,22 @@ public partial class MainWindow : Window
                 {
                     int endIndex = Math.Max(tb.SelectionStart, tb.SelectionEnd);
                     var charRect = presenter.TextLayout.HitTestTextPosition(endIndex);
-                    var point = presenter.TranslatePoint(new Point(charRect.Right, charRect.Bottom), tb) ?? new Point(charRect.Right, charRect.Bottom);
 
-                    double targetX = Math.Clamp(point.X - 20, 10, Math.Max(10, tb.Bounds.Width - 140));
-                    double targetY = point.Y + 4;
+                    var topPoint = presenter.TranslatePoint(new Point(charRect.Right, charRect.Top), tb)
+                                   ?? new Point(charRect.Right, charRect.Top);
+                    var bottomPoint = presenter.TranslatePoint(new Point(charRect.Right, charRect.Bottom), tb)
+                                      ?? new Point(charRect.Right, charRect.Bottom);
+
+                    const double popupHeight = 26;
+                    const double popupWidth = 110;
+
+                    // Place above the line by default so it never overlaps text; flip below if at top edge
+                    double targetY = (topPoint.Y - popupHeight - 6 >= 6)
+                        ? topPoint.Y - popupHeight - 6
+                        : bottomPoint.Y + 6;
+
+                    // Position near the end of selection, clamping within TextBox width
+                    double targetX = Math.Clamp(topPoint.X - 20, 10, Math.Max(10, tb.Bounds.Width - popupWidth - 10));
 
                     GlossaryPopup.Placement = Avalonia.Controls.PlacementMode.TopEdgeAlignedLeft;
                     GlossaryPopup.PlacementTarget = tb;

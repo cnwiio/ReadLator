@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.7"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.8"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -185,6 +185,7 @@
                                  ItemsSource="{Binding FilteredChapters}"
                                  SelectionMode="Multiple"
                                  Background="Transparent"
+                                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -345,7 +346,7 @@
                                  FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
                                  Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                  CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
                     </Grid>
 
@@ -397,7 +398,7 @@
                                  FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
                                  Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                  CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
                     </Grid>
                 </Grid>
@@ -441,14 +442,12 @@
             </Border>
         </Canvas>
 
-        <!-- Popup สำหรับเพิ่มคำศัพท์เข้า Glossary เมื่อมีการลากคลุมคำ -->
+        <!-- Popup สำหรับเพิ่มคำศัพท์เข้า Glossary เมื่อมีการลากคลุมคำ (Pill Blue Only, ไม่มีพื้นหลังข้าง) -->
         <Popup x:Name="GlossaryPopup" IsLightDismissEnabled="True" Placement="TopEdgeAlignedLeft">
-            <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                    BorderThickness="1" CornerRadius="6" Padding="4"
-                    BoxShadow="0 4 12 0 #33000000">
-                <Button Classes="primary" Content="เพิ่มเข้า Glossary" Click="OnAddSelectedToGlossaryClicked"
-                        Height="26" FontSize="11" Padding="8,0" VerticalContentAlignment="Center" />
-            </Border>
+            <Button Classes="primary" Content="เพิ่มเข้า Glossary" Click="OnAddSelectedToGlossaryClicked"
+                    Height="26" FontSize="11" FontWeight="Medium" Padding="12,0"
+                    CornerRadius="13"
+                    VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
         </Popup>
     </Grid>
 </Window>
