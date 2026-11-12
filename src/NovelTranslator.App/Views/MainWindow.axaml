@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.2"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.3"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -291,8 +291,6 @@
                                 <Button Content="แปลใหม่" Command="{Binding RetranslateAllCommand}"
                                         IsEnabled="{Binding !IsTranslating}" Height="32" FontSize="13"
                                         ToolTip.Tip="ล้างคำแปลเดิมของตอนนี้แล้วแปลใหม่ตั้งแต่ต้น" />
-                                <Button Content="หยุด" Command="{Binding StopTranslationCommand}"
-                                        IsEnabled="{Binding IsTranslating}" Height="32" FontSize="13" />
                                 <Button Content="บันทึก" Command="{Binding SaveCurrentChapterCommand}"
                                         Height="32" FontSize="13" ToolTip.Tip="{Binding SaveTooltipText}" />
                             </StackPanel>
@@ -308,9 +306,14 @@
                                     <Button Content="ดูรายละเอียด" Command="{Binding ShowErrorDialogCommand}" Height="24" FontSize="11" Padding="8,0" />
                                 </StackPanel>
                             </Grid>
-                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding TranslationProgressPercentage}"
-                                         IsIndeterminate="{Binding IsTranslatingIndeterminate}"
-                                         IsVisible="{Binding IsTranslating}" Height="4" Foreground="#2563EB" />
+                            <Grid ColumnDefinitions="*, Auto" IsVisible="{Binding IsTranslating}">
+                                <ProgressBar Grid.Column="0" Minimum="0" Maximum="100" Value="{Binding TranslationProgressPercentage}"
+                                             IsIndeterminate="{Binding IsTranslatingIndeterminate}"
+                                             Height="4" Foreground="#2563EB" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Classes="danger" Content="หยุด" Command="{Binding StopTranslationCommand}"
+                                        Height="24" FontSize="11" Padding="8,0" Margin="8,0,0,0" VerticalAlignment="Center"
+                                        ToolTip.Tip="หยุดการแปลชั่วคราว/ยกเลิก" />
+                            </Grid>
                         </StackPanel>
                     </StackPanel>
                 </Border>
@@ -319,12 +322,8 @@
                 <Grid x:Name="EditorSplitGrid" Grid.Row="1" ColumnDefinitions="*, 12, *">
                     <!-- ช่องต้นฉบับ -->
                     <Grid RowDefinitions="Auto, *" IsVisible="{Binding IsOriginalPaneVisible}">
-                        <Grid ColumnDefinitions="*, Auto" Height="32" Margin="0,0,0,8">
+                        <Grid Height="32" Margin="0,0,0,8">
                             <TextBlock Text="ต้นฉบับ" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button Content="เพิ่มเข้า Glossary" Click="OnAddSelectedToGlossaryClicked" Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center" />
-                                <Button Content="แปลซ้ำย่อหน้านี้" Click="OnRetranslateSelectedParagraphClicked" Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center" />
-                            </StackPanel>
                         </Grid>
                         <TextBox x:Name="OriginalTextBox" Grid.Row="1" Text="{Binding OriginalText, Mode=TwoWay}"
                                  FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
@@ -340,8 +339,6 @@
                         <Grid ColumnDefinitions="*, Auto" Height="32" Margin="0,0,0,8">
                             <TextBlock Text="คำแปล" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button Content="เพิ่มเข้า Glossary" Click="OnAddSelectedToGlossaryClicked"
-                                        IsVisible="{Binding IsReaderMode}" Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center" />
                                 <Button Content="{Binding ReaderModeButtonText}" Command="{Binding ToggleReaderModeCommand}"
                                         Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center"
                                         ToolTip.Tip="สลับระหว่างมุมมองคู่ขนานซ้าย-ขวา กับโหมดอ่านคำแปลเต็มจอ" />
@@ -417,5 +414,15 @@
                 </StackPanel>
             </Border>
         </Canvas>
+
+        <!-- Popup สำหรับเพิ่มคำศัพท์เข้า Glossary เมื่อมีการลากคลุมคำ -->
+        <Popup x:Name="GlossaryPopup" IsLightDismissEnabled="True" Placement="Pointer" VerticalOffset="-8">
+            <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="1" CornerRadius="6" Padding="4"
+                    BoxShadow="0 4 12 0 #33000000">
+                <Button Classes="primary" Content="เพิ่มเข้า Glossary" Click="OnAddSelectedToGlossaryClicked"
+                        Height="26" FontSize="11" Padding="8,0" VerticalContentAlignment="Center" />
+            </Border>
+        </Popup>
     </Grid>
 </Window>

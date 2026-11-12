@@ -37,6 +37,7 @@ public partial class MainWindow : Window
     private bool _dropAfter;
     private bool _isInternalSelectionSync;
     private readonly IBrush _dragIndicatorBrush = new SolidColorBrush(Color.Parse("#2563EB"));
+    private string _glossarySelectedText = "";
 
     public MainWindow()
     {
@@ -53,6 +54,14 @@ public partial class MainWindow : Window
         ApplyKeyBindings();
         OriginalTextBox.AddHandler(ScrollViewer.ScrollChangedEvent, OnOriginalScrollChanged);
         TranslatedTextBox.AddHandler(ScrollViewer.ScrollChangedEvent, OnTranslatedScrollChanged);
+
+        // ตรวจจับการคลุมข้อความเพื่อแสดงปุ่มลอยเพิ่มเข้า Glossary
+        OriginalTextBox.AddHandler(InputElement.PointerReleasedEvent, OnTextBoxPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
+        TranslatedTextBox.AddHandler(InputElement.PointerReleasedEvent, OnTextBoxPointerReleased, RoutingStrategies.Bubble, handledEventsToo: true);
+        OriginalTextBox.AddHandler(InputElement.PointerPressedEvent, OnTextBoxPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
+        TranslatedTextBox.AddHandler(InputElement.PointerPressedEvent, OnTextBoxPointerPressed, RoutingStrategies.Bubble, handledEventsToo: true);
+        OriginalTextBox.KeyUp += OnTextBoxKeyUp;
+        TranslatedTextBox.KeyUp += OnTextBoxKeyUp;
 
         ViewModel.RequestToggleFullScreen = () =>
         {
@@ -492,15 +501,62 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnTextBoxPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            CheckAndShowGlossaryPopup(tb);
+        }
+    }
+
+    private void OnTextBoxKeyUp(object? sender, KeyEventArgs e)
+    {
+        if (sender is TextBox tb)
+        {
+            CheckAndShowGlossaryPopup(tb);
+        }
+    }
+
+    private void OnTextBoxPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (GlossaryPopup.IsOpen)
+        {
+            GlossaryPopup.IsOpen = false;
+        }
+    }
+
+    private void CheckAndShowGlossaryPopup(TextBox tb)
+    {
+        Dispatcher.UIThread.Post(() =>
+        {
+            string selected = tb.SelectedText;
+            if (!string.IsNullOrWhiteSpace(selected))
+            {
+                _glossarySelectedText = selected.Trim();
+                GlossaryPopup.PlacementTarget = tb;
+                GlossaryPopup.IsOpen = true;
+            }
+            else
+            {
+                GlossaryPopup.IsOpen = false;
+            }
+        });
+    }
+
     private async void OnAddSelectedToGlossaryClicked(object? sender, RoutedEventArgs e)
     {
+        GlossaryPopup.IsOpen = false;
         if (ViewModel?.SelectedStory == null) return;
 
-        // ดึงข้อความที่เลือกจากช่องต้นฉบับหรือคำแปล
-        string selected = OriginalTextBox.SelectedText;
+        // ดึงข้อความที่เลือกจากตัวแปรบันทึก หรือจากช่องต้นฉบับ/คำแปล
+        string selected = _glossarySelectedText;
         if (string.IsNullOrWhiteSpace(selected))
         {
-            selected = TranslatedTextBox.SelectedText;
+            selected = OriginalTextBox.SelectedText;
+            if (string.IsNullOrWhiteSpace(selected))
+            {
+                selected = TranslatedTextBox.SelectedText;
+            }
         }
 
         if (string.IsNullOrWhiteSpace(selected)) return;
@@ -510,37 +566,6 @@ public partial class MainWindow : Window
         var vm = new GlossaryViewModel(repo, ViewModel.SelectedStory, initialSource: selected.Trim());
         var win = new GlossaryWindow(vm);
         await win.ShowDialog(this);
-    }
-
-    private async void OnRetranslateSelectedParagraphClicked(object? sender, RoutedEventArgs e)
-    {
-        if (ViewModel == null) return;
-
-        string selected = OriginalTextBox.SelectedText;
-        if (string.IsNullOrWhiteSpace(selected))
-        {
-            // ถ้าไม่ได้ลากคลุม ให้ดึงย่อหน้าที่เคอร์เซอร์วางอยู่
-            int caretIndex = OriginalTextBox.CaretIndex;
-            string text = OriginalTextBox.Text ?? "";
-            selected = ExtractParagraphAtCaret(text, caretIndex);
-        }
-
-        if (string.IsNullOrWhiteSpace(selected)) return;
-        await ViewModel.RetranslateParagraphAsync(selected);
-    }
-
-    private static string ExtractParagraphAtCaret(string text, int caret)
-    {
-        if (string.IsNullOrEmpty(text)) return "";
-        caret = Math.Clamp(caret, 0, text.Length);
-
-        int start = text.LastIndexOf("\n\n", Math.Max(0, caret - 1), StringComparison.Ordinal);
-        start = start < 0 ? 0 : start + 2;
-
-        int end = text.IndexOf("\n\n", caret, StringComparison.Ordinal);
-        end = end < 0 ? text.Length : end;
-
-        return text.Substring(start, end - start).Trim();
     }
 
     private void OnChapterListBoxSelectionChanged(object? sender, SelectionChangedEventArgs e)
