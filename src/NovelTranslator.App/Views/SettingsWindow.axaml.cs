@@ -24,7 +24,17 @@ public partial class SettingsWindow : Window
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)
     {
-        if (ViewModel == null || string.IsNullOrEmpty(ViewModel.RecordingAction)) return;
+        if (ViewModel == null) return;
+
+        if (string.IsNullOrEmpty(ViewModel.RecordingAction))
+        {
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                Close();
+            }
+            return;
+        }
 
         // หากกด Escape ให้ยกเลิกการบันทึก
         if (e.Key == Key.Escape)
@@ -46,6 +56,16 @@ public partial class SettingsWindow : Window
             ViewModel.SetShortcut(ViewModel.RecordingAction, gestureStr);
             e.Handled = true;
         }
+    }
+
+    private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        BeginMoveDrag(e);
+    }
+
+    private void OnCloseClicked(object? sender, RoutedEventArgs e)
+    {
+        Close();
     }
 
     private static bool IsModifierKey(Key key)

@@ -4,51 +4,75 @@
         x:Class="NovelTranslator.App.Views.SearchReplaceWindow"
         x:DataType="vm:SearchReplaceViewModel"
         Title="ค้นหาและแทนที่คำแปล"
-        Width="680" Height="540"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource MainBgBrush}">
+        Width="700" Height="570"
+        CanResize="False"
+        WindowDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        WindowStartupLocation="CenterOwner">
 
-    <Grid Margin="20" RowDefinitions="Auto, Auto, *, Auto">
-        <!-- ฟอร์มค้นหาและแทนที่ -->
-        <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,12">
-            <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto, Auto, Auto">
-                <TextBlock Text="คำค้นหา" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6" />
-                <TextBlock Grid.Column="1" Text="แทนที่ด้วย" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,0,6" />
+    <Border Background="{DynamicResource MainBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1" CornerRadius="12"
+            BoxShadow="0 8 32 0 #60000000" Margin="12">
+        <Grid RowDefinitions="Auto, *">
+            <!-- Custom Modern Titlebar -->
+            <Border Background="{DynamicResource HeaderBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,0,0,1" CornerRadius="11,11,0,0" Height="42" Padding="16,0,10,0"
+                    PointerPressed="OnTitleBarPointerPressed">
+                <Grid ColumnDefinitions="*, Auto">
+                    <TextBlock Text="ค้นหาและแทนที่คำแปล" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="✕" Classes="ghost" Click="OnCloseClicked"
+                            Width="28" Height="28" Padding="0" FontSize="12"
+                            Foreground="{DynamicResource TextMutedBrush}"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                </Grid>
+            </Border>
 
-                <TextBox Grid.Row="1" Text="{Binding SearchText}" Height="32" VerticalContentAlignment="Center" CornerRadius="6" PlaceholderText="ข้อความเดิมในคำแปล" />
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ReplaceText}" Height="32" VerticalContentAlignment="Center" CornerRadius="6" Margin="8,0,0,0" PlaceholderText="ข้อความใหม่ที่ต้องการ" />
+            <!-- ฟอร์มและเนื้อหา -->
+            <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto, Auto, *, Auto">
+                <!-- ฟอร์มค้นหาและแทนที่ -->
+                <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,0,0,12">
+                    <Grid ColumnDefinitions="*, *" RowDefinitions="Auto, Auto, Auto, Auto">
+                        <TextBlock Text="คำค้นหา" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6" />
+                        <TextBlock Grid.Column="1" Text="แทนที่ด้วย" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,0,6" />
 
-                <TextBlock Grid.Row="2" Text="ขอบเขตการค้นหา" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,12,0,6" />
-                <ComboBox Grid.Row="3" SelectedIndex="{Binding ScopeIndex}" Height="32" CornerRadius="6" HorizontalAlignment="Stretch">
-                    <ComboBoxItem Content="เฉพาะตอนนี้" />
-                    <ComboBoxItem Content="ทั้งเรื่อง (ทุกตอน)" />
-                </ComboBox>
+                        <TextBox Grid.Row="1" Text="{Binding SearchText}" Height="32" VerticalContentAlignment="Center" CornerRadius="6" PlaceholderText="ข้อความเดิมในคำแปล" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ReplaceText}" Height="32" VerticalContentAlignment="Center" CornerRadius="6" Margin="8,0,0,0" PlaceholderText="ข้อความใหม่ที่ต้องการ" />
 
-                <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" HorizontalAlignment="Right">
-                    <Button Content="ดูตัวอย่างจุดที่พบ" Classes="ghost" Command="{Binding PreviewMatchesCommand}" Height="32" FontSize="12" Padding="14,0" VerticalContentAlignment="Center" />
-                    <Button Content="แทนที่ทั้งหมด" Classes="primary" Command="{Binding ApplyReplaceCommand}" Height="32" FontSize="12" Padding="18,0" VerticalContentAlignment="Center" />
-                </StackPanel>
-            </Grid>
-        </Border>
+                        <TextBlock Grid.Row="2" Text="ขอบเขตการค้นหา" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,12,0,6" />
+                        <ComboBox Grid.Row="3" SelectedIndex="{Binding ScopeIndex}" Height="32" CornerRadius="6" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="เฉพาะตอนนี้" />
+                            <ComboBoxItem Content="ทั้งเรื่อง (ทุกตอน)" />
+                        </ComboBox>
 
-        <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8" />
-
-        <!-- ตัวอย่างผลลัพธ์ -->
-        <Border Grid.Row="2" Background="{DynamicResource CardBgBrush}" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" CornerRadius="8" Padding="6">
-            <ListBox ItemsSource="{Binding Previews}" Background="Transparent">
-                <ListBox.ItemTemplate>
-                    <DataTemplate>
-                        <StackPanel Margin="6,4" Spacing="2">
-                            <TextBlock Text="{Binding ChapterTitle}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
-                            <TextBlock Text="{Binding MatchSnippet}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource TextMutedBrush}" />
+                        <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" HorizontalAlignment="Right">
+                            <Button Content="ดูตัวอย่างจุดที่พบ" Classes="ghost" Command="{Binding PreviewMatchesCommand}" Height="32" FontSize="12" Padding="14,0" VerticalContentAlignment="Center" />
+                            <Button Content="แทนที่ทั้งหมด" Classes="primary" Command="{Binding ApplyReplaceCommand}" Height="32" FontSize="12" Padding="18,0" VerticalContentAlignment="Center" />
                         </StackPanel>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
-        </Border>
+                    </Grid>
+                </Border>
 
-        <TextBlock Grid.Row="3" Text="หมายเหตุ: การแทนที่จะบันทึกและเปลี่ยนสถานะตอนเป็นแก้ไขแล้วโดยอัตโนมัติ"
-                   FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,8,0,0" />
-    </Grid>
+                <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8" />
+
+                <!-- ตัวอย่างผลลัพธ์ -->
+                <Border Grid.Row="2" Background="{DynamicResource CardBgBrush}" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" CornerRadius="8" Padding="6">
+                    <ListBox ItemsSource="{Binding Previews}" Background="Transparent">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Margin="6,4" Spacing="2">
+                                    <TextBlock Text="{Binding ChapterTitle}" FontSize="13" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBlock Text="{Binding MatchSnippet}" FontSize="12" TextWrapping="Wrap" Foreground="{DynamicResource TextMutedBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </Border>
+
+                <TextBlock Grid.Row="3" Text="หมายเหตุ: การแทนที่จะบันทึกและเปลี่ยนสถานะตอนเป็นแก้ไขแล้วโดยอัตโนมัติ"
+                           FontSize="12" Foreground="{DynamicResource TextMutedBrush}" Margin="0,8,0,0" />
+            </Grid>
+        </Grid>
+    </Border>
 </Window>

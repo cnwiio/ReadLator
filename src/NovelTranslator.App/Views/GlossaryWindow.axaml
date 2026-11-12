@@ -5,64 +5,88 @@
         x:Class="NovelTranslator.App.Views.GlossaryWindow"
         x:DataType="vm:GlossaryViewModel"
         Title="พจนานุกรมศัพท์เฉพาะ (Glossary)"
-        Width="820" Height="600"
-        WindowStartupLocation="CenterOwner"
-        Background="{DynamicResource MainBgBrush}">
+        Width="880" Height="650"
+        CanResize="False"
+        WindowDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        WindowStartupLocation="CenterOwner">
 
-    <Grid Margin="20" RowDefinitions="Auto, *, Auto, Auto">
-        <!-- แถบด้านบน: ค้นหา + นำเข้า/ส่งออก -->
-        <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,12">
-            <TextBox Text="{Binding SearchFilter}" Height="32" VerticalContentAlignment="Center"
-                     PlaceholderText="ค้นหาคำศัพท์..." Width="320" HorizontalAlignment="Left" CornerRadius="6" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
-                <Button Content="นำเข้า CSV" Click="OnImportCsvClicked" Height="32" FontSize="12" Padding="12,0" VerticalContentAlignment="Center" />
-                <Button Content="ส่งออก CSV" Click="OnExportCsvClicked" Height="32" FontSize="12" Padding="12,0" VerticalContentAlignment="Center" />
-            </StackPanel>
-        </Grid>
+    <Border Background="{DynamicResource MainBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1" CornerRadius="12"
+            BoxShadow="0 8 32 0 #60000000" Margin="12">
+        <Grid RowDefinitions="Auto, *">
+            <!-- Custom Modern Titlebar -->
+            <Border Background="{DynamicResource HeaderBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,0,0,1" CornerRadius="11,11,0,0" Height="42" Padding="16,0,10,0"
+                    PointerPressed="OnTitleBarPointerPressed">
+                <Grid ColumnDefinitions="*, Auto">
+                    <TextBlock Text="พจนานุกรมศัพท์เฉพาะ (Glossary)" FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="✕" Classes="ghost" Click="OnCloseClicked"
+                            Width="28" Height="28" Padding="0" FontSize="12"
+                            Foreground="{DynamicResource TextMutedBrush}"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                </Grid>
+            </Border>
 
-        <!-- ตารางแสดงรายการคำศัพท์ -->
-        <Border Grid.Row="1" Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8">
-            <DataGrid ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}"
-                      AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal">
-                <DataGrid.Columns>
-                    <DataGridTextColumn Header="คำต้นฉบับ" Binding="{Binding SourceTerm}" Width="180" />
-                    <DataGridTextColumn Header="คำแปล" Binding="{Binding TargetTerm}" Width="180" />
-                    <DataGridTextColumn Header="หมวดหมู่" Binding="{Binding CategoryDisplay}" Width="120" />
-                    <DataGridTextColumn Header="หมายเหตุ" Binding="{Binding Notes}" Width="*" />
-                </DataGrid.Columns>
-            </DataGrid>
-        </Border>
+            <!-- เนื้อหาพจนานุกรม -->
+            <Grid Grid.Row="1" Margin="20" RowDefinitions="Auto, *, Auto, Auto">
+                <!-- แถบด้านบน: ค้นหา + นำเข้า/ส่งออก -->
+                <Grid ColumnDefinitions="*, Auto" Margin="0,0,0,12">
+                    <TextBox Text="{Binding SearchFilter}" Height="32" VerticalContentAlignment="Center"
+                             PlaceholderText="ค้นหาคำศัพท์..." Width="320" HorizontalAlignment="Left" CornerRadius="6" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,8,0" />
+                        <Button Content="นำเข้า CSV" Click="OnImportCsvClicked" Height="32" FontSize="12" Padding="12,0" VerticalContentAlignment="Center" />
+                        <Button Content="ส่งออก CSV" Click="OnExportCsvClicked" Height="32" FontSize="12" Padding="12,0" VerticalContentAlignment="Center" />
+                    </StackPanel>
+                </Grid>
 
-        <!-- ฟอร์มเพิ่ม/แก้ไขคำศัพท์ -->
-        <Border Grid.Row="2" Background="{DynamicResource CardBgBrush}" CornerRadius="8" Padding="16" Margin="0,12,0,0"
-                BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
-            <Grid ColumnDefinitions="*, *, 140, *" RowDefinitions="Auto, Auto">
-                <TextBlock Text="คำต้นฉบับ" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6" />
-                <TextBlock Grid.Column="1" Text="คำแปล" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,0,6" />
-                <TextBlock Grid.Column="2" Text="หมวดหมู่" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,0,6" />
-                <TextBlock Grid.Column="3" Text="หมายเหตุ" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,0,6" />
+                <!-- ตารางแสดงรายการคำศัพท์ -->
+                <Border Grid.Row="1" Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1" CornerRadius="8">
+                    <DataGrid ItemsSource="{Binding Entries}" SelectedItem="{Binding SelectedEntry}"
+                              AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="คำต้นฉบับ" Binding="{Binding SourceTerm}" Width="180" />
+                            <DataGridTextColumn Header="คำแปล" Binding="{Binding TargetTerm}" Width="180" />
+                            <DataGridTextColumn Header="หมวดหมู่" Binding="{Binding CategoryDisplay}" Width="120" />
+                            <DataGridTextColumn Header="หมายเหตุ" Binding="{Binding Notes}" Width="*" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Border>
 
-                <TextBox Grid.Row="1" Text="{Binding SourceTerm}" Height="32" VerticalContentAlignment="Center" CornerRadius="6" PlaceholderText="เช่น Arthur, Excalibur" />
-                <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding TargetTerm}" Height="32" VerticalContentAlignment="Center" CornerRadius="6" Margin="8,0,0,0" PlaceholderText="เช่น อาเธอร์, เอ็กซ์คาลิเบอร์" />
-                <ComboBox Grid.Row="1" Grid.Column="2" SelectedIndex="{Binding CategoryIndex}" Height="32" CornerRadius="6" Margin="8,0,0,0" HorizontalAlignment="Stretch">
-                    <ComboBoxItem Content="ชื่อคน" />
-                    <ComboBoxItem Content="สถานที่" />
-                    <ComboBoxItem Content="ศัพท์ทั่วไป" />
-                </ComboBox>
-                <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding Notes}" Height="32" VerticalContentAlignment="Center" CornerRadius="6" Margin="8,0,0,0" PlaceholderText="คำอธิบายเพิ่มเติม" />
+                <!-- ฟอร์มเพิ่ม/แก้ไขคำศัพท์ -->
+                <Border Grid.Row="2" Background="{DynamicResource CardBgBrush}" CornerRadius="8" Padding="16" Margin="0,12,0,0"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1">
+                    <Grid ColumnDefinitions="*, *, 140, *" RowDefinitions="Auto, Auto">
+                        <TextBlock Text="คำต้นฉบับ" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,6" />
+                        <TextBlock Grid.Column="1" Text="คำแปล" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,0,6" />
+                        <TextBlock Grid.Column="2" Text="หมวดหมู่" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,0,6" />
+                        <TextBlock Grid.Column="3" Text="หมายเหตุ" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,0,6" />
+
+                        <TextBox Grid.Row="1" Text="{Binding SourceTerm}" Height="32" VerticalContentAlignment="Center" CornerRadius="6" PlaceholderText="เช่น Arthur, Excalibur" />
+                        <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding TargetTerm}" Height="32" VerticalContentAlignment="Center" CornerRadius="6" Margin="8,0,0,0" PlaceholderText="เช่น อาเธอร์, เอ็กซ์คาลิเบอร์" />
+                        <ComboBox Grid.Row="1" Grid.Column="2" SelectedIndex="{Binding CategoryIndex}" Height="32" CornerRadius="6" Margin="8,0,0,0" HorizontalAlignment="Stretch">
+                            <ComboBoxItem Content="ชื่อคน" />
+                            <ComboBoxItem Content="สถานที่" />
+                            <ComboBoxItem Content="ศัพท์ทั่วไป" />
+                        </ComboBox>
+                        <TextBox Grid.Row="1" Grid.Column="3" Text="{Binding Notes}" Height="32" VerticalContentAlignment="Center" CornerRadius="6" Margin="8,0,0,0" PlaceholderText="คำอธิบายเพิ่มเติม" />
+                    </Grid>
+                </Border>
+
+                <!-- ปุ่มควบคุมด้านล่าง -->
+                <Grid Grid.Row="3" ColumnDefinitions="*, Auto" Margin="0,16,0,0">
+                    <TextBlock Text="เลือกรายการในตารางเพื่อแก้ไข หรือกรอกฟอร์มเพื่อเพิ่มคำใหม่"
+                               FontSize="12" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                        <Button Content="ล้างฟอร์ม" Classes="ghost" Command="{Binding ClearInputsCommand}" Height="32" FontSize="12" Padding="14,0" VerticalContentAlignment="Center" />
+                        <Button Content="ลบคำนี้" Classes="danger" Command="{Binding DeleteEntryCommand}" Height="32" FontSize="12" Padding="14,0" VerticalContentAlignment="Center" />
+                        <Button Content="บันทึกคำศัพท์" Classes="primary" Command="{Binding SaveEntryCommand}" Height="32" FontSize="12" Padding="18,0" VerticalContentAlignment="Center" />
+                    </StackPanel>
+                </Grid>
             </Grid>
-        </Border>
-
-        <!-- ปุ่มควบคุมด้านล่าง -->
-        <Grid Grid.Row="3" ColumnDefinitions="*, Auto" Margin="0,16,0,0">
-            <TextBlock Text="เลือกรายการในตารางเพื่อแก้ไข หรือกรอกฟอร์มเพื่อเพิ่มคำใหม่"
-                       FontSize="12" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
-            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                <Button Content="ล้างฟอร์ม" Classes="ghost" Command="{Binding ClearInputsCommand}" Height="32" FontSize="12" Padding="14,0" VerticalContentAlignment="Center" />
-                <Button Content="ลบคำนี้" Classes="danger" Command="{Binding DeleteEntryCommand}" Height="32" FontSize="12" Padding="14,0" VerticalContentAlignment="Center" />
-                <Button Content="บันทึกคำศัพท์" Classes="primary" Command="{Binding SaveEntryCommand}" Height="32" FontSize="12" Padding="18,0" VerticalContentAlignment="Center" />
-            </StackPanel>
         </Grid>
-    </Grid>
+    </Border>
 </Window>

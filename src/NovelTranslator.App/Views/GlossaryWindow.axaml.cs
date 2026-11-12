@@ -1,5 +1,6 @@
 using System;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using NovelTranslator.App.ViewModels;
@@ -13,6 +14,14 @@ public partial class GlossaryWindow : Window
     public GlossaryWindow()
     {
         InitializeComponent();
+        KeyDown += (s, e) =>
+        {
+            if (e.Key == Key.Escape)
+            {
+                e.Handled = true;
+                Close();
+            }
+        };
     }
 
     public GlossaryWindow(GlossaryViewModel viewModel) : this()
@@ -20,6 +29,16 @@ public partial class GlossaryWindow : Window
         DataContext = viewModel;
         viewModel.RequestClose = Close;
         Loaded += async (_, _) => await viewModel.LoadEntriesAsync();
+    }
+
+    private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        BeginMoveDrag(e);
+    }
+
+    private void OnCloseClicked(object? sender, RoutedEventArgs e)
+    {
+        Close();
     }
 
     private async void OnImportCsvClicked(object? sender, RoutedEventArgs e)
