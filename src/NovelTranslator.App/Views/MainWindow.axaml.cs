@@ -807,11 +807,9 @@ public partial class MainWindow : Window
                                          ?? new Point(endCharRect.Right, endCharRect.Bottom);
 
                     // Anchor popup top-left at the end of the selection (bottom of the last character)
-                    GlossaryPopup.Placement = Avalonia.Controls.PlacementMode.AnchorAndGravity;
-                    GlossaryPopup.PlacementAnchor = Avalonia.Controls.Primitives.PopupPositioning.PopupAnchor.TopLeft;
-                    GlossaryPopup.PlacementGravity = Avalonia.Controls.Primitives.PopupPositioning.PopupGravity.BottomRight;
+                    GlossaryPopup.Placement = Avalonia.Controls.PlacementMode.BottomEdgeAlignedLeft;
                     GlossaryPopup.PlacementTarget = tb;
-                    GlossaryPopup.PlacementRect = new Rect(endBottomPoint.X - endCharRect.Width, endBottomPoint.Y + 2, 0, 0);
+                    GlossaryPopup.PlacementRect = new Rect(endBottomPoint.X - endCharRect.Width, endBottomPoint.Y, 1, 1);
                     GlossaryPopup.HorizontalOffset = 0;
                     GlossaryPopup.VerticalOffset = 0;
                 }
