@@ -553,6 +553,15 @@ public partial class MainWindow : Window
 
         ViewModel.PropertyChanged += (s, e) =>
         {
+            if (e.PropertyName == nameof(MainViewModel.TranslatedText) && ViewModel.IsTranslating)
+            {
+                // เลื่อนหน้าจอคำแปลลงล่างสุดอัตโนมัติขณะสตรีมข้อความสด (Live Streaming Auto-Scroll)
+                Dispatcher.UIThread.Post(() =>
+                {
+                    var sv = TranslatedTextBox.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+                    sv?.ScrollToEnd();
+                });
+            }
             if (e.PropertyName == nameof(MainViewModel.SelectedChapter) && ViewModel.SelectedChapter != null)
             {
                 if (!_isInternalSelectionSync && ChapterListBox.SelectedItems != null && !ChapterListBox.SelectedItems.Contains(ViewModel.SelectedChapter))

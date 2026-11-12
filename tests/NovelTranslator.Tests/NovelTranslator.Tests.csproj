@@ -20,6 +20,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\NovelTranslator.Core\NovelTranslator.Core.csproj" />
+    <ProjectReference Include="..\..\src\NovelTranslator.App\NovelTranslator.App.csproj" />
   </ItemGroup>
 
 </Project>

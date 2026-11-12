@@ -147,13 +147,17 @@ public class TranslationPipeline
                 {
                     chunkSb.Append(delta);
                     tokenCount++;
-                    if (tokenCount % 6 == 0 || delta.Contains('\n'))
+                    if (tokenCount % 3 == 0 || delta.Contains('\n'))
                     {
                         int wordCount = chunkSb.ToString().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+                        string liveCombined = BuildCombinedTextSoFar(chunks, i, chunkSb.ToString());
                         progress.Report(new TranslationProgressInfo
                         {
                             CurrentChunkIndex = i + 1,
                             TotalChunks = chunks.Count,
+                            StreamingDelta = delta,
+                            FullCurrentChunkText = chunkSb.ToString(),
+                            CombinedTranslatedTextSoFar = liveCombined,
                             StreamedWordCount = wordCount,
                             StatusMessage = $"กำลังแปลส่วนที่ {i + 1}/{chunks.Count} (สตรีมสด {wordCount} คำ)..."
                         });

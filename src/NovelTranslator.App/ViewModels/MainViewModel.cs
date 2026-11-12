@@ -26,10 +26,15 @@ public partial class MainViewModel : ObservableObject
     private readonly DispatcherTimer _autoSaveTimer;
     private DispatcherTimer? _fakeProgressTimer;
 
+    // Sub-ViewModels สำหรับลดภาระ God Node
+    public StoryListViewModel StoryList { get; } = new();
+    public EditorViewModel Editor { get; }
+    public TranslationQueueViewModel Queue { get; } = new();
+
     // รายการเรื่องและตอน
-    public ObservableCollection<Story> Stories { get; } = new();
-    public ObservableCollection<Chapter> Chapters { get; } = new();
-    public ObservableCollection<Chapter> FilteredChapters { get; } = new();
+    public ObservableCollection<Story> Stories => StoryList.Stories;
+    public ObservableCollection<Chapter> Chapters => StoryList.Chapters;
+    public ObservableCollection<Chapter> FilteredChapters => StoryList.FilteredChapters;
 
     [ObservableProperty]
     private Story? _selectedStory;
@@ -37,17 +42,36 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private Chapter? _selectedChapter;
 
-    [ObservableProperty]
-    private string _chapterSearchFilter = string.Empty;
+    public string ChapterSearchFilter
+    {
+        get => StoryList.ChapterSearchFilter;
+        set
+        {
+            if (StoryList.ChapterSearchFilter != value)
+            {
+                StoryList.ChapterSearchFilter = value;
+                OnPropertyChanged();
+                RefreshFilteredChapters();
+            }
+        }
+    }
 
-    [ObservableProperty]
-    private int _chapterStatusFilterIndex; // 0: All, 1: NotTranslated, 2: Translated, 3: Edited
+    public int ChapterStatusFilterIndex
+    {
+        get => StoryList.ChapterStatusFilterIndex;
+        set
+        {
+            if (StoryList.ChapterStatusFilterIndex != value)
+            {
+                StoryList.ChapterStatusFilterIndex = value;
+                OnPropertyChanged();
+                RefreshFilteredChapters();
+            }
+        }
+    }
 
-    [ObservableProperty]
-    private string _storyProgressText = "0 / 0 ตอน (0%)";
-
-    [ObservableProperty]
-    private double _storyProgressPercentage;
+    public string StoryProgressText => StoryList.StoryProgressText;
+    public double StoryProgressPercentage => StoryList.StoryProgressPercentage;
 
     [ObservableProperty]
     private string _chapterTitleEdit = string.Empty;
@@ -251,6 +275,15 @@ public partial class MainViewModel : ObservableObject
         _database = new NovelDatabase();
         _database.Initialize();
         _repository = new NovelRepository(_database);
+        Editor = new EditorViewModel(_repository);
+        Editor.OnParagraphContentChanged = () =>
+        {
+            TranslatedText = Editor.CombineTranslatedParagraphs();
+        };
+        Editor.OnRetranslateParagraphAction = async (pair) =>
+        {
+            await RetranslateParagraphInPlaceAsync(pair);
+        };
 
         // ตั้งค่า Auto-save Debounce
         double autoSaveSeconds = _settings.AutoSaveDelaySeconds > 0 ? _settings.AutoSaveDelaySeconds : 1.5;
@@ -493,56 +526,24 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    partial void OnChapterSearchFilterChanged(string value) => RefreshFilteredChapters();
-    partial void OnChapterStatusFilterIndexChanged(int value) => RefreshFilteredChapters();
-
     private void RefreshFilteredChapters()
     {
         var current = SelectedChapter;
-        string q = ChapterSearchFilter?.Trim() ?? string.Empty;
-        IEnumerable<Chapter> matches = Chapters;
-
-        if (!string.IsNullOrEmpty(q))
-        {
-            matches = matches.Where(c => c.Title.Contains(q, StringComparison.OrdinalIgnoreCase));
-        }
-
-        matches = ChapterStatusFilterIndex switch
-        {
-            1 => matches.Where(c => c.Status == ChapterStatus.NotTranslated),
-            2 => matches.Where(c => c.Status == ChapterStatus.Translated),
-            3 => matches.Where(c => c.Status == ChapterStatus.Edited),
-            _ => matches
-        };
-
-        FilteredChapters.Clear();
-        foreach (var c in matches)
-        {
-            FilteredChapters.Add(c);
-        }
+        StoryList.RefreshFiltered(current);
+        OnPropertyChanged(nameof(StoryProgressText));
+        OnPropertyChanged(nameof(StoryProgressPercentage));
 
         if (current != null && FilteredChapters.Contains(current) && SelectedChapter != current)
         {
             SelectedChapter = current;
         }
-
-        UpdateStoryProgress();
     }
 
     private void UpdateStoryProgress()
     {
-        int total = Chapters.Count;
-        if (total == 0)
-        {
-            StoryProgressText = "0 / 0 ตอน (0%)";
-            StoryProgressPercentage = 0;
-            return;
-        }
-
-        int done = Chapters.Count(c => c.Status is ChapterStatus.Translated or ChapterStatus.Edited);
-        double pct = Math.Round((double)done / total * 100, 0);
-        StoryProgressPercentage = pct;
-        StoryProgressText = $"แปลแล้ว {done} / {total} ตอน ({pct:0}%)";
+        StoryList.UpdateStoryProgress();
+        OnPropertyChanged(nameof(StoryProgressText));
+        OnPropertyChanged(nameof(StoryProgressPercentage));
         OnPropertyChanged(nameof(ReadingChapterPositionText));
     }
 
@@ -567,6 +568,12 @@ public partial class MainViewModel : ObservableObject
                 TranslatedWordCount = Chunker.EstimateWordCount(TranslatedText);
                 SaveStatusText = $"บันทึกแล้ว {value.UpdatedAt.ToLocalTime():HH:mm:ss}";
                 SaveStateColor = "#4CC38A";
+
+                Editor.SyncParagraphPairs(OriginalText, TranslatedText);
+                if (SelectedStory != null)
+                {
+                    _ = Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, OriginalText);
+                }
             }
             else
             {
@@ -607,6 +614,11 @@ public partial class MainViewModel : ObservableObject
         if (!_isLoadingChapter && SelectedChapter != null && SelectedChapter.OriginalText != value)
         {
             SelectedChapter.OriginalText = value;
+            Editor.SyncParagraphPairs(value, TranslatedText);
+            if (SelectedStory != null)
+            {
+                _ = Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, value);
+            }
             MarkUnsavedChanges();
         }
     }
@@ -619,6 +631,7 @@ public partial class MainViewModel : ObservableObject
         {
             SelectedChapter.TranslatedText = value;
             SelectedChapter.Status = ChapterStatus.Edited;
+            Editor.SyncParagraphPairs(OriginalText, value);
             UpdateChapterStatusDisplay(SelectedChapter.Status);
             UpdateStoryProgress();
             MarkUnsavedChanges();
@@ -890,6 +903,45 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             IsTranslating = false;
+        }
+    }
+
+    [RelayCommand]
+    public void ToggleParagraphMode()
+    {
+        Editor.IsParagraphMode = !Editor.IsParagraphMode;
+        if (Editor.IsParagraphMode)
+        {
+            Editor.SyncParagraphPairs(OriginalText, TranslatedText);
+        }
+    }
+
+    public async Task RetranslateParagraphInPlaceAsync(ParagraphPairViewModel pair)
+    {
+        if (SelectedStory == null || SelectedChapter == null || string.IsNullOrWhiteSpace(pair.SourceText)) return;
+
+        ProgressText = $"กำลังแปลใหม่เฉพาะย่อหน้าที่ {pair.Index}...";
+        var llmClient = new LlmClient(_settings);
+        var pipeline = new TranslationPipeline(_repository, llmClient, _settings);
+
+        try
+        {
+            string newTranslation = await Task.Run(async () =>
+            {
+                return await pipeline.RetranslateParagraphAsync(SelectedStory, pair.SourceText, null);
+            });
+
+            if (!string.IsNullOrWhiteSpace(newTranslation))
+            {
+                pair.TranslatedText = newTranslation.Trim();
+                TranslatedText = Editor.CombineTranslatedParagraphs();
+                ProgressText = $"แปลใหม่ย่อหน้าที่ {pair.Index} สำเร็จแล้ว";
+                MarkUnsavedChanges();
+            }
+        }
+        catch (Exception ex)
+        {
+            ProgressText = $"แปลใหม่ย่อหน้าที่ {pair.Index} ล้มเหลว · {ex.Message}";
         }
     }
 
