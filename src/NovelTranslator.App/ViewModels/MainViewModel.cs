@@ -76,18 +76,30 @@ public partial class MainViewModel : ObservableObject
     public string TranslateTooltipText => $"แปลเฉพาะส่วนที่เพิ่มเข้ามาใหม่หรือยังไม่ได้แปล ({_settings.Shortkeys.TranslateKey})";
     public string TranslateAllTooltipText => $"แปลต่อเนื่องทุกตอนที่ยังไม่ได้แปลในเรื่องนี้ ({_settings.Shortkeys.TranslateAllKey})";
     public string SaveTooltipText => $"บันทึกตอนนี้ ({_settings.Shortkeys.SaveKey})";
-    public string FocusModeTooltipText => $"โหมดโฟกัสไร้สิ่งรบกวน ({_settings.Shortkeys.FocusModeKey})";
+    public string FocusModeTooltipText => $"โหมดอ่านหนังสือ ({_settings.Shortkeys.FocusModeKey})";
 
     [ObservableProperty]
     private bool _isFocusMode;
 
     private bool _sidebarBeforeFocusMode = true;
     public bool IsHeaderVisible => !IsFocusMode;
-    public string FocusModeButtonText => IsFocusMode ? "ออกโหมดโฟกัส" : "โหมดโฟกัส";
+    public string FocusModeButtonText => IsFocusMode ? "ออกโหมดอ่าน" : "โหมดอ่าน";
+    public string ReadingChapterPositionText
+    {
+        get
+        {
+            if (SelectedChapter == null || Chapters.Count == 0) return string.Empty;
+            int idx = Chapters.IndexOf(SelectedChapter);
+            return $"ตอนที่ {idx + 1} จาก {Chapters.Count}";
+        }
+    }
+    public double ReadingLineHeight => Math.Round(EditorFontSize * 1.65);
+
     partial void OnIsFocusModeChanged(bool value)
     {
         OnPropertyChanged(nameof(IsHeaderVisible));
         OnPropertyChanged(nameof(FocusModeButtonText));
+        OnPropertyChanged(nameof(ReadingChapterPositionText));
     }
 
     [ObservableProperty]
@@ -109,6 +121,7 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnEditorFontSizeChanged(int value)
     {
+        OnPropertyChanged(nameof(ReadingLineHeight));
         if (value > 0 && _settings != null)
         {
             _settings.EditorFontSize = value;
@@ -323,6 +336,11 @@ public partial class MainViewModel : ObservableObject
         if (!IsFocusMode)
         {
             _sidebarBeforeFocusMode = IsSidebarVisible;
+            if (_autoSaveTimer.IsEnabled)
+            {
+                _autoSaveTimer.Stop();
+                _ = SaveCurrentChapterInternalAsync(isAutoSave: true);
+            }
             IsFocusMode = true;
             IsSidebarVisible = false;
         }
@@ -505,10 +523,12 @@ public partial class MainViewModel : ObservableObject
         double pct = Math.Round((double)done / total * 100, 0);
         StoryProgressPercentage = pct;
         StoryProgressText = $"แปลแล้ว {done} / {total} ตอน ({pct:0}%)";
+        OnPropertyChanged(nameof(ReadingChapterPositionText));
     }
 
     partial void OnSelectedChapterChanged(Chapter? value)
     {
+        OnPropertyChanged(nameof(ReadingChapterPositionText));
         _isLoadingChapter = true;
         try
         {

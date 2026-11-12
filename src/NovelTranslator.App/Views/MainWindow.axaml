@@ -4,16 +4,18 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v3.1"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v3.2"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource MainBgBrush}">
 
-    <Grid RowDefinitions="Auto, *">
-        <!-- Application Header (Quiet Cool Graphite Chrome, 4px grid) -->
-        <Border Background="{DynamicResource HeaderBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="0,0,0,1" Padding="16,8" IsVisible="{Binding IsHeaderVisible}">
+    <Grid>
+        <!-- มุมมองการทำงานปกติ (Editing Workspace) -->
+        <Grid RowDefinitions="Auto, *" IsVisible="{Binding !IsFocusMode}">
+            <!-- Application Header (Quiet Cool Graphite Chrome, 4px grid) -->
+            <Border Background="{DynamicResource HeaderBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,0,0,1" Padding="16,8">
             <Grid ColumnDefinitions="Auto, *, Auto">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <!-- โลโก้หนังสือ + ชื่อแอป -->
@@ -426,6 +428,118 @@
                     </Grid>
                 </Border>
             </Grid>
+        </Grid>
+        </Grid>
+
+        <!-- โหมดอ่านหนังสือ (Reading Mode / Focus Mode) -->
+        <Grid RowDefinitions="Auto, *" IsVisible="{Binding IsFocusMode}" Background="{DynamicResource MainBgBrush}">
+            <!-- แถบควบคุมมินิมอลติดด้านบน (Sticky Minimal Bar) -->
+            <Border Background="{DynamicResource HeaderBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,0,0,1" Height="48" Padding="16,0">
+                <Grid ColumnDefinitions="Auto, *, Auto">
+                    <!-- Left: ปุ่มออกจากโหมดอ่าน (Esc / F10) -->
+                    <Button Command="{Binding ToggleFocusModeCommand}" Classes="ghost" Height="32" Padding="10,0"
+                            ToolTip.Tip="กลับสู่หน้าจอแก้ไข (Esc หรือ F10)">
+                        <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <Path Data="M20,11 H7.83 L13.42,5.41 L12,4 L4,12 L12,20 L13.41,18.59 L7.83,13 H20 Z"
+                                  Fill="{DynamicResource TextSecondaryBrush}" Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" />
+                            <TextBlock Text="ออกจากโหมดอ่าน" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            <Border Classes="keycap" VerticalAlignment="Center" Margin="4,0,0,0">
+                                <TextBlock Text="Esc" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </Button>
+
+                    <!-- Center: ชื่อตอนย่อ & ลำดับตอน -->
+                    <StackPanel Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center" Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="{Binding ChapterTitleEdit}" FontSize="14" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
+                                   MaxWidth="450" VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding ReadingChapterPositionText}" FontSize="12"
+                                   Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Right: ปุ่มเปลี่ยนตอน, ขนาดอักษร, สลับธีม -->
+                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <!-- ปุ่มตอนก่อนหน้า / ถัดไป -->
+                        <Button Command="{Binding PreviousChapterCommand}" Height="32" Width="32" Padding="0"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                ToolTip.Tip="{Binding PrevChapterTooltipText}">
+                            <Path Data="M15,18 L9,12 L15,6" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="12" Height="12" Stretch="Uniform" />
+                        </Button>
+                        <Button Command="{Binding NextChapterCommand}" Height="32" Width="32" Padding="0"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                ToolTip.Tip="{Binding NextChapterTooltipText}">
+                            <Path Data="M9,18 L15,12 L9,6" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="12" Height="12" Stretch="Uniform" />
+                        </Button>
+
+                        <!-- เส้นคั่นบางๆ -->
+                        <Border Height="20" Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="4,0" />
+
+                        <!-- ปรับขนาดตัวอักษร A- / A+ -->
+                        <Button Command="{Binding DecreaseFontSizeCommand}" Content="A-" Width="32" Height="32" Padding="0"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="ลดขนาดตัวอักษร" />
+                        <TextBlock Text="{Binding EditorFontSize, StringFormat='{}{0}px'}" FontSize="12" Width="38"
+                                   TextAlignment="Center" VerticalAlignment="Center" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <Button Command="{Binding IncreaseFontSizeCommand}" Content="A+" Width="32" Height="32" Padding="0"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="เพิ่มขนาดตัวอักษร" />
+
+                        <!-- ปุ่มเปลี่ยนธีม สว่าง / มืด / ซีเปีย -->
+                        <Button Content="{Binding ThemeButtonText}" Command="{Binding CycleThemeCommand}"
+                                Height="32" FontSize="12" Padding="10,0" ToolTip.Tip="เปลี่ยนธีม: สว่าง / มืด / ถนอมสายตา" Margin="4,0,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Row 1: พื้นที่อ่านหนังสือ จัดกึ่งกลาง สไตล์ E-Reader ไร้กรอบกล่อง -->
+            <ScrollViewer x:Name="ReadingScrollViewer" Grid.Row="1"
+                          HorizontalScrollBarVisibility="Disabled"
+                          VerticalScrollBarVisibility="Auto">
+                <StackPanel MaxWidth="820" Margin="24,40,24,60" HorizontalAlignment="Center">
+                    <!-- หัวข้อชื่อตอนขนาดใหญ่ -->
+                    <TextBlock Text="{Binding ChapterTitleEdit}" FontSize="26" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center"
+                               TextWrapping="Wrap" Margin="0,0,0,10" />
+
+                    <!-- ป้ายลำดับตอน -->
+                    <TextBlock Text="{Binding ReadingChapterPositionText}" FontSize="13"
+                               Foreground="{DynamicResource TextMutedBrush}" TextAlignment="Center" Margin="0,0,0,36" />
+
+                    <!-- เนื้อหาคำแปล (Read-Only 100%, ไม่มีกรอบกล่อง, ไม่กะพริบเคอร์เซอร์) -->
+                    <SelectableTextBlock x:Name="ReadingContentTextBlock"
+                                         Text="{Binding TranslatedText}"
+                                         FontFamily="{Binding EditorFontFamily}"
+                                         FontSize="{Binding EditorFontSize}"
+                                         LineHeight="{Binding ReadingLineHeight}"
+                                         TextWrapping="Wrap"
+                                         Foreground="{DynamicResource TextPrimaryBrush}"
+                                         Margin="0,0,0,48" />
+
+                    <!-- การ์ดนำทางท้ายตอน สไตล์เว็บนิยาย -->
+                    <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                            BorderThickness="1" CornerRadius="12" Padding="20,16" Margin="0,16,0,32">
+                        <Grid ColumnDefinitions="*, Auto, *">
+                            <Button Command="{Binding PreviousChapterCommand}" Height="36" Padding="14,0"
+                                    HorizontalAlignment="Left" VerticalContentAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Path Data="M15,18 L9,12 L15,6" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center" />
+                                    <TextBlock Text="ตอนก่อนหน้า" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <TextBlock Grid.Column="1" Text="จบตอนนี้" FontSize="13" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+
+                            <Button Grid.Column="2" Classes="primary" Command="{Binding NextChapterCommand}"
+                                    Height="36" Padding="16,0" HorizontalAlignment="Right" VerticalContentAlignment="Center">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock Text="อ่านตอนถัดไป" FontWeight="Medium" VerticalAlignment="Center" />
+                                    <Path Data="M9,18 L15,12 L9,6" Stroke="White" StrokeThickness="1.5" Width="10" Height="10" Stretch="Uniform" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </Grid>
+                    </Border>
+                </StackPanel>
+            </ScrollViewer>
         </Grid>
 
         <!-- Overlay Canvas สำหรับ Floating Drag Ghost Card -->

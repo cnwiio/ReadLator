@@ -51,6 +51,9 @@
         <Style Selector="TextBlock">
             <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />
         </Style>
+        <Style Selector="SelectableTextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />
+        </Style>
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="6" />
         </Style>

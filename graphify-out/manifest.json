@@ -42,10 +42,10 @@
     "semantic_hash": "1dfb5c89a3089b4ee76f314258b7a2b3"
   },
   "AGENTS.md": {
-    "mtime": 1794408819.118712,
-    "seen": 1794409184.1694312,
-    "ast_hash": "8860b1a90468d4b087f9de50878e4514",
-    "semantic_hash": "8860b1a90468d4b087f9de50878e4514"
+    "mtime": 1794410747.2111194,
+    "seen": 1794494546.0716891,
+    "ast_hash": "5be413196cc5e739d95d07009db8658f",
+    "semantic_hash": ""
   },
   "NovelTranslator.sln": {
     "mtime": 1794389986.3142314,
@@ -60,16 +60,16 @@
     "semantic_hash": "ff68aa4f1bc0825effd9162e571fa113"
   },
   "src/NovelTranslator.App/App.axaml.cs": {
-    "mtime": 1794388374.4848359,
-    "seen": 1794409184.1693954,
-    "ast_hash": "351dc7a58319a4399ccd44fdf4b69bb9",
-    "semantic_hash": "351dc7a58319a4399ccd44fdf4b69bb9"
+    "mtime": 1794419708.5193884,
+    "seen": 1794494546.0716374,
+    "ast_hash": "c15e2efa6ad2b0c10c767d66497f134c",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.App/NovelTranslator.App.csproj": {
-    "mtime": 1794406834.206728,
-    "seen": 1794409184.1693969,
-    "ast_hash": "1c6c691dab3cd1a6af3c5fc9797eb9f7",
-    "semantic_hash": "1c6c691dab3cd1a6af3c5fc9797eb9f7"
+    "mtime": 1794494097.9864347,
+    "seen": 1794494546.0716388,
+    "ast_hash": "7dc965cb79aa6c92ec1cc65707b3ecbc",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.App/Program.cs": {
     "mtime": 1794388374.497708,
@@ -84,16 +84,16 @@
     "semantic_hash": "06e3cb59b932098f5d233f81b5b02315"
   },
   "src/NovelTranslator.App/ViewModels/GlossaryViewModel.cs": {
-    "mtime": 1794389130.942121,
-    "seen": 1794409184.1693995,
-    "ast_hash": "835042809a4b7dc47d5aadc842aec058",
-    "semantic_hash": "835042809a4b7dc47d5aadc842aec058"
+    "mtime": 1794413082.72566,
+    "seen": 1794494546.0716426,
+    "ast_hash": "1ec8e425ddd5c694b07b01c5756d8b19",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.App/ViewModels/MainViewModel.cs": {
-    "mtime": 1794407020.9786122,
-    "seen": 1794409184.1694002,
-    "ast_hash": "63816c458c36b5f1bbc66bc83cbc21d5",
-    "semantic_hash": "63816c458c36b5f1bbc66bc83cbc21d5"
+    "mtime": 1794464494.0163398,
+    "seen": 1794494546.0716436,
+    "ast_hash": "7fc338017ca6669ee06922bc06a1b997",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.App/ViewModels/SearchReplaceViewModel.cs": {
     "mtime": 1794389664.9358373,
@@ -102,10 +102,10 @@
     "semantic_hash": "56f418736194bd9d418c81952772a984"
   },
   "src/NovelTranslator.App/ViewModels/SettingsViewModel.cs": {
-    "mtime": 1794404466.176781,
-    "seen": 1794409184.1694021,
-    "ast_hash": "d99f48d9f4a518a4ed8883646f31bb16",
-    "semantic_hash": "d99f48d9f4a518a4ed8883646f31bb16"
+    "mtime": 1794464294.3878741,
+    "seen": 1794494546.071646,
+    "ast_hash": "064dcf39238da11b0386672a4cbe4fc5",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.App/ViewModels/ViewModelBase.cs": {
     "mtime": 1794388374.5066657,
@@ -114,28 +114,28 @@
     "semantic_hash": "2e8893cfe19ea749048cab8151bdd076"
   },
   "src/NovelTranslator.App/Views/GlossaryWindow.axaml.cs": {
-    "mtime": 1794389148.194832,
-    "seen": 1794409184.1694038,
-    "ast_hash": "88ac62dcb97f5d8f95e0078caae1d314",
-    "semantic_hash": "88ac62dcb97f5d8f95e0078caae1d314"
+    "mtime": 1794468444.9336288,
+    "seen": 1794494546.071648,
+    "ast_hash": "03dcd55b48b97ed239a14aa94d0cfc0b",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.App/Views/MainWindow.axaml.cs": {
-    "mtime": 1794404476.7360117,
-    "seen": 1794409184.1694047,
-    "ast_hash": "191982362c67eb5b1244f5e2cb826e1a",
-    "semantic_hash": "191982362c67eb5b1244f5e2cb826e1a"
+    "mtime": 1794494080.7755492,
+    "seen": 1794494546.071649,
+    "ast_hash": "6e4b769fc0da09e2519c20ab424d0b9b",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.App/Views/SearchReplaceWindow.axaml.cs": {
-    "mtime": 1794389168.5749457,
-    "seen": 1794409184.1694057,
-    "ast_hash": "81dde8fb227e9ae9831f6305ff4cb080",
-    "semantic_hash": "81dde8fb227e9ae9831f6305ff4cb080"
+    "mtime": 1794468405.8428035,
+    "seen": 1794494546.0716503,
+    "ast_hash": "085b81191bca6bb45c15885bd29a55a4",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.App/Views/SettingsWindow.axaml.cs": {
-    "mtime": 1794404471.8909588,
-    "seen": 1794409184.1694067,
-    "ast_hash": "6dabdf21b5381497b55aecf18339b3cb",
-    "semantic_hash": "6dabdf21b5381497b55aecf18339b3cb"
+    "mtime": 1794468503.1907873,
+    "seen": 1794494546.0716512,
+    "ast_hash": "10e7a35478be9c0632203c2e57ffe3e8",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.Core/Data/NovelDatabase.cs": {
     "mtime": 1794388575.7160988,
@@ -144,10 +144,10 @@
     "semantic_hash": "60bc9cc68c8706c4c9a152f1284b6eaf"
   },
   "src/NovelTranslator.Core/Data/NovelRepository.cs": {
-    "mtime": 1794406853.4086926,
-    "seen": 1794409184.1694086,
-    "ast_hash": "dfb442c8c542fe0ab6e5a5dd5352fba8",
-    "semantic_hash": "dfb442c8c542fe0ab6e5a5dd5352fba8"
+    "mtime": 1794423108.8048055,
+    "seen": 1794494546.0716534,
+    "ast_hash": "71708cd204574221f26ca7574ba913d4",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.Core/Export/TextExportImportService.cs": {
     "mtime": 1794388613.60447,
@@ -174,10 +174,10 @@
     "semantic_hash": "25fae8fbb3b7af25c0222185eb609e54"
   },
   "src/NovelTranslator.Core/Models/DomainModels.cs": {
-    "mtime": 1794388497.6650848,
-    "seen": 1794409184.1694124,
-    "ast_hash": "2270bddb20bf96f8a38c9e3a3bffa1de",
-    "semantic_hash": "2270bddb20bf96f8a38c9e3a3bffa1de"
+    "mtime": 1794461540.1676908,
+    "seen": 1794494546.0716593,
+    "ast_hash": "ecbb534b67bd1ccd937847b3c93fd2c3",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.Core/NovelTranslator.Core.csproj": {
     "mtime": 1794388446.0669317,
@@ -186,10 +186,10 @@
     "semantic_hash": "297a9f31871f6bbf00d4461d6e56bcf9"
   },
   "src/NovelTranslator.Core/Settings/AppSettings.cs": {
-    "mtime": 1794404636.3236156,
-    "seen": 1794409184.169414,
-    "ast_hash": "afdfa9240b8ae2443d52ed6eae69e75a",
-    "semantic_hash": "afdfa9240b8ae2443d52ed6eae69e75a"
+    "mtime": 1794463166.4773514,
+    "seen": 1794494546.0716612,
+    "ast_hash": "0618dbb227f44ba0c9c0fdaf695e9ff5",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.Core/Translation/Chunker.cs": {
     "mtime": 1794388532.4834785,
@@ -204,22 +204,22 @@
     "semantic_hash": "fe3bdde83c8544eb36fec89fbe9f1925"
   },
   "src/NovelTranslator.Core/Translation/PromptBuilder.cs": {
-    "mtime": 1794388551.9127038,
-    "seen": 1794409184.1694167,
-    "ast_hash": "4ac8a658a766d970bad4b8dc3f3d51cf",
-    "semantic_hash": "4ac8a658a766d970bad4b8dc3f3d51cf"
+    "mtime": 1794412841.6394086,
+    "seen": 1794494546.0716646,
+    "ast_hash": "6f28eb49bdc193523b3cd7757d2c2c32",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.Core/Translation/TranslationPipeline.cs": {
-    "mtime": 1794406876.4807694,
-    "seen": 1794409184.1694176,
-    "ast_hash": "ab62025e32f8f9ef9d814a24eda9db23",
-    "semantic_hash": "ab62025e32f8f9ef9d814a24eda9db23"
+    "mtime": 1794461561.7509477,
+    "seen": 1794494546.0716658,
+    "ast_hash": "a1664bcb4617d79743d9efe0c79d2320",
+    "semantic_hash": ""
   },
   "tests/NovelTranslator.Tests/ChunkerTests.cs": {
-    "mtime": 1794388620.345737,
-    "seen": 1794409184.1694186,
-    "ast_hash": "db5003d0ddaaf193392cf767b5300bbc",
-    "semantic_hash": "db5003d0ddaaf193392cf767b5300bbc"
+    "mtime": 1794413368.1994953,
+    "seen": 1794494546.0716677,
+    "ast_hash": "5fc9ec1982111d4d5c65608a6d702a6d",
+    "semantic_hash": ""
   },
   "tests/NovelTranslator.Tests/GlossaryServiceTests.cs": {
     "mtime": 1794388627.846444,
@@ -240,10 +240,10 @@
     "semantic_hash": "d0002966c2e79915a6e53dde227da95d"
   },
   "tests/NovelTranslator.Tests/RepositoryTests.cs": {
-    "mtime": 1794407256.064361,
-    "seen": 1794409184.169422,
-    "ast_hash": "1eb17086c988155b5bbead92648c6120",
-    "semantic_hash": "1eb17086c988155b5bbead92648c6120"
+    "mtime": 1794423424.7730005,
+    "seen": 1794494546.0716722,
+    "ast_hash": "b66bb11292287903ca987419c73d5560",
+    "semantic_hash": ""
   },
   "README.md": {
     "mtime": 1794390419.278992,
@@ -256,5 +256,107 @@
     "seen": 1794409184.1694334,
     "ast_hash": "bf2a2482f8757b4486881884c590793b",
     "semantic_hash": "bf2a2482f8757b4486881884c590793b"
+  },
+  ".agents/skills/unslop/agents/openai.yaml": {
+    "mtime": 1794419176.9278967,
+    "seen": 1794494546.0716276,
+    "ast_hash": "193371da595952e8c53447c70e16f349",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/scripts/snapshot.mjs": {
+    "mtime": 1794419176.9357533,
+    "seen": 1794494546.07163,
+    "ast_hash": "90ecb31b9a9b8ac4123f042af57dd525",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/scripts/story.mjs": {
+    "mtime": 1794419176.936607,
+    "seen": 1794494546.0716314,
+    "ast_hash": "93d2ff10602598778ac0cf34d874da3c",
+    "semantic_hash": ""
+  },
+  "tests/NovelTranslator.Tests/ChapterReorderTests.cs": {
+    "mtime": 1794423438.0666864,
+    "seen": 1794494546.0716667,
+    "ast_hash": "438195f1a16a90d285bd7718a14b7909",
+    "semantic_hash": ""
+  },
+  "tests/NovelTranslator.Tests/SettingsTests.cs": {
+    "mtime": 1794461733.149078,
+    "seen": 1794494546.0716736,
+    "ast_hash": "deb213bee0f39e8d161473507d907b48",
+    "semantic_hash": ""
+  },
+  ".agents/rules/auto_update_and_commit.md": {
+    "mtime": 1794410756.115413,
+    "seen": 1794494546.0716746,
+    "ast_hash": "92876be796ee9749e22db0eab8df012b",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/SKILL.md": {
+    "mtime": 1794419176.9273899,
+    "seen": 1794494546.0716836,
+    "ast_hash": "3dcf068f1ac7925b8a45e8a17821f88a",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/references/effects.md": {
+    "mtime": 1794419176.9278967,
+    "seen": 1794494546.0716844,
+    "ast_hash": "9bf23b1815fec28077eaa069ea4dbfa3",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/references/refs.md": {
+    "mtime": 1794419176.928413,
+    "seen": 1794494546.0716853,
+    "ast_hash": "eb4ad2f0cd3df89eb56a723802d74744",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/references/signs.md": {
+    "mtime": 1794419176.9352508,
+    "seen": 1794494546.0716865,
+    "ast_hash": "4060164316cc00541f3115488f9f450f",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/references/tokens.md": {
+    "mtime": 1794419176.9352508,
+    "seen": 1794494546.0716875,
+    "ast_hash": "aee32a4cd5181d4b5b7d67901b10c746",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/references/visuals.md": {
+    "mtime": 1794419176.9357533,
+    "seen": 1794494546.0716882,
+    "ast_hash": "5f5e034bb8cfc2d3aa7aab8b13e62bc5",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/references/refs/beacon-engraving.webp": {
+    "mtime": 1794419176.9304292,
+    "seen": 1794494546.071693,
+    "ast_hash": "ac6688bae1e993ff49ddaa889b59f973",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/references/refs/meadow-3d.webp": {
+    "mtime": 1794419176.9317226,
+    "seen": 1794494546.0716941,
+    "ast_hash": "c61db8a0d26de70ad03bc508979fd381",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/references/refs/story-dashboard-frames.webp": {
+    "mtime": 1794419176.9332373,
+    "seen": 1794494546.0716953,
+    "ast_hash": "f85a4421e03df9ecdb96acd5f54c509b",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/references/refs/unslop-dashboard-after.webp": {
+    "mtime": 1794419176.9332373,
+    "seen": 1794494546.0716963,
+    "ast_hash": "7d6a37ef7c3d47ab0146921153e104d7",
+    "semantic_hash": ""
+  },
+  ".agents/skills/unslop/references/refs/unslop-hero-after.webp": {
+    "mtime": 1794419176.9347477,
+    "seen": 1794494546.0716975,
+    "ast_hash": "455f26af08824bfb90641eeda7b7a0ce",
+    "semantic_hash": ""
   }
 }

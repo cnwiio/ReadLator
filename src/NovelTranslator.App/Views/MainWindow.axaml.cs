@@ -600,6 +600,20 @@ public partial class MainWindow : Window
         {
             ApplyEditorFont(ViewModel.EditorFontFamily);
         }
+        else if (e.PropertyName == nameof(MainViewModel.IsFocusMode))
+        {
+            if (ViewModel.IsFocusMode)
+            {
+                ReadingScrollViewer?.ScrollToHome();
+            }
+        }
+        else if (e.PropertyName == nameof(MainViewModel.SelectedChapter))
+        {
+            if (ViewModel.IsFocusMode)
+            {
+                ReadingScrollViewer?.ScrollToHome();
+            }
+        }
     }
 
     private void ApplyEditorFont(string? fontName)
@@ -610,6 +624,10 @@ public partial class MainWindow : Window
             var fontFamily = new FontFamily(fontName);
             OriginalTextBox.FontFamily = fontFamily;
             TranslatedTextBox.FontFamily = fontFamily;
+            if (ReadingContentTextBlock != null)
+            {
+                ReadingContentTextBlock.FontFamily = fontFamily;
+            }
         }
         catch
         {
@@ -654,6 +672,12 @@ public partial class MainWindow : Window
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
+        if (e.Key == Key.Escape && ViewModel is { IsFocusMode: true })
+        {
+            ViewModel.ToggleFocusMode();
+            e.Handled = true;
+            return;
+        }
         if (e.Key == Key.F2 && ViewModel?.SelectedChapter != null && !ViewModel.SelectedChapter.IsEditingTitle)
         {
             ViewModel.StartRenameChapter(ViewModel.SelectedChapter);
