@@ -53,6 +53,7 @@
         </Style>
         <Style Selector="SelectableTextBlock">
             <Setter Property="FontFamily" Value="Segoe UI, Tahoma, avares://NovelTranslator.App/Assets/Fonts#Tahoma, sans-serif" />
+            <Setter Property="FocusAdorner" Value="{x:Null}" />
         </Style>
         <Style Selector="TextBox">
             <Setter Property="CornerRadius" Value="6" />

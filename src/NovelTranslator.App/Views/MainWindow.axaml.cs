@@ -721,11 +721,32 @@ public partial class MainWindow : Window
     protected override void OnKeyDown(KeyEventArgs e)
     {
         base.OnKeyDown(e);
-        if (e.Key == Key.Escape && ViewModel is { IsFocusMode: true })
+        if (ViewModel is { IsFocusMode: true })
         {
-            ViewModel.ToggleFocusMode();
-            e.Handled = true;
-            return;
+            if (e.Key == Key.Escape)
+            {
+                ViewModel.ToggleFocusMode();
+                e.Handled = true;
+                return;
+            }
+            if (e.Key == Key.Left)
+            {
+                if (ViewModel.PreviousChapterCommand.CanExecute(null))
+                {
+                    ViewModel.PreviousChapterCommand.Execute(null);
+                    e.Handled = true;
+                    return;
+                }
+            }
+            if (e.Key == Key.Right)
+            {
+                if (ViewModel.NextChapterCommand.CanExecute(null))
+                {
+                    ViewModel.NextChapterCommand.Execute(null);
+                    e.Handled = true;
+                    return;
+                }
+            }
         }
         if (e.Key == Key.F2 && ViewModel?.SelectedChapter != null && !ViewModel.SelectedChapter.IsEditingTitle)
         {
