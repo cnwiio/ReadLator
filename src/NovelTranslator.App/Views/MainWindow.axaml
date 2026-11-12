@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v3.4"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v3.5"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -62,6 +62,7 @@
                                 <Separator />
                                 <MenuItem Header="{Binding SearchReplaceMenuText}" Command="{Binding OpenSearchReplaceCommand}" />
                                 <MenuItem Header="พจนานุกรมคำศัพท์ (Glossary)" Command="{Binding OpenGlossaryCommand}" />
+                                <MenuItem Header="สแกนหาศัพท์ใหม่ในตอนนี้ (AI)" Command="{Binding ScanNewTermsCommand}" />
                                 <Separator />
                                 <MenuItem Header="นำเข้าไฟล์นิยาย (.txt)" Command="{Binding ImportTxtFilesCommand}" />
                                 <MenuItem Header="ส่งออกตอนนี้ (.txt)" Command="{Binding ExportCurrentChapterCommand}" />

@@ -63,6 +63,26 @@ public partial class SearchReplaceViewModel : ObservableObject
             ? new List<Chapter> { _currentChapter }
             : await _repository.GetChaptersByStoryAsync(_story.Id);
 
+        // ถ้าค้นหาทั้งเรื่อง ให้ใช้ FTS5 ความเร็วสูงในการค้นหา
+        if (ScopeIndex == 1)
+        {
+            var ftsResults = await _repository.SearchFtsAsync(_story.Id, SearchText, searchTranslated: true, limit: 100);
+            if (ftsResults.Count > 0)
+            {
+                foreach (var r in ftsResults)
+                {
+                    Previews.Add(new ReplacePreviewItem
+                    {
+                        ChapterId = r.ChapterId,
+                        ChapterTitle = r.Title,
+                        MatchSnippet = r.Snippet.Replace("<b>", "").Replace("</b>", "")
+                    });
+                }
+                StatusMessage = $"พบทั้งหมด {ftsResults.Count} จุดจาก FTS5 ใน {Previews.Select(p => p.ChapterId).Distinct().Count()} ตอน";
+                return;
+            }
+        }
+
         int count = 0;
         foreach (var chap in chapters)
         {

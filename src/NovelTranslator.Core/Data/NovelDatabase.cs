@@ -86,8 +86,43 @@ public class NovelDatabase
             CREATE INDEX IF NOT EXISTS idx_chapters_story ON Chapters(StoryId, Ordinal);
             CREATE INDEX IF NOT EXISTS idx_chunks_chapter ON ChapterChunks(ChapterId, ChunkIndex);
             CREATE INDEX IF NOT EXISTS idx_glossary_story ON GlossaryEntries(StoryId);
+
+            -- ================= SQLite FTS5 Full-Text Search =================
+            CREATE VIRTUAL TABLE IF NOT EXISTS Chapters_Fts USING fts5(
+                ChapterId UNINDEXED,
+                StoryId UNINDEXED,
+                Title,
+                OriginalText,
+                TranslatedText,
+                tokenize = 'unicode61'
+            );
+
+            CREATE TRIGGER IF NOT EXISTS trg_chapters_ai AFTER INSERT ON Chapters BEGIN
+                INSERT INTO Chapters_Fts(ChapterId, StoryId, Title, OriginalText, TranslatedText)
+                VALUES (new.Id, new.StoryId, new.Title, new.OriginalText, new.TranslatedText);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS trg_chapters_au AFTER UPDATE ON Chapters BEGIN
+                DELETE FROM Chapters_Fts WHERE ChapterId = old.Id;
+                INSERT INTO Chapters_Fts(ChapterId, StoryId, Title, OriginalText, TranslatedText)
+                VALUES (new.Id, new.StoryId, new.Title, new.OriginalText, new.TranslatedText);
+            END;
+
+            CREATE TRIGGER IF NOT EXISTS trg_chapters_ad AFTER DELETE ON Chapters BEGIN
+                DELETE FROM Chapters_Fts WHERE ChapterId = old.Id;
+            END;
         ";
         cmd.ExecuteNonQuery();
+
+        // ตรวจสอบและ Backfill ข้อมูลลง Chapters_Fts หากตาราง FTS ยังว่างเปล่าแต่มี Chapters อยู่
+        using var backfillCmd = conn.CreateCommand();
+        backfillCmd.CommandText = @"
+            INSERT INTO Chapters_Fts(ChapterId, StoryId, Title, OriginalText, TranslatedText)
+            SELECT Id, StoryId, Title, OriginalText, TranslatedText
+            FROM Chapters
+            WHERE (SELECT count(*) FROM Chapters_Fts) = 0;
+        ";
+        backfillCmd.ExecuteNonQuery();
     }
 
     public bool CheckIntegrity()

@@ -222,6 +222,7 @@ public partial class MainViewModel : ObservableObject
 
     // Actions สำหรับเปิดหน้าต่างย่อย
     public Func<Story, Task>? RequestOpenGlossary { get; set; }
+    public Func<Story, Chapter?, Task>? RequestOpenAutoGlossary { get; set; }
     public Func<Task>? RequestOpenSettings { get; set; }
     public Func<Story, Chapter?, Task>? RequestOpenSearchReplace { get; set; }
     public Func<string, Task<string?>>? RequestSaveFileDialog { get; set; }
@@ -1407,6 +1408,22 @@ public partial class MainViewModel : ObservableObject
         if (SelectedStory != null && RequestOpenGlossary != null)
         {
             await RequestOpenGlossary(SelectedStory);
+        }
+    }
+
+    [RelayCommand]
+    public async Task ScanNewTermsAsync()
+    {
+        if (SelectedStory == null || SelectedChapter == null) return;
+        if (string.IsNullOrWhiteSpace(OriginalText))
+        {
+            SaveStatusText = "ไม่มีข้อความต้นฉบับสำหรับสแกน";
+            return;
+        }
+
+        if (RequestOpenAutoGlossary != null)
+        {
+            await RequestOpenAutoGlossary(SelectedStory, SelectedChapter);
         }
     }
 

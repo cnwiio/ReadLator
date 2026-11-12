@@ -264,4 +264,123 @@ public class NovelRepository
         }
         transaction.Commit();
     }
+
+    // ================= FTS5 & Translation Memory =================
+
+    public async Task<List<FtsSearchResult>> SearchFtsAsync(long storyId, string queryText, bool searchTranslated = true, int limit = 50)
+    {
+        if (string.IsNullOrWhiteSpace(queryText)) return new();
+
+        using var conn = _database.CreateConnection();
+        string cleanQuery = queryText.Replace("\"", "").Trim();
+        string safeQuery = $"\"{cleanQuery}\"*";
+        string columnTarget = searchTranslated ? "TranslatedText" : "OriginalText";
+
+        string sql = $@"
+            SELECT ChapterId, StoryId, Title,
+                   snippet(Chapters_Fts, {(searchTranslated ? 4 : 3)}, '<b>', '</b>', '...', 15) AS Snippet,
+                   rank AS Score
+            FROM Chapters_Fts
+            WHERE StoryId = @StoryId AND Chapters_Fts MATCH @FtsQuery
+            ORDER BY rank
+            LIMIT @Limit";
+
+        try
+        {
+            var results = await conn.QueryAsync<FtsSearchResult>(sql, new
+            {
+                StoryId = storyId,
+                FtsQuery = $"{columnTarget}:{safeQuery}",
+                Limit = limit
+            });
+
+            var list = results.ToList();
+            if (list.Count > 0) return list;
+
+            // ถ้า FTS5 standard unicode tokenizer ค้นหาข้อความแบบไม่มีช่องว่าง (เช่น ภาษาไทย) ไม่เจอ ให้ fallback ไป LIKE อัตโนมัติ
+            return await SearchFallbackLikeAsync(conn, storyId, cleanQuery, columnTarget, limit);
+        }
+        catch
+        {
+            return await SearchFallbackLikeAsync(conn, storyId, cleanQuery, columnTarget, limit);
+        }
+    }
+
+    private static async Task<List<FtsSearchResult>> SearchFallbackLikeAsync(System.Data.IDbConnection conn, long storyId, string queryText, string columnTarget, int limit)
+    {
+        string likePattern = $"%{queryText}%";
+        string fallbackSql = $@"
+            SELECT Id AS ChapterId, StoryId, Title,
+                   SUBSTR({columnTarget}, MAX(1, INSTR({columnTarget}, @RawQuery) - 30), 100) AS Snippet,
+                   0.0 AS Score
+            FROM Chapters
+            WHERE StoryId = @StoryId AND {columnTarget} LIKE @LikePattern
+            LIMIT @Limit";
+
+        var fallback = await conn.QueryAsync<FtsSearchResult>(fallbackSql, new
+        {
+            StoryId = storyId,
+            RawQuery = queryText,
+            LikePattern = likePattern,
+            Limit = limit
+        });
+        return fallback.ToList();
+    }
+
+    public async Task<List<TranslationMemoryMatch>> FindSimilarTranslationAsync(long storyId, string sourceText, int limit = 3)
+    {
+        if (string.IsNullOrWhiteSpace(sourceText)) return new();
+
+        var words = sourceText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
+                              .Where(w => w.Length > 3)
+                              .Take(6)
+                              .Select(w => "\"" + w.Replace("\"", "") + "\"")
+                              .ToList();
+
+        if (words.Count == 0) return new();
+
+        string ftsQuery = string.Join(" OR ", words);
+
+        using var conn = _database.CreateConnection();
+        string sql = @"
+            SELECT ChapterId, StoryId, Title, OriginalText AS MatchedSource, TranslatedText AS MatchedTranslation, rank AS Score
+            FROM Chapters_Fts
+            WHERE StoryId = @StoryId AND OriginalText MATCH @FtsQuery AND TranslatedText != ''
+            ORDER BY rank
+            LIMIT @Limit";
+
+        try
+        {
+            var matches = await conn.QueryAsync<TranslationMemoryMatch>(sql, new
+            {
+                StoryId = storyId,
+                FtsQuery = ftsQuery,
+                Limit = limit
+            });
+            return matches.ToList();
+        }
+        catch
+        {
+            return new();
+        }
+    }
+}
+
+public class FtsSearchResult
+{
+    public long ChapterId { get; set; }
+    public long StoryId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Snippet { get; set; } = string.Empty;
+    public double Score { get; set; }
+}
+
+public class TranslationMemoryMatch
+{
+    public long ChapterId { get; set; }
+    public long StoryId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string MatchedSource { get; set; } = string.Empty;
+    public string MatchedTranslation { get; set; } = string.Empty;
+    public double Score { get; set; }
 }

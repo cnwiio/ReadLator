@@ -91,6 +91,32 @@ public partial class MainWindow : Window
             await win.ShowDialog(this);
         };
 
+        ViewModel.RequestOpenAutoGlossary = async (story, chapter) =>
+        {
+            if (chapter == null || string.IsNullOrWhiteSpace(chapter.OriginalText)) return;
+
+            var db = new NovelDatabase();
+            var repo = new NovelRepository(db);
+            var settings = ViewModel.Settings;
+            var llm = new NovelTranslator.Core.Llm.LlmClient(settings);
+            var extractor = new NovelTranslator.Core.Glossary.GlossaryExtractor(llm, settings);
+
+            var existingGlossary = await repo.GetGlossaryByStoryAsync(story.Id);
+            var extracted = await extractor.ExtractNewTermsAsync(chapter.OriginalText, chapter.TranslatedText ?? "", existingGlossary);
+
+            if (extracted.Count == 0)
+            {
+                ViewModel.SaveStatusText = "ไม่พบชื่อเฉพาะใหม่ในตอนนี้";
+                return;
+            }
+
+            var autoVm = new AutoGlossaryViewModel(repo, story, extracted);
+            var dialog = new AutoGlossaryDialog { DataContext = autoVm };
+            autoVm.RequestClose = () => dialog.Close();
+            await dialog.ShowDialog(this);
+            ViewModel.SaveStatusText = "อัปเดตคำศัพท์เข้า Glossary เรียบร้อยแล้ว";
+        };
+
         ViewModel.RequestOpenSearchReplace = async (story, chapter) =>
         {
             var db = new NovelDatabase();
