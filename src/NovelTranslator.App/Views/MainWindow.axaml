@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v3.7"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v3.8"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -351,145 +351,136 @@
                     </StackPanel>
                 </Border>
 
-                <!-- แถบเลือกโหมดมุมมองข้อความ (Persistent Segmented Tabs สไตล์ Unslop) -->
-                <Grid ColumnDefinitions="Auto, *, Auto" Margin="0,0,0,8">
-                    <!-- Segmented Control [ 📝 ข้อความปกติ | 📑 จับคู่รายย่อหน้า ] -->
-                    <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1" CornerRadius="6" Padding="2">
-                        <StackPanel Orientation="Horizontal" Spacing="2">
-                            <Button Content="📝 ข้อความปกติ" Command="{Binding SetParagraphModeCommand}" CommandParameter="{x:False}"
-                                    Classes="ghost" Height="26" Padding="12,0" FontSize="12" CornerRadius="4"
-                                    FontWeight="{Binding !Editor.IsParagraphMode, Converter={x:Null}}"
-                                    Background="{Binding !Editor.IsParagraphMode, Converter={x:Null}}" />
-                            <Button Content="📑 จับคู่รายย่อหน้า" Command="{Binding SetParagraphModeCommand}" CommandParameter="{x:True}"
-                                    Classes="ghost" Height="26" Padding="12,0" FontSize="12" CornerRadius="4"
-                                    FontWeight="{Binding Editor.IsParagraphMode, Converter={x:Null}}" />
-                        </StackPanel>
-                    </Border>
-
-                    <!-- ด้านขวา: ปุ่มสลับโหมดอ่าน / ตั้งค่าฟอนต์ -->
-                    <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                        <Button Content="{Binding ReaderModeButtonText}" Command="{Binding ToggleReaderModeCommand}"
-                                Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center"
-                                ToolTip.Tip="สลับระหว่างมุมมองคู่ขนานซ้าย-ขวา กับโหมดอ่านคำแปลเต็มจอ" />
-                        <Button Command="{Binding ToggleFocusModeCommand}" Height="28" FontSize="12" Padding="8,0"
-                                ToolTip.Tip="{Binding FocusModeTooltipText}">
-                            <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding FocusModeButtonText}" VerticalAlignment="Center" />
-                                <Border Classes="keycap" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding FocusModeKeyText}" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" />
-                                </Border>
-                            </StackPanel>
-                        </Button>
-
-                        <Button Content="ตัวอักษรและมุมมอง ▾" Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center">
-                            <Button.Flyout>
-                                <Flyout Placement="BottomEdgeAlignedRight">
-                                    <StackPanel Spacing="12" Width="240" Margin="4">
-                                        <StackPanel Spacing="4">
-                                            <TextBlock Text="ฟอนต์เนื้อหา" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
-                                            <ComboBox ItemsSource="{Binding AvailableEditorFonts}" SelectedItem="{Binding EditorFontFamily, Mode=TwoWay}"
-                                                      HorizontalAlignment="Stretch" FontSize="12" />
-                                        </StackPanel>
-                                        <Grid ColumnDefinitions="*, Auto, Auto, Auto">
-                                            <TextBlock Text="ขนาดตัวอักษร" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                            <Button Grid.Column="1" Content="A-" Command="{Binding DecreaseFontSizeCommand}" Width="32" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
-                                            <TextBlock Grid.Column="2" Text="{Binding EditorFontSize, StringFormat='{}{0}px'}" FontSize="12" Width="40" TextAlignment="Center" VerticalAlignment="Center" />
-                                            <Button Grid.Column="3" Content="A+" Command="{Binding IncreaseFontSizeCommand}" Width="32" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
-                                        </Grid>
-                                        <CheckBox Content="เลื่อนหน้าจอซ้าย-ขวาพร้อมกัน" IsChecked="{Binding IsSyncScrollEnabled}" FontSize="12" />
-                                    </StackPanel>
-                                </Flyout>
-                            </Button.Flyout>
-                        </Button>
-                    </StackPanel>
-                </Grid>
-
-                <!-- พื้นที่กระดาษคู่ขนาน: โหมดปกติ (TextBox 2 ช่อง) -->
-                <Grid x:Name="EditorSplitGrid" Grid.Row="1" ColumnDefinitions="*, 12, *"
-                      IsVisible="{Binding !Editor.IsParagraphMode}">
-                    <!-- ช่องต้นฉบับ -->
-                    <Grid RowDefinitions="Auto, *" IsVisible="{Binding IsOriginalPaneVisible}">
-                        <Grid Height="28" Margin="0,0,0,4">
+                <!-- พื้นที่แก้ไขข้อความหลัก (Sub-row 0: หัวคอลัมน์ + ปุ่มมุมมอง, Sub-row 1: กระดาษคู่ขนาน) -->
+                <Grid Grid.Row="1" RowDefinitions="Auto, *">
+                    <!-- แถบหัวคอลัมน์ซ้าย-ขวา และปุ่มปรับมุมมองด้านขวา -->
+                    <Grid ColumnDefinitions="*, 12, *" Height="32" Margin="0,0,0,6">
+                        <Grid IsVisible="{Binding IsOriginalPaneVisible}">
                             <TextBlock Text="ต้นฉบับ" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
                         </Grid>
-                        <TextBox x:Name="OriginalTextBox" Grid.Row="1" Text="{Binding OriginalText, Mode=TwoWay}"
-                                 FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
-                                 Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                 CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
-                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
-                    </Grid>
 
-                    <GridSplitter Grid.Column="1" Width="12" HorizontalAlignment="Stretch" Background="Transparent"
-                                  IsVisible="{Binding IsOriginalPaneVisible}" />
-
-                    <!-- ช่องคำแปล -->
-                    <Grid Grid.Column="2" RowDefinitions="Auto, *">
-                        <Grid Height="28" Margin="0,0,0,4">
+                        <Grid Grid.Column="2" ColumnDefinitions="Auto, *">
                             <TextBlock Text="คำแปล" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <Button Content="{Binding Editor.ParagraphModeButtonText}" Command="{Binding ToggleParagraphModeCommand}"
+                                        Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center"
+                                        ToolTip.Tip="สลับระหว่างมุมมองปกติ กับโหมดจับคู่รายย่อหน้า" />
+                                <Button Content="{Binding ReaderModeButtonText}" Command="{Binding ToggleReaderModeCommand}"
+                                        Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center"
+                                        ToolTip.Tip="สลับระหว่างมุมมองคู่ขนานซ้าย-ขวา กับโหมดอ่านคำแปลเต็มจอ" />
+                                <Button Command="{Binding ToggleFocusModeCommand}" Height="28" FontSize="12" Padding="8,0"
+                                        ToolTip.Tip="{Binding FocusModeTooltipText}">
+                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding FocusModeButtonText}" VerticalAlignment="Center" />
+                                        <Border Classes="keycap" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding FocusModeKeyText}" FontSize="10" Foreground="{DynamicResource TextMutedBrush}" />
+                                        </Border>
+                                    </StackPanel>
+                                </Button>
+
+                                <Button Content="ตัวอักษรและมุมมอง ▾" Height="28" FontSize="12" Padding="10,0" VerticalContentAlignment="Center">
+                                    <Button.Flyout>
+                                        <Flyout Placement="BottomEdgeAlignedRight">
+                                            <StackPanel Spacing="12" Width="240" Margin="4">
+                                                <StackPanel Spacing="4">
+                                                    <TextBlock Text="ฟอนต์เนื้อหา" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    <ComboBox ItemsSource="{Binding AvailableEditorFonts}" SelectedItem="{Binding EditorFontFamily, Mode=TwoWay}"
+                                                              HorizontalAlignment="Stretch" FontSize="12" />
+                                                </StackPanel>
+                                                <Grid ColumnDefinitions="*, Auto, Auto, Auto">
+                                                    <TextBlock Text="ขนาดตัวอักษร" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                                    <Button Grid.Column="1" Content="A-" Command="{Binding DecreaseFontSizeCommand}" Width="32" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                                                    <TextBlock Grid.Column="2" Text="{Binding EditorFontSize, StringFormat='{}{0}px'}" FontSize="12" Width="40" TextAlignment="Center" VerticalAlignment="Center" />
+                                                    <Button Grid.Column="3" Content="A+" Command="{Binding IncreaseFontSizeCommand}" Width="32" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                                                </Grid>
+                                                <CheckBox Content="เลื่อนหน้าจอซ้าย-ขวาพร้อมกัน" IsChecked="{Binding IsSyncScrollEnabled}" FontSize="12" />
+                                            </StackPanel>
+                                        </Flyout>
+                                    </Button.Flyout>
+                                </Button>
+                            </StackPanel>
                         </Grid>
-                        <TextBox x:Name="TranslatedTextBox" Grid.Row="1" Text="{Binding TranslatedText, Mode=TwoWay}"
+                    </Grid>
+
+                    <!-- โหมดปกติ: TextBox กระดาษคู่ขนาน 2 แผ่น -->
+                    <Grid x:Name="EditorSplitGrid" Grid.Row="1" ColumnDefinitions="*, 12, *"
+                          IsVisible="{Binding !Editor.IsParagraphMode}">
+                        <TextBox x:Name="OriginalTextBox" Grid.Column="0" Text="{Binding OriginalText, Mode=TwoWay}"
+                                 IsVisible="{Binding IsOriginalPaneVisible}"
+                                 FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
+                                 Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                 CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
+
+                        <GridSplitter Grid.Column="1" Width="12" HorizontalAlignment="Stretch" Background="Transparent"
+                                      IsVisible="{Binding IsOriginalPaneVisible}" />
+
+                        <TextBox x:Name="TranslatedTextBox" Grid.Column="2" Text="{Binding TranslatedText, Mode=TwoWay}"
                                  FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
                                  Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                  CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
                     </Grid>
-                </Grid>
 
-                <!-- โหมดจับคู่ย่อหน้าซ้าย-ขวา (Paragraph Side-by-Side Clean Mode สไตล์ Unslop) -->
-                <Grid Grid.Row="1" RowDefinitions="Auto, *" IsVisible="{Binding Editor.IsParagraphMode}">
-                    <!-- หัวตารางย่อหน้าคู่ขนาน -->
-                    <Grid ColumnDefinitions="40, *, 16, *" Margin="12,0,12,6">
-                        <TextBlock Text="#" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" HorizontalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="ต้นฉบับ" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}" />
-                        <TextBlock Grid.Column="3" Text="คำแปล" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}" />
-                    </Grid>
+                    <!-- โหมดจับคู่รายย่อหน้าแบบ Minimal: กระดาษ 2 แผ่นโล่งๆ ไม่มีกล่องซ้อน มีเลขย่อหน้าเล็กข้างหน้า และบรรทัดตรงกัน -->
+                    <Grid Grid.Row="1" IsVisible="{Binding Editor.IsParagraphMode}">
+                        <!-- ชั้นพื้นหลังกระดาษซ้าย-ขวา -->
+                        <Grid ColumnDefinitions="*, 12, *">
+                            <Border Grid.Column="0" IsVisible="{Binding IsOriginalPaneVisible}"
+                                    Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                    BorderThickness="1" CornerRadius="8" />
+                            <Border Grid.Column="2"
+                                    Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                    BorderThickness="1" CornerRadius="8" />
+                        </Grid>
 
-                    <Border Grid.Row="1" Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                            BorderThickness="1" CornerRadius="8" Padding="8">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <!-- ชั้นเนื้อหาย่อหน้าที่จับคู่ระดับบรรทัดเดียวกัน -->
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,20">
                             <ItemsControl ItemsSource="{Binding Editor.ParagraphPairs}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                                BorderThickness="1" CornerRadius="6" Padding="8" Margin="0,0,0,8">
-                                            <Grid ColumnDefinitions="32, *, 12, *">
-                                                <!-- หมายเลขย่อหน้าแบบเงียบสงบ (Quiet index) -->
-                                                <TextBlock Text="{Binding Index}" FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
-                                                           HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,6,0,0" />
-
-                                                <!-- ช่องข้อความต้นฉบับ -->
-                                                <TextBox Grid.Column="1" Text="{Binding SourceText, Mode=TwoWay}"
+                                        <Grid ColumnDefinitions="*, 12, *" Margin="0,0,0,24">
+                                            <!-- ย่อหน้าต้นฉบับด้านซ้าย -->
+                                            <Grid Grid.Column="0" ColumnDefinitions="24, *" Margin="20,0"
+                                                  IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsOriginalPaneVisible}">
+                                                <TextBlock Text="{Binding Index}" FontSize="12"
+                                                           Foreground="{DynamicResource TextMutedBrush}"
+                                                           VerticalAlignment="Top" Margin="0,6,6,0" />
+                                                <TextBox Grid.Column="1" Classes="seamless"
+                                                         Text="{Binding SourceText, Mode=TwoWay}"
                                                          AcceptsReturn="True" TextWrapping="Wrap"
-                                                         FontFamily="Tahoma" FontSize="13" LineHeight="22"
-                                                         Padding="8" CornerRadius="4" BorderThickness="1"
-                                                         Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" />
-
-                                                <!-- ช่องข้อความคำแปล + ปุ่มแปลใหม่ในตัว -->
-                                                <Grid Grid.Column="3" RowDefinitions="*, Auto">
-                                                    <TextBox Text="{Binding TranslatedText, Mode=TwoWay}"
-                                                             AcceptsReturn="True" TextWrapping="Wrap"
-                                                             FontFamily="Tahoma" FontSize="13" LineHeight="22"
-                                                             Padding="8" CornerRadius="4" BorderThickness="1"
-                                                             Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" />
-
-                                                    <!-- ปุ่มแปลใหม่รายย่อหน้าแบบเรียบเนียน (Quiet button) -->
-                                                    <Button Grid.Row="1" Content="แปลใหม่ ↻"
-                                                            Command="{Binding RetranslateCommand}"
-                                                            IsEnabled="{Binding !IsRetranslating}"
-                                                            Classes="ghost" Height="22" FontSize="11" Padding="8,0"
-                                                            HorizontalAlignment="Right" Margin="0,4,0,0"
-                                                            ToolTip.Tip="แปลเฉพาะย่อหน้านี้ใหม่ด้วย AI" />
-                                                </Grid>
+                                                         FontFamily="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditorFontFamily}"
+                                                         FontSize="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditorFontSize}"
+                                                         LineHeight="32" />
                                             </Grid>
-                                        </Border>
+
+                                            <!-- ย่อหน้าคำแปลด้านขวา (คลิกขวาเพื่อแปลย่อหน้านี้ใหม่) -->
+                                            <Grid Grid.Column="2" ColumnDefinitions="24, *" Margin="20,0">
+                                                <TextBlock Text="{Binding Index}" FontSize="12"
+                                                           Foreground="{DynamicResource TextMutedBrush}"
+                                                           VerticalAlignment="Top" Margin="0,6,6,0" />
+                                                <TextBox Grid.Column="1" Classes="seamless"
+                                                         Text="{Binding TranslatedText, Mode=TwoWay}"
+                                                         AcceptsReturn="True" TextWrapping="Wrap"
+                                                         FontFamily="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditorFontFamily}"
+                                                         FontSize="{Binding $parent[Window].((vm:MainViewModel)DataContext).EditorFontSize}"
+                                                         LineHeight="32">
+                                                    <TextBox.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="แปลย่อหน้านี้ใหม่ ↻" Command="{Binding RetranslateCommand}" />
+                                                        </ContextMenu>
+                                                    </TextBox.ContextMenu>
+                                                </TextBox>
+                                            </Grid>
+                                        </Grid>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
-                    </Border>
+                    </Grid>
                 </Grid>
 
                 <!-- แถบสถานะด้านล่าง (Quiet Metadata + 6px Save Status Dot) -->

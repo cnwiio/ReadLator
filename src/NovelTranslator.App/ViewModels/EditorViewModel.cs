@@ -15,11 +15,12 @@ public partial class EditorViewModel : ObservableObject
 {
     private readonly NovelRepository _repository;
     private bool _isSyncingParagraphs;
+    public bool IsUpdatingFromParagraph { get; private set; }
 
     [ObservableProperty]
     private bool _isParagraphMode;
 
-    public string ParagraphModeButtonText => IsParagraphMode ? "มุมมองกล่องข้อความ" : "จับคู่ย่อหน้า";
+    public string ParagraphModeButtonText => IsParagraphMode ? "ข้อความปกติ" : "จับคู่รายย่อหน้า";
 
     [ObservableProperty]
     private ParagraphPairViewModel? _selectedParagraphPair;
@@ -74,7 +75,15 @@ public partial class EditorViewModel : ObservableObject
                     {
                         if (!_isSyncingParagraphs)
                         {
-                            OnParagraphContentChanged?.Invoke();
+                            IsUpdatingFromParagraph = true;
+                            try
+                            {
+                                OnParagraphContentChanged?.Invoke();
+                            }
+                            finally
+                            {
+                                IsUpdatingFromParagraph = false;
+                            }
                         }
                     }
                 };

@@ -278,6 +278,7 @@ public partial class MainViewModel : ObservableObject
         Editor = new EditorViewModel(_repository);
         Editor.OnParagraphContentChanged = () =>
         {
+            OriginalText = Editor.CombineSourceParagraphs();
             TranslatedText = Editor.CombineTranslatedParagraphs();
         };
         Editor.OnRetranslateParagraphAction = async (pair) =>
@@ -614,7 +615,10 @@ public partial class MainViewModel : ObservableObject
         if (!_isLoadingChapter && SelectedChapter != null && SelectedChapter.OriginalText != value)
         {
             SelectedChapter.OriginalText = value;
-            Editor.SyncParagraphPairs(value, TranslatedText);
+            if (!Editor.IsUpdatingFromParagraph)
+            {
+                Editor.SyncParagraphPairs(value, TranslatedText);
+            }
             if (SelectedStory != null)
             {
                 _ = Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, value);
@@ -631,7 +635,10 @@ public partial class MainViewModel : ObservableObject
         {
             SelectedChapter.TranslatedText = value;
             SelectedChapter.Status = ChapterStatus.Edited;
-            Editor.SyncParagraphPairs(OriginalText, value);
+            if (!Editor.IsUpdatingFromParagraph)
+            {
+                Editor.SyncParagraphPairs(OriginalText, value);
+            }
             UpdateChapterStatusDisplay(SelectedChapter.Status);
             UpdateStoryProgress();
             MarkUnsavedChanges();

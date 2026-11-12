@@ -30,6 +30,11 @@ public partial class ParagraphPairViewModel : ObservableObject
     public Func<ParagraphPairViewModel, Task>? OnRetranslateRequested { get; set; }
     public Action<ParagraphPairViewModel>? OnContentChanged { get; set; }
 
+    partial void OnSourceTextChanged(string value)
+    {
+        OnContentChanged?.Invoke(this);
+    }
+
     partial void OnTranslatedTextChanged(string value)
     {
         OnContentChanged?.Invoke(this);
