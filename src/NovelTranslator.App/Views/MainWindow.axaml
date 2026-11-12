@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.5"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.6"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -56,6 +56,8 @@
                         </StackPanel>
                         <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                <MenuItem Header="บันทึกตอนนี้" Command="{Binding SaveCurrentChapterCommand}" InputGesture="{Binding Settings.Shortkeys.SaveKey}" />
+                                <Separator />
                                 <MenuItem Header="{Binding SearchReplaceMenuText}" Command="{Binding OpenSearchReplaceCommand}" />
                                 <MenuItem Header="พจนานุกรมคำศัพท์ (Glossary)" Command="{Binding OpenGlossaryCommand}" />
                                 <Separator />
@@ -260,21 +262,18 @@
                                 </Button>
                             </StackPanel>
 
-                            <!-- ชื่อตอน + จุดสถานะ -->
+                            <!-- ชื่อตอน + จุดสถานะ (Inline สะอาดตา ไม่เป็นกล่อง) -->
                             <Grid Grid.Column="1" ColumnDefinitions="*, Auto" Margin="8,0,12,0" VerticalAlignment="Center">
                                 <TextBox Text="{Binding ChapterTitleEdit}" PlaceholderText="ตั้งชื่อตอน"
                                          FontWeight="Medium" FontSize="14" Height="32" VerticalContentAlignment="Center" />
-                                <Border Grid.Column="1" Background="{DynamicResource BadgeBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                        BorderThickness="1" CornerRadius="6" Padding="10,0" Height="32" Margin="8,0,0,0">
-                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                                        <Ellipse Width="6" Height="6" Fill="{Binding ChapterStatusColor}" VerticalAlignment="Center" />
-                                        <TextBlock Text="{Binding ChapterStatusText}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                    </StackPanel>
-                                </Border>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center" Margin="12,0,4,0">
+                                    <Ellipse Width="6" Height="6" Fill="{Binding ChapterStatusColor}" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding ChapterStatusText}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
                             </Grid>
 
-                            <!-- ปุ่มควบคุมการแปล (Primary เพียงปุ่มเดียว + Keycap) -->
-                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                            <!-- ปุ่มควบคุมการแปล (Primary แปลตอนนี้ + เมนูย่อย ▾) -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
                                 <Button Classes="primary" Command="{Binding StartTranslationCommand}"
                                         IsEnabled="{Binding !IsTranslating}" Height="32" Padding="12,0"
                                         ToolTip.Tip="{Binding TranslateTooltipText}">
@@ -285,14 +284,30 @@
                                         </Border>
                                     </StackPanel>
                                 </Button>
-                                <Button Content="แปลทุกตอนที่เหลือ" Command="{Binding TranslateAllChaptersCommand}"
-                                        IsEnabled="{Binding !IsTranslating}" Height="32" FontSize="13"
-                                        ToolTip.Tip="{Binding TranslateAllTooltipText}" />
-                                <Button Content="แปลใหม่" Command="{Binding RetranslateAllCommand}"
-                                        IsEnabled="{Binding !IsTranslating}" Height="32" FontSize="13"
-                                        ToolTip.Tip="ล้างคำแปลเดิมของตอนนี้แล้วแปลใหม่ตั้งแต่ต้น" />
-                                <Button Content="บันทึก" Command="{Binding SaveCurrentChapterCommand}"
-                                        Height="32" FontSize="13" ToolTip.Tip="{Binding SaveTooltipText}" />
+
+                                <!-- ปุ่มตัวเลือกการแปลเพิ่มเติม ▾ -->
+                                <Button Width="28" Height="32" Padding="0"
+                                        IsEnabled="{Binding !IsTranslating}"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                        ToolTip.Tip="ตัวเลือกการแปลเพิ่มเติม">
+                                    <Path Data="M7,10 L12,15 L17,10" Fill="{DynamicResource TextSecondaryBrush}" Width="10" Height="8" Stretch="Uniform" />
+                                    <Button.Flyout>
+                                        <MenuFlyout Placement="BottomEdgeAlignedRight">
+                                            <MenuItem Header="แปลทุกตอนที่เหลือ" Command="{Binding TranslateAllChaptersCommand}"
+                                                      ToolTip.Tip="{Binding TranslateAllTooltipText}">
+                                                <MenuItem.Icon>
+                                                    <Path Data="M5,4 L19,4 M5,12 L19,12 M5,20 L19,20" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="แปลใหม่ (ล้างคำแปลเดิม)" Command="{Binding RetranslateAllCommand}"
+                                                      ToolTip.Tip="ล้างคำแปลเดิมของตอนนี้แล้วแปลใหม่ตั้งแต่ต้น">
+                                                <MenuItem.Icon>
+                                                    <Path Data="M12,4 A8,8 0 1,0 20,12 M20,4 L20,9 L15,9" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </MenuFlyout>
+                                    </Button.Flyout>
+                                </Button>
                             </StackPanel>
                         </Grid>
 
@@ -392,9 +407,12 @@
                             <TextBlock Text="{Binding TranslatedWordCount, StringFormat='คำแปล {0:N0} คำ'}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" />
                             <TextBlock Text="{Binding StoryProgressText}" Foreground="{DynamicResource TextMutedBrush}" FontSize="12" />
                         </StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <Ellipse Width="6" Height="6" Fill="{Binding SaveStateColor}" VerticalAlignment="Center" />
-                            <TextBlock Text="{Binding SaveStatusText}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding SaveStatusText}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
+                            <Button Content="บันทึก" Command="{Binding SaveCurrentChapterCommand}"
+                                    Classes="ghost" Height="24" FontSize="11" Padding="8,0"
+                                    ToolTip.Tip="{Binding SaveTooltipText}" />
                         </StackPanel>
                     </Grid>
                 </Border>
