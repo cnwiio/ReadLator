@@ -97,7 +97,8 @@
             <!-- พื้นที่เนื้อหาด้านขวา -->
             <Grid Grid.Column="1">
                 <!-- เนื้อหาหมวด 1: AI Settings -->
-                <ScrollViewer IsVisible="{Binding IsAiCategorySelected}" Padding="24,20">
+                <ScrollViewer IsVisible="{Binding IsAiCategorySelected}" Padding="24,20"
+                              HorizontalScrollBarVisibility="Disabled" AllowAutoHide="True">
                     <StackPanel Spacing="16">
                         <!-- การเชื่อมต่อ AI -->
                         <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
@@ -194,7 +195,8 @@
                 </ScrollViewer>
 
                 <!-- เนื้อหาหมวด 2: Shortkeys Settings -->
-                <ScrollViewer IsVisible="{Binding IsShortkeysCategorySelected}" Padding="24,20">
+                <ScrollViewer IsVisible="{Binding IsShortkeysCategorySelected}" Padding="24,20"
+                              HorizontalScrollBarVisibility="Disabled" AllowAutoHide="True">
                     <StackPanel Spacing="16">
                         <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                 BorderThickness="1" CornerRadius="12" Padding="20">
@@ -373,7 +375,8 @@
                 </ScrollViewer>
 
                 <!-- เนื้อหาหมวด 3: System & Appearance -->
-                <ScrollViewer IsVisible="{Binding IsSystemCategorySelected}" Padding="24,20">
+                <ScrollViewer IsVisible="{Binding IsSystemCategorySelected}" Padding="24,20"
+                              HorizontalScrollBarVisibility="Disabled" AllowAutoHide="True">
                     <StackPanel Spacing="16">
                         <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                 BorderThickness="1" CornerRadius="12" Padding="20">
@@ -398,10 +401,14 @@
                                 <TextBlock Text="ตัวอย่างการแสดงผล (Preview)" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}" Margin="0,8,0,0" />
                                 <Border Background="{DynamicResource MainBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                         BorderThickness="1" CornerRadius="8" Padding="16">
-                                    <StackPanel Spacing="8">
-                                        <TextBlock Text="The quick brown fox jumps over the lazy dog."
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="The quick brown fox&#x0a;jumps over the lazy dog."
+                                                   TextWrapping="Wrap"
+                                                   LineHeight="34"
                                                    FontFamily="{Binding CurrentFontFamily}" FontSize="{Binding EditorFontSize}" />
-                                        <TextBlock Text="นิยายบทที่หนึ่ง: ท้องฟ้ายามราตรีพร่างพราวด้วยแสงดวงดาราอันไกลโพ้น สายลมพัดผ่านยอดไม้แผ่วเบา..."
+                                        <TextBlock Text="นิยายบทที่หนึ่ง: ท้องฟ้ายามราตรี&#x0a;พร่างพราวด้วยแสงดวงดาราอันไกลโพ้น..."
+                                                   TextWrapping="Wrap"
+                                                   LineHeight="34"
                                                    FontFamily="{Binding CurrentFontFamily}" FontSize="{Binding EditorFontSize}" />
                                     </StackPanel>
                                 </Border>

@@ -789,7 +789,33 @@ public partial class MainWindow : Window
             if (!string.IsNullOrWhiteSpace(selected))
             {
                 _glossarySelectedText = selected.Trim();
-                GlossaryPopup.PlacementTarget = tb;
+
+                var presenter = tb.GetVisualDescendants()
+                    .OfType<Avalonia.Controls.Presenters.TextPresenter>()
+                    .FirstOrDefault();
+
+                if (presenter?.TextLayout != null)
+                {
+                    int endIndex = Math.Max(tb.SelectionStart, tb.SelectionEnd);
+                    var charRect = presenter.TextLayout.HitTestTextPosition(endIndex);
+                    var point = presenter.TranslatePoint(new Point(charRect.Right, charRect.Bottom), tb) ?? new Point(charRect.Right, charRect.Bottom);
+
+                    double targetX = Math.Clamp(point.X - 20, 10, Math.Max(10, tb.Bounds.Width - 140));
+                    double targetY = point.Y + 4;
+
+                    GlossaryPopup.Placement = Avalonia.Controls.PlacementMode.TopEdgeAlignedLeft;
+                    GlossaryPopup.PlacementTarget = tb;
+                    GlossaryPopup.HorizontalOffset = targetX;
+                    GlossaryPopup.VerticalOffset = targetY;
+                }
+                else
+                {
+                    GlossaryPopup.Placement = Avalonia.Controls.PlacementMode.Bottom;
+                    GlossaryPopup.PlacementTarget = tb;
+                    GlossaryPopup.HorizontalOffset = 0;
+                    GlossaryPopup.VerticalOffset = 0;
+                }
+
                 GlossaryPopup.IsOpen = true;
             }
             else

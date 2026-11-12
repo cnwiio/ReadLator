@@ -26,6 +26,13 @@
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+        <Style Selector="ScrollViewer">
+            <Setter Property="AllowAutoHide" Value="True" />
+        </Style>
+        <Style Selector="ScrollBar:disabled">
+            <Setter Property="Opacity" Value="0" />
+            <Setter Property="IsHitTestVisible" Value="False" />
+        </Style>
         <Style Selector="Window">
             <Setter Property="Background" Value="{DynamicResource MainBgBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />

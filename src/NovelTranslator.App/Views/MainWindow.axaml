@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.6"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.7"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -184,7 +184,8 @@
                         <ListBox x:Name="ChapterListBox"
                                  ItemsSource="{Binding FilteredChapters}"
                                  SelectionMode="Multiple"
-                                 Background="Transparent">
+                                 Background="Transparent"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
                                     <Grid ColumnDefinitions="Auto, *, Auto" Height="28" Background="Transparent">
@@ -343,7 +344,9 @@
                         <TextBox x:Name="OriginalTextBox" Grid.Row="1" Text="{Binding OriginalText, Mode=TwoWay}"
                                  FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
                                  Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                 CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                                 CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
                     </Grid>
 
                     <GridSplitter Grid.Column="1" Width="12" HorizontalAlignment="Stretch" Background="Transparent"
@@ -393,7 +396,9 @@
                         <TextBox x:Name="TranslatedTextBox" Grid.Row="1" Text="{Binding TranslatedText, Mode=TwoWay}"
                                  FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
                                  Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                 CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap" ScrollViewer.VerticalScrollBarVisibility="Auto" />
+                                 CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
                     </Grid>
                 </Grid>
 
@@ -410,9 +415,12 @@
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                             <Ellipse Width="6" Height="6" Fill="{Binding SaveStateColor}" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding SaveStatusText}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,4,0" />
-                            <Button Content="บันทึก" Command="{Binding SaveCurrentChapterCommand}"
-                                    Classes="ghost" Height="24" FontSize="11" Padding="8,0"
-                                    ToolTip.Tip="{Binding SaveTooltipText}" />
+                            <Button Command="{Binding SaveCurrentChapterCommand}"
+                                    Classes="ghost" Width="28" Height="24" Padding="0"
+                                    ToolTip.Tip="{Binding SaveTooltipText}">
+                                <Path Data="M17,3 H5 C3.89,3 3,3.9 3,5 V19 C3,20.1 3.89,21 5,21 H19 C20.1,21 21,20.1 21,19 V7 L17,3 Z M12,19 C10.34,19 9,17.66 9,16 C9,14.34 10.34,13 12,13 C13.66,13 15,14.34 15,16 C15,17.66 13.66,19 12,19 Z M6,8 V5 H15 V8 H6 Z"
+                                      Fill="{DynamicResource TextSecondaryBrush}" Width="13" Height="13" Stretch="Uniform" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                            </Button>
                         </StackPanel>
                     </Grid>
                 </Border>
@@ -434,7 +442,7 @@
         </Canvas>
 
         <!-- Popup สำหรับเพิ่มคำศัพท์เข้า Glossary เมื่อมีการลากคลุมคำ -->
-        <Popup x:Name="GlossaryPopup" IsLightDismissEnabled="True" Placement="Pointer" VerticalOffset="-8">
+        <Popup x:Name="GlossaryPopup" IsLightDismissEnabled="True" Placement="TopEdgeAlignedLeft">
             <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="1" CornerRadius="6" Padding="4"
                     BoxShadow="0 4 12 0 #33000000">
