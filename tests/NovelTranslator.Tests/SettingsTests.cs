@@ -27,4 +27,21 @@ public class SettingsTests
         Assert.Equal("Alt+Right", settings.Shortkeys.NextChapterKey);
         Assert.Equal("Ctrl+B", settings.Shortkeys.ToggleSidebarKey);
     }
+
+    [Fact]
+    public void AppSettings_Shortkeys_CustomValuesPersist()
+    {
+        var settings = new AppSettings();
+        settings.Shortkeys.TranslateKey = "F5";
+        settings.Shortkeys.FullScreenKey = "F12";
+        settings.EditorFontFamily = "Leelawadee UI";
+
+        Assert.Equal("F5", settings.Shortkeys.TranslateKey);
+        Assert.Equal("F12", settings.Shortkeys.FullScreenKey);
+        Assert.Equal("Leelawadee UI", settings.EditorFontFamily);
+
+        var defaults = new ShortkeysSettings();
+        Assert.Equal("Ctrl+Enter", defaults.TranslateKey);
+        Assert.Equal("F11", defaults.FullScreenKey);
+    }
 }

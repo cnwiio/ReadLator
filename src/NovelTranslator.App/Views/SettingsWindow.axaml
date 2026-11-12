@@ -153,64 +153,172 @@
                                 BorderThickness="1" CornerRadius="12" Padding="20">
                             <StackPanel Spacing="16">
                                 <TextBlock Text="ตั้งค่าปุ่มลัดของโปรแกรม (Shortkeys)" FontSize="15" FontWeight="SemiBold" />
-                                <TextBlock Text="คุณสามารถปรับแต่งปุ่มลัดเพื่อความสะดวกรวดเร็วในการทำงาน" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                                <TextBlock Text="คลิกที่ปุ่มลัดแล้วกดปุ่มบนคีย์บอร์ดเพื่อบันทึกปุ่มใหม่ หรือกด ↺ เพื่อคืนค่าเริ่มต้น" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
 
-                                <Grid ColumnDefinitions="*, 160" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto" RowSpacing="12">
+                                <Grid ColumnDefinitions="*, 200" RowDefinitions="Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto, Auto" RowSpacing="12">
                                     <!-- 1. เริ่มแปล -->
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="เริ่มแปลตอนปัจจุบัน" FontSize="13" FontWeight="Medium" />
                                         <TextBlock Text="แปลเฉพาะส่วนใหม่หรือที่ยังไม่ได้แปล" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
                                     </StackPanel>
-                                    <TextBox Grid.Column="1" Text="{Binding TranslateKey}" Height="32" VerticalContentAlignment="Center" />
+                                    <Grid Grid.Column="1" ColumnDefinitions="*, Auto">
+                                        <Button Command="{Binding StartRecordingCommand}" CommandParameter="TranslateKey"
+                                                Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                ToolTip.Tip="คลิกแล้วกดปุ่มบนคีย์บอร์ดเพื่อเปลี่ยนปุ่ม (Esc เพื่อยกเลิก)">
+                                            <TextBlock Text="{Binding TranslateKeyDisplay}" FontSize="12" />
+                                        </Button>
+                                        <Button Grid.Column="1" Command="{Binding ResetShortcutCommand}" CommandParameter="TranslateKey"
+                                                Width="32" Height="32" Margin="6,0,0,0" Padding="0"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="คืนค่าเริ่มต้น (Ctrl+Enter)">
+                                            <TextBlock Text="↺" FontSize="14" FontWeight="Bold" />
+                                        </Button>
+                                    </Grid>
 
                                     <!-- 2. แปลทั้งหมด -->
                                     <StackPanel Grid.Row="1" VerticalAlignment="Center">
                                         <TextBlock Text="แปลทุกตอนที่ยังไม่ได้แปล" FontSize="13" FontWeight="Medium" />
                                         <TextBlock Text="เริ่มแปลต่อเนื่องทั้งเรื่องอัตโนมัติ" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" />
                                     </StackPanel>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding TranslateAllKey}" Height="32" VerticalContentAlignment="Center" />
+                                    <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, Auto">
+                                        <Button Command="{Binding StartRecordingCommand}" CommandParameter="TranslateAllKey"
+                                                Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                ToolTip.Tip="คลิกแล้วกดปุ่มบนคีย์บอร์ดเพื่อเปลี่ยนปุ่ม (Esc เพื่อยกเลิก)">
+                                            <TextBlock Text="{Binding TranslateAllKeyDisplay}" FontSize="12" />
+                                        </Button>
+                                        <Button Grid.Column="1" Command="{Binding ResetShortcutCommand}" CommandParameter="TranslateAllKey"
+                                                Width="32" Height="32" Margin="6,0,0,0" Padding="0"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="คืนค่าเริ่มต้น (Ctrl+Shift+Enter)">
+                                            <TextBlock Text="↺" FontSize="14" FontWeight="Bold" />
+                                        </Button>
+                                    </Grid>
 
                                     <!-- 3. ค้นหาและแทนที่ -->
                                     <StackPanel Grid.Row="2" VerticalAlignment="Center">
                                         <TextBlock Text="เปิดหน้าต่างค้นหาและแทนที่คำ" FontSize="13" FontWeight="Medium" />
                                     </StackPanel>
-                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding SearchReplaceKey}" Height="32" VerticalContentAlignment="Center" />
+                                    <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*, Auto">
+                                        <Button Command="{Binding StartRecordingCommand}" CommandParameter="SearchReplaceKey"
+                                                Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                ToolTip.Tip="คลิกแล้วกดปุ่มบนคีย์บอร์ดเพื่อเปลี่ยนปุ่ม (Esc เพื่อยกเลิก)">
+                                            <TextBlock Text="{Binding SearchReplaceKeyDisplay}" FontSize="12" />
+                                        </Button>
+                                        <Button Grid.Column="1" Command="{Binding ResetShortcutCommand}" CommandParameter="SearchReplaceKey"
+                                                Width="32" Height="32" Margin="6,0,0,0" Padding="0"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="คืนค่าเริ่มต้น (Ctrl+F)">
+                                            <TextBlock Text="↺" FontSize="14" FontWeight="Bold" />
+                                        </Button>
+                                    </Grid>
 
                                     <!-- 4. บันทึก -->
                                     <StackPanel Grid.Row="3" VerticalAlignment="Center">
                                         <TextBlock Text="บันทึกข้อความตอนปัจจุบัน" FontSize="13" FontWeight="Medium" />
                                     </StackPanel>
-                                    <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding SaveKey}" Height="32" VerticalContentAlignment="Center" />
+                                    <Grid Grid.Row="3" Grid.Column="1" ColumnDefinitions="*, Auto">
+                                        <Button Command="{Binding StartRecordingCommand}" CommandParameter="SaveKey"
+                                                Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                ToolTip.Tip="คลิกแล้วกดปุ่มบนคีย์บอร์ดเพื่อเปลี่ยนปุ่ม (Esc เพื่อยกเลิก)">
+                                            <TextBlock Text="{Binding SaveKeyDisplay}" FontSize="12" />
+                                        </Button>
+                                        <Button Grid.Column="1" Command="{Binding ResetShortcutCommand}" CommandParameter="SaveKey"
+                                                Width="32" Height="32" Margin="6,0,0,0" Padding="0"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="คืนค่าเริ่มต้น (Ctrl+S)">
+                                            <TextBlock Text="↺" FontSize="14" FontWeight="Bold" />
+                                        </Button>
+                                    </Grid>
 
                                     <!-- 5. เต็มจอ -->
                                     <StackPanel Grid.Row="4" VerticalAlignment="Center">
                                         <TextBlock Text="สลับโหมดเต็มหน้าจอ (Full Screen)" FontSize="13" FontWeight="Medium" />
                                     </StackPanel>
-                                    <TextBox Grid.Row="4" Grid.Column="1" Text="{Binding FullScreenKey}" Height="32" VerticalContentAlignment="Center" />
+                                    <Grid Grid.Row="4" Grid.Column="1" ColumnDefinitions="*, Auto">
+                                        <Button Command="{Binding StartRecordingCommand}" CommandParameter="FullScreenKey"
+                                                Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                ToolTip.Tip="คลิกแล้วกดปุ่มบนคีย์บอร์ดเพื่อเปลี่ยนปุ่ม (Esc เพื่อยกเลิก)">
+                                            <TextBlock Text="{Binding FullScreenKeyDisplay}" FontSize="12" />
+                                        </Button>
+                                        <Button Grid.Column="1" Command="{Binding ResetShortcutCommand}" CommandParameter="FullScreenKey"
+                                                Width="32" Height="32" Margin="6,0,0,0" Padding="0"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="คืนค่าเริ่มต้น (F11)">
+                                            <TextBlock Text="↺" FontSize="14" FontWeight="Bold" />
+                                        </Button>
+                                    </Grid>
 
                                     <!-- 6. โหมดโฟกัส -->
                                     <StackPanel Grid.Row="5" VerticalAlignment="Center">
                                         <TextBlock Text="สลับโหมดโฟกัสไร้สิ่งรบกวน" FontSize="13" FontWeight="Medium" />
                                     </StackPanel>
-                                    <TextBox Grid.Row="5" Grid.Column="1" Text="{Binding FocusModeKey}" Height="32" VerticalContentAlignment="Center" />
+                                    <Grid Grid.Row="5" Grid.Column="1" ColumnDefinitions="*, Auto">
+                                        <Button Command="{Binding StartRecordingCommand}" CommandParameter="FocusModeKey"
+                                                Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                ToolTip.Tip="คลิกแล้วกดปุ่มบนคีย์บอร์ดเพื่อเปลี่ยนปุ่ม (Esc เพื่อยกเลิก)">
+                                            <TextBlock Text="{Binding FocusModeKeyDisplay}" FontSize="12" />
+                                        </Button>
+                                        <Button Grid.Column="1" Command="{Binding ResetShortcutCommand}" CommandParameter="FocusModeKey"
+                                                Width="32" Height="32" Margin="6,0,0,0" Padding="0"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="คืนค่าเริ่มต้น (F10)">
+                                            <TextBlock Text="↺" FontSize="14" FontWeight="Bold" />
+                                        </Button>
+                                    </Grid>
 
                                     <!-- 7. ตอนก่อนหน้า -->
                                     <StackPanel Grid.Row="6" VerticalAlignment="Center">
                                         <TextBlock Text="ไปยังตอนก่อนหน้า" FontSize="13" FontWeight="Medium" />
                                     </StackPanel>
-                                    <TextBox Grid.Row="6" Grid.Column="1" Text="{Binding PrevChapterKey}" Height="32" VerticalContentAlignment="Center" />
+                                    <Grid Grid.Row="6" Grid.Column="1" ColumnDefinitions="*, Auto">
+                                        <Button Command="{Binding StartRecordingCommand}" CommandParameter="PrevChapterKey"
+                                                Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                ToolTip.Tip="คลิกแล้วกดปุ่มบนคีย์บอร์ดเพื่อเปลี่ยนปุ่ม (Esc เพื่อยกเลิก)">
+                                            <TextBlock Text="{Binding PrevChapterKeyDisplay}" FontSize="12" />
+                                        </Button>
+                                        <Button Grid.Column="1" Command="{Binding ResetShortcutCommand}" CommandParameter="PrevChapterKey"
+                                                Width="32" Height="32" Margin="6,0,0,0" Padding="0"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="คืนค่าเริ่มต้น (Alt+Left)">
+                                            <TextBlock Text="↺" FontSize="14" FontWeight="Bold" />
+                                        </Button>
+                                    </Grid>
 
                                     <!-- 8. ตอนถัดไป -->
                                     <StackPanel Grid.Row="7" VerticalAlignment="Center">
                                         <TextBlock Text="ไปยังตอนถัดไป" FontSize="13" FontWeight="Medium" />
                                     </StackPanel>
-                                    <TextBox Grid.Row="7" Grid.Column="1" Text="{Binding NextChapterKey}" Height="32" VerticalContentAlignment="Center" />
+                                    <Grid Grid.Row="7" Grid.Column="1" ColumnDefinitions="*, Auto">
+                                        <Button Command="{Binding StartRecordingCommand}" CommandParameter="NextChapterKey"
+                                                Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                ToolTip.Tip="คลิกแล้วกดปุ่มบนคีย์บอร์ดเพื่อเปลี่ยนปุ่ม (Esc เพื่อยกเลิก)">
+                                            <TextBlock Text="{Binding NextChapterKeyDisplay}" FontSize="12" />
+                                        </Button>
+                                        <Button Grid.Column="1" Command="{Binding ResetShortcutCommand}" CommandParameter="NextChapterKey"
+                                                Width="32" Height="32" Margin="6,0,0,0" Padding="0"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="คืนค่าเริ่มต้น (Alt+Right)">
+                                            <TextBlock Text="↺" FontSize="14" FontWeight="Bold" />
+                                        </Button>
+                                    </Grid>
 
                                     <!-- 9. แถบข้าง -->
                                     <StackPanel Grid.Row="8" VerticalAlignment="Center">
                                         <TextBlock Text="ซ่อน/แสดงแถบรายการตอนด้านซ้าย" FontSize="13" FontWeight="Medium" />
                                     </StackPanel>
-                                    <TextBox Grid.Row="8" Grid.Column="1" Text="{Binding ToggleSidebarKey}" Height="32" VerticalContentAlignment="Center" />
+                                    <Grid Grid.Row="8" Grid.Column="1" ColumnDefinitions="*, Auto">
+                                        <Button Command="{Binding StartRecordingCommand}" CommandParameter="ToggleSidebarKey"
+                                                Height="32" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                                ToolTip.Tip="คลิกแล้วกดปุ่มบนคีย์บอร์ดเพื่อเปลี่ยนปุ่ม (Esc เพื่อยกเลิก)">
+                                            <TextBlock Text="{Binding ToggleSidebarKeyDisplay}" FontSize="12" />
+                                        </Button>
+                                        <Button Grid.Column="1" Command="{Binding ResetShortcutCommand}" CommandParameter="ToggleSidebarKey"
+                                                Width="32" Height="32" Margin="6,0,0,0" Padding="0"
+                                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="คืนค่าเริ่มต้น (Ctrl+B)">
+                                            <TextBlock Text="↺" FontSize="14" FontWeight="Bold" />
+                                        </Button>
+                                    </Grid>
+                                </Grid>
+
+                                <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,8,0,4" />
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <TextBlock Text="{Binding RecordingPromptText}" FontSize="12" Foreground="{DynamicResource AccentBrush}"
+                                               VerticalAlignment="Center" IsVisible="{Binding IsRecording}" TextWrapping="Wrap" />
+                                    <Button Grid.Column="1" Content="คืนค่าเริ่มต้นทั้งหมด" Command="{Binding ResetAllShortcutsCommand}"
+                                            Height="32" FontSize="12" Padding="14,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                            ToolTip.Tip="คืนค่าปุ่มลัดทั้งหมดเป็นค่าเริ่มต้นของโปรแกรม" />
                                 </Grid>
                             </StackPanel>
                         </Border>
@@ -245,9 +353,9 @@
                                         BorderThickness="1" CornerRadius="8" Padding="16">
                                     <StackPanel Spacing="8">
                                         <TextBlock Text="The quick brown fox jumps over the lazy dog."
-                                                   FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" />
+                                                   FontFamily="{Binding CurrentFontFamily}" FontSize="{Binding EditorFontSize}" />
                                         <TextBlock Text="นิยายบทที่หนึ่ง: ท้องฟ้ายามราตรีพร่างพราวด้วยแสงดวงดาราอันไกลโพ้น สายลมพัดผ่านยอดไม้แผ่วเบา..."
-                                                   FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" />
+                                                   FontFamily="{Binding CurrentFontFamily}" FontSize="{Binding EditorFontSize}" />
                                     </StackPanel>
                                 </Border>
 

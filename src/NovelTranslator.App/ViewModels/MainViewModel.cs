@@ -97,14 +97,15 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<string> AvailableEditorFonts { get; } = new()
     {
+        "Leelawadee UI",
         "Tahoma",
-        "Segoe UI",
         "Cordia New",
         "Angsana New",
-        "Arial",
-        "Calibri",
+        "TH Sarabun New",
+        "Segoe UI",
+        "Microsoft Sans Serif",
         "Consolas",
-        "Sarabun"
+        "Arial"
     };
 
     [ObservableProperty]

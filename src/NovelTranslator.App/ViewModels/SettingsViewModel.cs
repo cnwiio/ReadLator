@@ -2,6 +2,7 @@ using System;
 using System.Collections.ObjectModel;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NovelTranslator.Core.Llm;
@@ -63,21 +64,126 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _nextChapterKey = "Alt+Right";
     [ObservableProperty] private string _toggleSidebarKey = "Ctrl+B";
 
+    [ObservableProperty] private string? _recordingAction;
+
+    partial void OnRecordingActionChanged(string? value)
+    {
+        OnPropertyChanged(nameof(TranslateKeyDisplay));
+        OnPropertyChanged(nameof(TranslateAllKeyDisplay));
+        OnPropertyChanged(nameof(SearchReplaceKeyDisplay));
+        OnPropertyChanged(nameof(SaveKeyDisplay));
+        OnPropertyChanged(nameof(FullScreenKeyDisplay));
+        OnPropertyChanged(nameof(FocusModeKeyDisplay));
+        OnPropertyChanged(nameof(PrevChapterKeyDisplay));
+        OnPropertyChanged(nameof(NextChapterKeyDisplay));
+        OnPropertyChanged(nameof(ToggleSidebarKeyDisplay));
+        OnPropertyChanged(nameof(IsRecording));
+        OnPropertyChanged(nameof(RecordingPromptText));
+    }
+
+    public bool IsRecording => !string.IsNullOrEmpty(RecordingAction);
+    public string RecordingPromptText => IsRecording ? "กำลังบันทึกปุ่มลัด... กรุณากดปุ่มบนคีย์บอร์ดที่ต้องการ (หรือกด Esc เพื่อยกเลิก)" : string.Empty;
+
+    public string TranslateKeyDisplay => RecordingAction == nameof(TranslateKey) ? "กดปุ่ม..." : TranslateKey;
+    public string TranslateAllKeyDisplay => RecordingAction == nameof(TranslateAllKey) ? "กดปุ่ม..." : TranslateAllKey;
+    public string SearchReplaceKeyDisplay => RecordingAction == nameof(SearchReplaceKey) ? "กดปุ่ม..." : SearchReplaceKey;
+    public string SaveKeyDisplay => RecordingAction == nameof(SaveKey) ? "กดปุ่ม..." : SaveKey;
+    public string FullScreenKeyDisplay => RecordingAction == nameof(FullScreenKey) ? "กดปุ่ม..." : FullScreenKey;
+    public string FocusModeKeyDisplay => RecordingAction == nameof(FocusModeKey) ? "กดปุ่ม..." : FocusModeKey;
+    public string PrevChapterKeyDisplay => RecordingAction == nameof(PrevChapterKey) ? "กดปุ่ม..." : PrevChapterKey;
+    public string NextChapterKeyDisplay => RecordingAction == nameof(NextChapterKey) ? "กดปุ่ม..." : NextChapterKey;
+    public string ToggleSidebarKeyDisplay => RecordingAction == nameof(ToggleSidebarKey) ? "กดปุ่ม..." : ToggleSidebarKey;
+
+    partial void OnTranslateKeyChanged(string value) => OnPropertyChanged(nameof(TranslateKeyDisplay));
+    partial void OnTranslateAllKeyChanged(string value) => OnPropertyChanged(nameof(TranslateAllKeyDisplay));
+    partial void OnSearchReplaceKeyChanged(string value) => OnPropertyChanged(nameof(SearchReplaceKeyDisplay));
+    partial void OnSaveKeyChanged(string value) => OnPropertyChanged(nameof(SaveKeyDisplay));
+    partial void OnFullScreenKeyChanged(string value) => OnPropertyChanged(nameof(FullScreenKeyDisplay));
+    partial void OnFocusModeKeyChanged(string value) => OnPropertyChanged(nameof(FocusModeKeyDisplay));
+    partial void OnPrevChapterKeyChanged(string value) => OnPropertyChanged(nameof(PrevChapterKeyDisplay));
+    partial void OnNextChapterKeyChanged(string value) => OnPropertyChanged(nameof(NextChapterKeyDisplay));
+    partial void OnToggleSidebarKeyChanged(string value) => OnPropertyChanged(nameof(ToggleSidebarKeyDisplay));
+
+    [RelayCommand]
+    public void StartRecording(string action)
+    {
+        RecordingAction = RecordingAction == action ? null : action;
+    }
+
+    [RelayCommand]
+    public void ResetShortcut(string action)
+    {
+        var defaults = new ShortkeysSettings();
+        switch (action)
+        {
+            case nameof(TranslateKey): TranslateKey = defaults.TranslateKey; break;
+            case nameof(TranslateAllKey): TranslateAllKey = defaults.TranslateAllKey; break;
+            case nameof(SearchReplaceKey): SearchReplaceKey = defaults.SearchReplaceKey; break;
+            case nameof(SaveKey): SaveKey = defaults.SaveKey; break;
+            case nameof(FullScreenKey): FullScreenKey = defaults.FullScreenKey; break;
+            case nameof(FocusModeKey): FocusModeKey = defaults.FocusModeKey; break;
+            case nameof(PrevChapterKey): PrevChapterKey = defaults.PrevChapterKey; break;
+            case nameof(NextChapterKey): NextChapterKey = defaults.NextChapterKey; break;
+            case nameof(ToggleSidebarKey): ToggleSidebarKey = defaults.ToggleSidebarKey; break;
+        }
+        if (RecordingAction == action)
+        {
+            RecordingAction = null;
+        }
+    }
+
+    [RelayCommand]
+    public void ResetAllShortcuts()
+    {
+        var defaults = new ShortkeysSettings();
+        TranslateKey = defaults.TranslateKey;
+        TranslateAllKey = defaults.TranslateAllKey;
+        SearchReplaceKey = defaults.SearchReplaceKey;
+        SaveKey = defaults.SaveKey;
+        FullScreenKey = defaults.FullScreenKey;
+        FocusModeKey = defaults.FocusModeKey;
+        PrevChapterKey = defaults.PrevChapterKey;
+        NextChapterKey = defaults.NextChapterKey;
+        ToggleSidebarKey = defaults.ToggleSidebarKey;
+        RecordingAction = null;
+    }
+
+    public void SetShortcut(string action, string key)
+    {
+        switch (action)
+        {
+            case nameof(TranslateKey): TranslateKey = key; break;
+            case nameof(TranslateAllKey): TranslateAllKey = key; break;
+            case nameof(SearchReplaceKey): SearchReplaceKey = key; break;
+            case nameof(SaveKey): SaveKey = key; break;
+            case nameof(FullScreenKey): FullScreenKey = key; break;
+            case nameof(FocusModeKey): FocusModeKey = key; break;
+            case nameof(PrevChapterKey): PrevChapterKey = key; break;
+            case nameof(NextChapterKey): NextChapterKey = key; break;
+            case nameof(ToggleSidebarKey): ToggleSidebarKey = key; break;
+        }
+        RecordingAction = null;
+    }
+
     // หมวด System & Appearance
     [ObservableProperty] private string _editorFontFamily = "Tahoma";
+    public FontFamily CurrentFontFamily => new(string.IsNullOrWhiteSpace(EditorFontFamily) ? "Tahoma" : EditorFontFamily);
+    partial void OnEditorFontFamilyChanged(string value) => OnPropertyChanged(nameof(CurrentFontFamily));
+
     [ObservableProperty] private int _editorFontSize = 20;
     [ObservableProperty] private double _autoSaveDelaySeconds = 1.5;
 
     public ObservableCollection<string> AvailableEditorFonts { get; } = new()
     {
+        "Leelawadee UI",
         "Tahoma",
-        "Segoe UI",
         "Cordia New",
         "Angsana New",
-        "Arial",
-        "Calibri",
+        "TH Sarabun New",
+        "Segoe UI",
+        "Microsoft Sans Serif",
         "Consolas",
-        "Sarabun"
+        "Arial"
     };
 
     [ObservableProperty]
