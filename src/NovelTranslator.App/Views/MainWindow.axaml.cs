@@ -796,24 +796,34 @@ public partial class MainWindow : Window
 
                 if (presenter?.TextLayout != null)
                 {
+                    int startIndex = Math.Min(tb.SelectionStart, tb.SelectionEnd);
                     int endIndex = Math.Max(tb.SelectionStart, tb.SelectionEnd);
-                    var charRect = presenter.TextLayout.HitTestTextPosition(endIndex);
+                    var startCharRect = presenter.TextLayout.HitTestTextPosition(startIndex);
+                    var endCharRect = presenter.TextLayout.HitTestTextPosition(endIndex);
 
-                    var topPoint = presenter.TranslatePoint(new Point(charRect.Right, charRect.Top), tb)
-                                   ?? new Point(charRect.Right, charRect.Top);
-                    var bottomPoint = presenter.TranslatePoint(new Point(charRect.Right, charRect.Bottom), tb)
-                                      ?? new Point(charRect.Right, charRect.Bottom);
+                    var startTopPoint = presenter.TranslatePoint(new Point(startCharRect.Left, startCharRect.Top), tb)
+                                        ?? new Point(startCharRect.Left, startCharRect.Top);
+                    var endBottomPoint = presenter.TranslatePoint(new Point(endCharRect.Right, endCharRect.Bottom), tb)
+                                         ?? new Point(endCharRect.Right, endCharRect.Bottom);
 
                     const double popupHeight = 26;
-                    const double popupWidth = 110;
+                    const double popupWidth = 114;
 
-                    // Place above the line by default so it never overlaps text; flip below if at top edge
-                    double targetY = (topPoint.Y - popupHeight - 6 >= 6)
-                        ? topPoint.Y - popupHeight - 6
-                        : bottomPoint.Y + 6;
+                    // Center horizontally relative to the selection span
+                    double selectionCenterX = (startTopPoint.X + endBottomPoint.X) / 2.0;
+                    double targetX = Math.Clamp(selectionCenterX - (popupWidth / 2.0), 10, Math.Max(10, tb.Bounds.Width - popupWidth - 10));
 
-                    // Position near the end of selection, clamping within TextBox width
-                    double targetX = Math.Clamp(topPoint.X - 20, 10, Math.Max(10, tb.Bounds.Width - popupWidth - 10));
+                    // Place directly underneath the highlighted text (just 4px below the character bottom)
+                    // If near the bottom edge of the TextBox, flip right above the selection
+                    double targetY;
+                    if (endBottomPoint.Y + popupHeight + 4 <= tb.Bounds.Height - 10)
+                    {
+                        targetY = endBottomPoint.Y + 4;
+                    }
+                    else
+                    {
+                        targetY = Math.Max(6, startTopPoint.Y - popupHeight - 4);
+                    }
 
                     GlossaryPopup.Placement = Avalonia.Controls.PlacementMode.TopEdgeAlignedLeft;
                     GlossaryPopup.PlacementTarget = tb;

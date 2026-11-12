@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.8"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.9"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -185,7 +185,7 @@
                                  ItemsSource="{Binding FilteredChapters}"
                                  SelectionMode="Multiple"
                                  Background="Transparent"
-                                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -346,7 +346,7 @@
                                  FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
                                  Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                  CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap"
-                                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
                     </Grid>
 
@@ -398,7 +398,7 @@
                                  FontFamily="{Binding EditorFontFamily}" FontSize="{Binding EditorFontSize}" LineHeight="32" Padding="20"
                                  Background="{DynamicResource EditorBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                  CornerRadius="8" AcceptsReturn="True" TextWrapping="Wrap"
-                                 ScrollViewer.VerticalScrollBarVisibility="Hidden"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled" />
                     </Grid>
                 </Grid>

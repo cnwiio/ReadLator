@@ -99,7 +99,7 @@
                 <!-- เนื้อหาหมวด 1: AI Settings -->
                 <ScrollViewer IsVisible="{Binding IsAiCategorySelected}" Padding="24,20"
                               HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Hidden" AllowAutoHide="True">
+                              VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
                     <StackPanel Spacing="16">
                         <!-- การเชื่อมต่อ AI -->
                         <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
@@ -198,7 +198,7 @@
                 <!-- เนื้อหาหมวด 2: Shortkeys Settings -->
                 <ScrollViewer IsVisible="{Binding IsShortkeysCategorySelected}" Padding="24,20"
                               HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Hidden" AllowAutoHide="True">
+                              VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
                     <StackPanel Spacing="16">
                         <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                 BorderThickness="1" CornerRadius="12" Padding="20">
@@ -379,7 +379,7 @@
                 <!-- เนื้อหาหมวด 3: System & Appearance -->
                 <ScrollViewer IsVisible="{Binding IsSystemCategorySelected}" Padding="24,20"
                               HorizontalScrollBarVisibility="Disabled"
-                              VerticalScrollBarVisibility="Hidden" AllowAutoHide="True">
+                              VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
                     <StackPanel Spacing="16">
                         <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                 BorderThickness="1" CornerRadius="12" Padding="20">
