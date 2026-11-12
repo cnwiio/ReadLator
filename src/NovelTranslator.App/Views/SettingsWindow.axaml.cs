@@ -89,4 +89,9 @@ public partial class SettingsWindow : Window
             _ => key.ToString()
         };
     }
+
+    private void OnCancelClicked(object? sender, RoutedEventArgs e)
+    {
+        Close();
+    }
 }

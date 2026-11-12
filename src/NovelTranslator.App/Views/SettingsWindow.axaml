@@ -9,10 +9,25 @@
         WindowStartupLocation="CenterOwner"
         Background="{DynamicResource MainBgBrush}">
 
+    <Window.Styles>
+        <Style Selector="ListBoxItem">
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="8,8" />
+            <Setter Property="Margin" Value="0,2" />
+        </Style>
+        <Style Selector="ListBoxItem:selected /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource RaisedBgBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+        </Style>
+        <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="{DynamicResource RaisedBgBrush}" />
+        </Style>
+    </Window.Styles>
+
     <Grid RowDefinitions="*, Auto">
         <!-- พื้นที่หลัก: แถบหมวดหมู่ซ้าย 210px + เนื้อหาขวา -->
         <Grid ColumnDefinitions="210, *">
-            <!-- แถบเมนูด้านซ้าย (Modern Sidebar Navigation) -->
+            <!-- แถบเมนูด้านซ้าย (Quiet Modern Sidebar Navigation) -->
             <Border Background="{DynamicResource SidebarBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                     BorderThickness="0,0,1,0" Padding="12,16">
                 <StackPanel Spacing="6">
@@ -20,28 +35,40 @@
                                Foreground="{DynamicResource TextMutedBrush}" Margin="8,0,0,10" />
 
                     <ListBox SelectedIndex="{Binding SelectedCategoryIndex}" Background="Transparent">
-                        <ListBoxItem Padding="12,10" CornerRadius="8">
-                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <Path Data="M12,2 A2,2 0 0,1 14,4 L14,5 L18,5 A2,2 0 0,1 20,7 L20,17 A2,2 0 0,1 18,19 L6,19 A2,2 0 0,1 4,17 L4,7 A2,2 0 0,1 6,5 L10,5 L10,4 A2,2 0 0,1 12,2 Z M9,9 A1.5,1.5 0 1,0 9,12 A1.5,1.5 0 0,0 9,9 Z M15,9 A1.5,1.5 0 1,0 15,12 A1.5,1.5 0 0,0 15,9 Z M8,15 L16,15"
-                                      Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" />
-                                <TextBlock Text="ปัญญาประดิษฐ์ (AI)" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
-                            </StackPanel>
+                        <ListBoxItem Padding="8,8" CornerRadius="6">
+                            <Grid ColumnDefinitions="3, *">
+                                <Border Width="3" Height="16" Background="#2563EB" CornerRadius="1.5"
+                                        IsVisible="{Binding $parent[ListBoxItem].IsSelected}" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="8,0,0,0" VerticalAlignment="Center">
+                                    <Path Data="M12,2 A2,2 0 0,1 14,4 L14,5 L18,5 A2,2 0 0,1 20,7 L20,17 A2,2 0 0,1 18,19 L6,19 A2,2 0 0,1 4,17 L4,7 A2,2 0 0,1 6,5 L10,5 L10,4 A2,2 0 0,1 12,2 Z M9,9 A1.5,1.5 0 1,0 9,12 A1.5,1.5 0 0,0 9,9 Z M15,9 A1.5,1.5 0 1,0 15,12 A1.5,1.5 0 0,0 15,9 Z M8,15 L16,15"
+                                          Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" />
+                                    <TextBlock Text="ปัญญาประดิษฐ์ (AI)" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
                         </ListBoxItem>
 
-                        <ListBoxItem Padding="12,10" CornerRadius="8">
-                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <Path Data="M3,5 L21,5 A2,2 0 0,1 23,7 L23,17 A2,2 0 0,1 21,19 L3,19 A2,2 0 0,1 1,17 L1,7 A2,2 0 0,1 3,5 Z M5,8 L7,8 M9,8 L11,8 M13,8 L15,8 M17,8 L19,8 M5,11 L7,11 M9,11 L11,11 M13,11 L15,11 M17,11 L19,11 M6,15 L18,15"
-                                      Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" />
-                                <TextBlock Text="ปุ่มลัด (Shortkeys)" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
-                            </StackPanel>
+                        <ListBoxItem Padding="8,8" CornerRadius="6">
+                            <Grid ColumnDefinitions="3, *">
+                                <Border Width="3" Height="16" Background="#2563EB" CornerRadius="1.5"
+                                        IsVisible="{Binding $parent[ListBoxItem].IsSelected}" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="8,0,0,0" VerticalAlignment="Center">
+                                    <Path Data="M3,5 L21,5 A2,2 0 0,1 23,7 L23,17 A2,2 0 0,1 21,19 L3,19 A2,2 0 0,1 1,17 L1,7 A2,2 0 0,1 3,5 Z M5,8 L7,8 M9,8 L11,8 M13,8 L15,8 M17,8 L19,8 M5,11 L7,11 M9,11 L11,11 M13,11 L15,11 M17,11 L19,11 M6,15 L18,15"
+                                          Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" />
+                                    <TextBlock Text="ปุ่มลัด (Shortkeys)" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
                         </ListBoxItem>
 
-                        <ListBoxItem Padding="12,10" CornerRadius="8">
-                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <Path Data="M12,15.5 A3.5,3.5 0 1,0 12,8.5 A3.5,3.5 0 0,0 12,15.5 Z M19.4,13 A7.8,7.8 0 0,0 19.5,12 A7.8,7.8 0 0,0 19.4,11 L21.5,9.4 A0.5,0.5 0 0,0 21.6,8.7 L19.6,5.3 A0.5,0.5 0 0,0 19,5.1 L16.5,6.1 A7.9,7.9 0 0,0 14.8,5.1 L14.4,2.5 A0.5,0.5 0 0,0 13.9,2 L9.9,2 A0.5,0.5 0 0,0 9.4,2.5 L9.1,5.1 A7.9,7.9 0 0,0 7.3,6.1 L4.8,5.1 A0.5,0.5 0 0,0 4.2,5.3 L2.2,8.7 A0.5,0.5 0 0,0 2.3,9.4 L4.4,11 A7.8,7.8 0 0,0 4.3,12 A7.8,7.8 0 0,0 4.4,13 L2.3,14.6 A0.5,0.5 0 0,0 2.2,15.3 L4.2,18.7 A0.5,0.5 0 0,0 4.8,18.9 L7.3,17.9 A7.9,7.9 0 0,0 9.1,18.9 L9.4,21.5 A0.5,0.5 0 0,0 9.9,22 L13.9,22 A0.5,0.5 0 0,0 14.4,21.5 L14.8,18.9 A7.9,7.9 0 0,0 16.5,17.9 L19,18.9 A0.5,0.5 0 0,0 19.6,18.7 L21.6,15.3 A0.5,0.5 0 0,0 21.5,14.6 Z"
-                                      Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" />
-                                <TextBlock Text="ระบบและหน้าตา" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
-                            </StackPanel>
+                        <ListBoxItem Padding="8,8" CornerRadius="6">
+                            <Grid ColumnDefinitions="3, *">
+                                <Border Width="3" Height="16" Background="#2563EB" CornerRadius="1.5"
+                                        IsVisible="{Binding $parent[ListBoxItem].IsSelected}" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" Margin="8,0,0,0" VerticalAlignment="Center">
+                                    <Path Data="M12,15.5 A3.5,3.5 0 1,0 12,8.5 A3.5,3.5 0 0,0 12,15.5 Z M19.4,13 A7.8,7.8 0 0,0 19.5,12 A7.8,7.8 0 0,0 19.4,11 L21.5,9.4 A0.5,0.5 0 0,0 21.6,8.7 L19.6,5.3 A0.5,0.5 0 0,0 19,5.1 L16.5,6.1 A7.9,7.9 0 0,0 14.8,5.1 L14.4,2.5 A0.5,0.5 0 0,0 13.9,2 L9.9,2 A0.5,0.5 0 0,0 9.4,2.5 L9.1,5.1 A7.9,7.9 0 0,0 7.3,6.1 L4.8,5.1 A0.5,0.5 0 0,0 4.2,5.3 L2.2,8.7 A0.5,0.5 0 0,0 2.3,9.4 L4.4,11 A7.8,7.8 0 0,0 4.3,12 A7.8,7.8 0 0,0 4.4,13 L2.3,14.6 A0.5,0.5 0 0,0 2.2,15.3 L4.2,18.7 A0.5,0.5 0 0,0 4.8,18.9 L7.3,17.9 A7.9,7.9 0 0,0 9.1,18.9 L9.4,21.5 A0.5,0.5 0 0,0 9.9,22 L13.9,22 A0.5,0.5 0 0,0 14.4,21.5 L14.8,18.9 A7.9,7.9 0 0,0 16.5,17.9 L19,18.9 A0.5,0.5 0 0,0 19.6,18.7 L21.6,15.3 A0.5,0.5 0 0,0 21.5,14.6 Z"
+                                          Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" />
+                                    <TextBlock Text="ระบบและหน้าตา" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
                         </ListBoxItem>
                     </ListBox>
                 </StackPanel>
@@ -377,12 +404,18 @@
         </Grid>
 
         <!-- แถบปุ่มบันทึกด้านล่าง -->
-        <Border Grid.Row="1" Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                BorderThickness="0,1,0,0" Padding="24,12">
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-                <Button Content="บันทึกและปิด" Classes="primary" Command="{Binding SaveAndCloseCommand}"
-                        Height="32" Padding="24,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
-            </StackPanel>
+        <Border Grid.Row="1" Background="{DynamicResource SidebarBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                BorderThickness="0,1,0,0" Padding="20,12">
+            <Grid ColumnDefinitions="*, Auto">
+                <TextBlock Text="บันทึกการตั้งค่าเพื่อนำไปใช้กับงานแปลทันที" FontSize="12"
+                           Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+                    <Button Content="ยกเลิก" Classes="ghost" Click="OnCancelClicked"
+                            Height="32" Padding="16,0" VerticalContentAlignment="Center" />
+                    <Button Content="บันทึกการตั้งค่า" Classes="primary" Command="{Binding SaveAndCloseCommand}"
+                            Height="32" Padding="20,0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                </StackPanel>
+            </Grid>
         </Border>
     </Grid>
 </Window>
