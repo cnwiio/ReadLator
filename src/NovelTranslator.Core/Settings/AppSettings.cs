@@ -43,6 +43,7 @@ public class AppSettings
     public long? LastSelectedChapterId { get; set; }
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
+    private static readonly object FileLock = new();
 
     public static string GetSettingsFilePath()
     {
@@ -58,29 +59,58 @@ public class AppSettings
     public static AppSettings Load()
     {
         string path = GetSettingsFilePath();
-        if (File.Exists(path))
+        lock (FileLock)
         {
-            try
+            if (File.Exists(path))
             {
-                string json = File.ReadAllText(path);
-                var settings = JsonSerializer.Deserialize<AppSettings>(json);
-                if (settings != null)
+                for (int attempt = 0; attempt < 3; attempt++)
                 {
-                    return settings;
+                    try
+                    {
+                        using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+                        using var reader = new StreamReader(stream);
+                        string json = reader.ReadToEnd();
+                        var settings = JsonSerializer.Deserialize<AppSettings>(json);
+                        if (settings != null)
+                        {
+                            return settings;
+                        }
+                    }
+                    catch (IOException) when (attempt < 2)
+                    {
+                        Thread.Sleep(50);
+                    }
+                    catch
+                    {
+                        // หากไฟล์เสียหายหรืออ่านไม่ได้ในรอบสุดท้าย ให้ใช้ค่าเริ่มต้น
+                    }
                 }
             }
-            catch
-            {
-                // หากไฟล์เสียหายหรืออ่านไม่ได้ ให้ใช้ค่าเริ่มต้น
-            }
+            return new AppSettings();
         }
-        return new AppSettings();
     }
 
     public void Save()
     {
         string path = GetSettingsFilePath();
-        string json = JsonSerializer.Serialize(this, JsonOptions);
-        File.WriteAllText(path, json);
+        lock (FileLock)
+        {
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                try
+                {
+                    string json = JsonSerializer.Serialize(this, JsonOptions);
+                    using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read);
+                    using var writer = new StreamWriter(stream);
+                    writer.Write(json);
+                    writer.Flush();
+                    break;
+                }
+                catch (IOException) when (attempt < 2)
+                {
+                    Thread.Sleep(50);
+                }
+            }
+        }
     }
 }

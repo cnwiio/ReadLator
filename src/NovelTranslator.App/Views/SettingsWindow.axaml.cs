@@ -20,7 +20,6 @@ public partial class SettingsWindow : Window
     {
         DataContext = viewModel;
         viewModel.RequestClose = Close;
-        Closing += (_, _) => viewModel.SaveSettings();
     }
 
     private void OnWindowKeyDown(object? sender, KeyEventArgs e)

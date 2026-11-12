@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.0"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v2.1"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -207,9 +207,12 @@
                                             </TextBlock.ContextMenu>
                                         </TextBlock>
 
-                                        <!-- ช่องแก้ไขชื่อตอนแบบ Inline ในแถว -->
+                                        <!-- ช่องแก้ไขชื่อตอนแบบ Inline ในแถว (เรียบเนียน ไม่ลอยปูด เสมอกับแถวปกติ) -->
                                         <TextBox Grid.Column="1" Text="{Binding EditingTitle, Mode=TwoWay}"
-                                                 FontSize="12" Height="26" Padding="6,2" VerticalAlignment="Center"
+                                                 FontSize="13" Height="24" MinHeight="22" Padding="4,0" Margin="0"
+                                                 VerticalAlignment="Center" VerticalContentAlignment="Center"
+                                                 CornerRadius="4" BorderThickness="1"
+                                                 Background="Transparent" BorderBrush="{DynamicResource AccentBrush}"
                                                  IsVisible="{Binding IsEditingTitle}"
                                                  KeyDown="OnChapterRenameTextBoxKeyDown"
                                                  LostFocus="OnChapterRenameTextBoxLostFocus"
@@ -359,7 +362,7 @@
                                             <StackPanel Spacing="12" Width="240" Margin="4">
                                                 <StackPanel Spacing="4">
                                                     <TextBlock Text="ฟอนต์เนื้อหา" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
-                                                    <ComboBox ItemsSource="{Binding AvailableEditorFonts}" SelectedItem="{Binding EditorFontFamily}"
+                                                    <ComboBox ItemsSource="{Binding AvailableEditorFonts}" SelectedItem="{Binding EditorFontFamily, Mode=TwoWay}"
                                                               HorizontalAlignment="Stretch" FontSize="12" />
                                                 </StackPanel>
                                                 <Grid ColumnDefinitions="*, Auto, Auto, Auto">

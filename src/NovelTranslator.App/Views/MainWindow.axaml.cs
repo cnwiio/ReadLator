@@ -438,6 +438,7 @@ public partial class MainWindow : Window
             {
                 e.Handled = true;
                 ViewModel.CancelRenameChapter(chapter);
+                ChapterListBox.Focus();
             }
         }
     }

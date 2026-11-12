@@ -24,6 +24,7 @@ public partial class MainViewModel : ObservableObject
     public AppSettings Settings => _settings;
     private CancellationTokenSource? _translationCts;
     private readonly DispatcherTimer _autoSaveTimer;
+    private DispatcherTimer? _fakeProgressTimer;
 
     // รายการเรื่องและตอน
     public ObservableCollection<Story> Stories { get; } = new();
@@ -650,6 +651,25 @@ public partial class MainViewModel : ObservableObject
         await StartTranslationInternalAsync(forceRetranslate: true);
     }
 
+    private void StartFakeProgressTimer(double basePercent, double spanPercent)
+    {
+        _fakeProgressTimer?.Stop();
+        double currentSubProgress = 0.0;
+        _fakeProgressTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(120) };
+        _fakeProgressTimer.Tick += (_, _) =>
+        {
+            currentSubProgress += (42.0 - currentSubProgress) * 0.08;
+            TranslationProgressPercentage = Math.Min(45.0, basePercent + (spanPercent * (currentSubProgress / 100.0)));
+        };
+        _fakeProgressTimer.Start();
+    }
+
+    private void StopFakeProgressTimer()
+    {
+        _fakeProgressTimer?.Stop();
+        _fakeProgressTimer = null;
+    }
+
     private async Task StartTranslationInternalAsync(bool forceRetranslate)
     {
         if (SelectedStory == null || SelectedChapter == null) return;
@@ -672,23 +692,43 @@ public partial class MainViewModel : ObservableObject
         HasError = false;
         LastErrorDetails = string.Empty;
         TranslationProgressPercentage = 0;
-        IsTranslatingIndeterminate = true;
+        IsTranslatingIndeterminate = false;
         _translationCts = new CancellationTokenSource();
+
+        StartFakeProgressTimer(0, 100.0);
 
         var llmClient = new LlmClient(_settings);
         var pipeline = new TranslationPipeline(_repository, llmClient, _settings);
 
+        int lastReportedChunk = 0;
         var progress = new Progress<TranslationProgressInfo>(info =>
         {
             if (!string.IsNullOrEmpty(info.CombinedTranslatedTextSoFar))
             {
                 TranslatedText = info.CombinedTranslatedTextSoFar;
             }
-            ProgressText = info.StatusMessage ?? string.Empty;
-            if (info.TotalChunks > 0)
+            if (!string.IsNullOrEmpty(info.StatusMessage))
             {
-                IsTranslatingIndeterminate = false;
-                TranslationProgressPercentage = (double)info.CurrentChunkIndex / info.TotalChunks * 100;
+                ProgressText = info.StatusMessage;
+            }
+
+            int total = Math.Max(1, info.TotalChunks);
+            int currentChunk = Math.Clamp(info.CurrentChunkIndex, 1, total);
+            double chunkBase = ((double)(currentChunk - 1) / total) * 100.0;
+            double chunkSpan = 100.0 / total;
+
+            if (currentChunk != lastReportedChunk)
+            {
+                lastReportedChunk = currentChunk;
+                StartFakeProgressTimer(chunkBase, chunkSpan);
+            }
+
+            if (info.StreamedWordCount > 0)
+            {
+                StopFakeProgressTimer();
+                double withinChunk = 50.0 + Math.Min(45.0, (info.StreamedWordCount / 200.0) * 45.0);
+                double targetPercent = chunkBase + (chunkSpan * (withinChunk / 100.0));
+                TranslationProgressPercentage = Math.Max(TranslationProgressPercentage, targetPercent);
             }
         });
 
@@ -702,6 +742,7 @@ public partial class MainViewModel : ObservableObject
             TranslatedText = SelectedChapter.TranslatedText ?? string.Empty;
             UpdateChapterStatusDisplay(SelectedChapter.Status);
             UpdateStoryProgress();
+            StopFakeProgressTimer();
             ProgressText = "แปลเสร็จสิ้น";
             TranslationProgressPercentage = 100;
             SaveStatusText = $"บันทึกอัตโนมัติ {DateTime.Now:HH:mm:ss}";
@@ -709,12 +750,14 @@ public partial class MainViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
+            StopFakeProgressTimer();
             ProgressText = "หยุดการแปลแล้ว";
             SelectedChapter.Status = ChapterStatus.Edited;
             UpdateChapterStatusDisplay(SelectedChapter.Status);
         }
         catch (Exception ex)
         {
+            StopFakeProgressTimer();
             HasError = true;
             LastErrorDetails = ex.ToString();
             string firstLine = ex.Message.Split('\n')[0];
@@ -722,6 +765,7 @@ public partial class MainViewModel : ObservableObject
         }
         finally
         {
+            StopFakeProgressTimer();
             IsTranslating = false;
             IsTranslatingIndeterminate = false;
         }
@@ -957,6 +1001,10 @@ public partial class MainViewModel : ObservableObject
             chapter.Title = newTitle;
             await _repository.UpdateChapterAsync(chapter);
             RefreshFilteredChapters();
+            if (chapter == SelectedChapter)
+            {
+                ChapterTitleEdit = newTitle;
+            }
         }
 
         chapter.IsEditingTitle = false;
