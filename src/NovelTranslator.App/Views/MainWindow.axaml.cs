@@ -636,10 +636,12 @@ public partial class MainWindow : Window
             MainLayoutGrid.ColumnDefinitions[0].Width = ViewModel.IsSidebarVisible ? new GridLength(280) : new GridLength(0);
             MainLayoutGrid.ColumnDefinitions[1].Width = ViewModel.IsSidebarVisible ? new GridLength(4) : new GridLength(0);
         }
-        else if (e.PropertyName == nameof(MainViewModel.IsReaderMode))
+        else if (e.PropertyName == nameof(MainViewModel.IsOriginalPaneVisible) ||
+                 e.PropertyName == nameof(MainViewModel.IsTranslatedPaneVisible))
         {
-            EditorSplitGrid.ColumnDefinitions[0].Width = ViewModel.IsReaderMode ? new GridLength(0) : new GridLength(1, GridUnitType.Star);
-            EditorSplitGrid.ColumnDefinitions[1].Width = ViewModel.IsReaderMode ? new GridLength(0) : new GridLength(12);
+            EditorSplitGrid.ColumnDefinitions[0].Width = ViewModel.OriginalColumnWidth;
+            EditorSplitGrid.ColumnDefinitions[1].Width = ViewModel.SplitterColumnWidth;
+            EditorSplitGrid.ColumnDefinitions[2].Width = ViewModel.TranslatedColumnWidth;
         }
         else if (e.PropertyName == nameof(MainViewModel.EditorFontFamily))
         {
@@ -796,13 +798,13 @@ public partial class MainWindow : Window
 
     private void OnOriginalScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        if (_isSyncingScroll || ViewModel is not { IsSyncScrollEnabled: true, IsReaderMode: false }) return;
+        if (_isSyncingScroll || ViewModel is not { IsSyncScrollEnabled: true, IsBothPanesVisible: true }) return;
         SyncScroll(OriginalTextBox, TranslatedTextBox);
     }
 
     private void OnTranslatedScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        if (_isSyncingScroll || ViewModel is not { IsSyncScrollEnabled: true, IsReaderMode: false }) return;
+        if (_isSyncingScroll || ViewModel is not { IsSyncScrollEnabled: true, IsBothPanesVisible: true }) return;
         SyncScroll(TranslatedTextBox, OriginalTextBox);
     }
 

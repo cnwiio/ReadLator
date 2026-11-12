@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia.Controls;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -128,14 +129,30 @@ public partial class MainViewModel : ObservableObject
     }
 
     [ObservableProperty]
-    private bool _isReaderMode;
+    private bool _isOriginalPaneVisible = true;
 
-    public bool IsOriginalPaneVisible => !IsReaderMode;
-    public string ReaderModeButtonText => IsReaderMode ? "มุมมองคู่ขนาน" : "อ่านเต็มจอ";
-    partial void OnIsReaderModeChanged(bool value)
+    [ObservableProperty]
+    private bool _isTranslatedPaneVisible = true;
+
+    public bool IsBothPanesVisible => IsOriginalPaneVisible && IsTranslatedPaneVisible;
+    public double OriginalPaneToggleOpacity => IsOriginalPaneVisible ? 1.0 : 0.4;
+    public double TranslatedPaneToggleOpacity => IsTranslatedPaneVisible ? 1.0 : 0.4;
+
+    public GridLength OriginalColumnWidth => IsOriginalPaneVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+    public GridLength SplitterColumnWidth => IsBothPanesVisible ? new GridLength(12) : new GridLength(0);
+    public GridLength TranslatedColumnWidth => IsTranslatedPaneVisible ? new GridLength(1, GridUnitType.Star) : new GridLength(0);
+
+    partial void OnIsOriginalPaneVisibleChanged(bool value) => NotifyPaneSplitChanged();
+    partial void OnIsTranslatedPaneVisibleChanged(bool value) => NotifyPaneSplitChanged();
+
+    private void NotifyPaneSplitChanged()
     {
-        OnPropertyChanged(nameof(IsOriginalPaneVisible));
-        OnPropertyChanged(nameof(ReaderModeButtonText));
+        OnPropertyChanged(nameof(IsBothPanesVisible));
+        OnPropertyChanged(nameof(OriginalPaneToggleOpacity));
+        OnPropertyChanged(nameof(TranslatedPaneToggleOpacity));
+        OnPropertyChanged(nameof(OriginalColumnWidth));
+        OnPropertyChanged(nameof(SplitterColumnWidth));
+        OnPropertyChanged(nameof(TranslatedColumnWidth));
     }
 
     [ObservableProperty]
@@ -388,7 +405,32 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void ToggleReaderMode() => IsReaderMode = !IsReaderMode;
+    public void ToggleOriginalPane()
+    {
+        if (IsOriginalPaneVisible && !IsTranslatedPaneVisible)
+        {
+            IsTranslatedPaneVisible = true;
+            IsOriginalPaneVisible = false;
+        }
+        else
+        {
+            IsOriginalPaneVisible = !IsOriginalPaneVisible;
+        }
+    }
+
+    [RelayCommand]
+    public void ToggleTranslatedPane()
+    {
+        if (IsTranslatedPaneVisible && !IsOriginalPaneVisible)
+        {
+            IsOriginalPaneVisible = true;
+            IsTranslatedPaneVisible = false;
+        }
+        else
+        {
+            IsTranslatedPaneVisible = !IsTranslatedPaneVisible;
+        }
+    }
 
     [RelayCommand]
     public void IncreaseFontSize()
