@@ -13,6 +13,7 @@ namespace NovelTranslator.App.ViewModels;
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly AppSettings _settings;
+    private bool _isInitializing;
 
     [ObservableProperty]
     private int _backendIndex; // 0: Ollama, 1: LM Studio, 2: Custom
@@ -171,10 +172,23 @@ public partial class SettingsViewModel : ObservableObject
     // หมวด System & Appearance
     [ObservableProperty] private string _editorFontFamily = "Tahoma";
     public FontFamily CurrentFontFamily => new(string.IsNullOrWhiteSpace(EditorFontFamily) ? "Tahoma" : EditorFontFamily);
-    partial void OnEditorFontFamilyChanged(string value) => OnPropertyChanged(nameof(CurrentFontFamily));
+    partial void OnEditorFontFamilyChanged(string value)
+    {
+        OnPropertyChanged(nameof(CurrentFontFamily));
+        if (!_isInitializing) SaveSettings();
+    }
 
     [ObservableProperty] private int _editorFontSize = 20;
+    partial void OnEditorFontSizeChanged(int value)
+    {
+        if (!_isInitializing) SaveSettings();
+    }
+
     [ObservableProperty] private double _autoSaveDelaySeconds = 1.5;
+    partial void OnAutoSaveDelaySecondsChanged(double value)
+    {
+        if (!_isInitializing) SaveSettings();
+    }
 
     public ObservableCollection<string> AvailableEditorFonts { get; } = new()
     {
@@ -211,18 +225,10 @@ public partial class SettingsViewModel : ObservableObject
 
     public SettingsViewModel(AppSettings settings)
     {
+        _isInitializing = true;
         _settings = settings;
 
-        BackendIndex = (int)settings.Backend;
-        BaseUrl = settings.BaseUrl;
-        ApiKey = settings.ApiKey;
-        ModelName = settings.ModelName;
-        Temperature = settings.Temperature;
-        MaxChunkWords = settings.MaxChunkWords;
-        ContextParagraphCount = settings.ContextParagraphCount;
-        CustomSystemPrompt = settings.CustomSystemPrompt ?? string.Empty;
-
-        // โหลดค่า Shortkeys
+        // โหลดค่า Shortkeys ก่อนเสมอ
         TranslateKey = settings.Shortkeys.TranslateKey;
         TranslateAllKey = settings.Shortkeys.TranslateAllKey;
         SearchReplaceKey = settings.Shortkeys.SearchReplaceKey;
@@ -238,6 +244,16 @@ public partial class SettingsViewModel : ObservableObject
         EditorFontSize = settings.EditorFontSize > 0 ? settings.EditorFontSize : 20;
         AutoSaveDelaySeconds = settings.AutoSaveDelaySeconds > 0 ? settings.AutoSaveDelaySeconds : 1.5;
 
+        BackendIndex = (int)settings.Backend;
+        BaseUrl = settings.BaseUrl;
+        ApiKey = settings.ApiKey;
+        ModelName = settings.ModelName;
+        Temperature = settings.Temperature;
+        MaxChunkWords = settings.MaxChunkWords;
+        ContextParagraphCount = settings.ContextParagraphCount;
+        CustomSystemPrompt = settings.CustomSystemPrompt ?? string.Empty;
+
+        _isInitializing = false;
         _ = RefreshModelsSilentAsync();
     }
 
@@ -257,7 +273,6 @@ public partial class SettingsViewModel : ObservableObject
     {
         try
         {
-            ApplyToSettings();
             var client = new LlmClient(_settings);
             var models = await client.GetModelsAsync();
             if (models.Count > 0)
@@ -283,6 +298,7 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnBackendIndexChanged(int value)
     {
+        if (_isInitializing) return;
         if (value == 0) // Ollama
         {
             if (string.IsNullOrWhiteSpace(BaseUrl) || BaseUrl.Contains("localhost:1234"))
@@ -297,6 +313,7 @@ public partial class SettingsViewModel : ObservableObject
                 BaseUrl = "http://localhost:1234/v1";
             }
         }
+        ApplyToSettings();
         _ = RefreshModelsSilentAsync();
     }
 

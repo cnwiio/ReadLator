@@ -65,8 +65,18 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSidebarVisible = true;
 
-    public string SidebarToggleText => IsSidebarVisible ? "ซ่อนแถบข้าง" : "แสดงแถบข้าง";
+    public string SidebarToggleText => IsSidebarVisible ? $"ซ่อนแถบข้าง ({_settings.Shortkeys.ToggleSidebarKey})" : $"แสดงแถบข้าง ({_settings.Shortkeys.ToggleSidebarKey})";
     partial void OnIsSidebarVisibleChanged(bool value) => OnPropertyChanged(nameof(SidebarToggleText));
+
+    public string TranslateKeyText => _settings.Shortkeys.TranslateKey;
+    public string FocusModeKeyText => _settings.Shortkeys.FocusModeKey;
+    public string SearchReplaceMenuText => $"ค้นหาและแทนที่คำแปล ({_settings.Shortkeys.SearchReplaceKey})";
+    public string PrevChapterTooltipText => $"ตอนก่อนหน้า ({_settings.Shortkeys.PrevChapterKey})";
+    public string NextChapterTooltipText => $"ตอนถัดไป ({_settings.Shortkeys.NextChapterKey})";
+    public string TranslateTooltipText => $"แปลเฉพาะส่วนที่เพิ่มเข้ามาใหม่หรือยังไม่ได้แปล ({_settings.Shortkeys.TranslateKey})";
+    public string TranslateAllTooltipText => $"แปลต่อเนื่องทุกตอนที่ยังไม่ได้แปลในเรื่องนี้ ({_settings.Shortkeys.TranslateAllKey})";
+    public string SaveTooltipText => $"บันทึกตอนนี้ ({_settings.Shortkeys.SaveKey})";
+    public string FocusModeTooltipText => $"โหมดโฟกัสไร้สิ่งรบกวน ({_settings.Shortkeys.FocusModeKey})";
 
     [ObservableProperty]
     private bool _isFocusMode;
@@ -269,6 +279,17 @@ public partial class MainViewModel : ObservableObject
         {
             _autoSaveTimer.Interval = TimeSpan.FromSeconds(fresh.AutoSaveDelaySeconds);
         }
+
+        OnPropertyChanged(nameof(SidebarToggleText));
+        OnPropertyChanged(nameof(TranslateKeyText));
+        OnPropertyChanged(nameof(FocusModeKeyText));
+        OnPropertyChanged(nameof(SearchReplaceMenuText));
+        OnPropertyChanged(nameof(PrevChapterTooltipText));
+        OnPropertyChanged(nameof(NextChapterTooltipText));
+        OnPropertyChanged(nameof(TranslateTooltipText));
+        OnPropertyChanged(nameof(TranslateAllTooltipText));
+        OnPropertyChanged(nameof(SaveTooltipText));
+        OnPropertyChanged(nameof(FocusModeTooltipText));
 
         UpdateActiveModelDisplay();
     }

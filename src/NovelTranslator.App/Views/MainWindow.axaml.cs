@@ -413,14 +413,18 @@ public partial class MainWindow : Window
         }
     }
 
-    private void OnChapterRenameTextBoxAttached(object? sender, VisualTreeAttachmentEventArgs e)
+    private void OnChapterRenameTextBoxPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
     {
-        if (sender is TextBox tb)
+        if (e.Property == Visual.IsVisibleProperty && sender is TextBox tb && tb.IsVisible)
         {
-            Dispatcher.UIThread.Post(() =>
+            Dispatcher.UIThread.Post(async () =>
             {
-                tb.Focus();
-                tb.SelectAll();
+                await Task.Delay(30);
+                if (tb.IsVisible)
+                {
+                    tb.Focus();
+                    tb.SelectAll();
+                }
             }, DispatcherPriority.Input);
         }
     }
