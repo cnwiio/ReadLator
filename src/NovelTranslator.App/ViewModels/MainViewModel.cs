@@ -909,10 +909,26 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void ToggleParagraphMode()
     {
-        Editor.IsParagraphMode = !Editor.IsParagraphMode;
-        if (Editor.IsParagraphMode)
+        SetParagraphMode(!Editor.IsParagraphMode);
+    }
+
+    [RelayCommand]
+    public void SetParagraphMode(bool enabled)
+    {
+        if (Editor.IsParagraphMode == enabled) return;
+
+        if (enabled)
         {
             Editor.SyncParagraphPairs(OriginalText, TranslatedText);
+            Editor.IsParagraphMode = true;
+        }
+        else
+        {
+            string combinedTrans = Editor.CombineTranslatedParagraphs();
+            string combinedSource = Editor.CombineSourceParagraphs();
+            if (!string.IsNullOrEmpty(combinedTrans)) TranslatedText = combinedTrans;
+            if (!string.IsNullOrEmpty(combinedSource)) OriginalText = combinedSource;
+            Editor.IsParagraphMode = false;
         }
     }
 
