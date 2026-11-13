@@ -1,0 +1,71 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NovelTranslator.App.Views.SplashWindow"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="NovelTranslator"
+        Width="420"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="True"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent">
+
+    <Border Margin="16"
+            Padding="24"
+            CornerRadius="12"
+            Background="{DynamicResource CardBgBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            BoxShadow="0 8 24 0 #60000000">
+        <StackPanel Spacing="16">
+            <Grid ColumnDefinitions="Auto, *, Auto">
+                <Path Grid.Column="0"
+                      Data="M2,4 C2,2.9 2.9,2 4,2 L10,2 C11.1,2 12,2.9 12,4 L12,18 C12,16.9 11.1,16 10,16 L4,16 C2.9,16 2,15.1 2,14 Z M22,4 C22,2.9 21.1,2 20,2 L14,2 C12.9,2 12,2.9 12,4 L12,18 C12,16.9 12.9,16 14,16 L20,16 C21.1,16 22,15.1 22,14 Z"
+                      Stroke="{DynamicResource TextPrimaryBrush}"
+                      StrokeThickness="1.5"
+                      Width="22"
+                      Height="22"
+                      Stretch="Uniform"
+                      VerticalAlignment="Center"
+                      Margin="0,0,10,0" />
+                <TextBlock Grid.Column="1"
+                           Text="NovelTranslator"
+                           Foreground="{DynamicResource TextPrimaryBrush}"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2"
+                           x:Name="VersionText"
+                           Foreground="{DynamicResource TextMutedBrush}"
+                           FontSize="12"
+                           VerticalAlignment="Center" />
+            </Grid>
+
+            <StackPanel x:Name="LoadingPanel" Spacing="10">
+                <TextBlock x:Name="StatusText"
+                           Text="กำลังเริ่มต้นโปรแกรม..."
+                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           FontSize="13" />
+                <ProgressBar IsIndeterminate="True"
+                             Height="4"
+                             Minimum="0"
+                             Maximum="100" />
+            </StackPanel>
+
+            <StackPanel x:Name="ErrorPanel" IsVisible="False" Spacing="12">
+                <TextBlock x:Name="ErrorText"
+                           Foreground="#EF4444"
+                           FontSize="12"
+                           TextWrapping="Wrap" />
+                <Button Content="ปิดโปรแกรม"
+                        Classes="primary"
+                        Height="32"
+                        Padding="18,0"
+                        HorizontalAlignment="Right"
+                        Click="OnCloseClicked" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

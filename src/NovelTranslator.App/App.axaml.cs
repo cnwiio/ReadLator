@@ -1,3 +1,5 @@
+using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
@@ -5,6 +7,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using NovelTranslator.App.ViewModels;
 using NovelTranslator.App.Views;
+using NovelTranslator.Core.Data;
 using NovelTranslator.Core.Settings;
 
 namespace NovelTranslator.App;
@@ -23,13 +26,50 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow
-            {
-                DataContext = new MainViewModel(),
-            };
+            var splash = new SplashWindow();
+            desktop.MainWindow = splash;
+            splash.Show();
+
+            _ = InitializeMainWindowAsync(desktop, splash, settings);
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    private static async Task InitializeMainWindowAsync(
+        IClassicDesktopStyleApplicationLifetime desktop,
+        SplashWindow splash,
+        AppSettings settings)
+    {
+        // Let Avalonia paint the splash window before running heavy initialization
+        await Task.Delay(20);
+
+        try
+        {
+            splash.SetStatus("กำลังเชื่อมต่อฐานข้อมูล...");
+            var database = await Task.Run(() =>
+            {
+                var db = new NovelDatabase();
+                db.Initialize();
+                return db;
+            });
+
+            splash.SetStatus("กำลังเตรียมหน้าต่างหลัก...");
+            await Task.Yield();
+            var viewModel = new MainViewModel(settings, database, deferInitialLoad: true);
+            var mainWindow = new MainWindow { DataContext = viewModel };
+
+            splash.SetStatus("กำลังโหลดรายการนิยาย...");
+            await viewModel.LoadInitialDataAsync();
+
+            desktop.MainWindow = mainWindow;
+            mainWindow.Show();
+            splash.Close();
+        }
+        catch (Exception ex)
+        {
+            splash.ShowError($"ไม่สามารถเริ่มโปรแกรมได้:\n{ex.Message}");
+        }
     }
 
     public static void ApplyTheme(string? mode)

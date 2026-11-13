@@ -279,9 +279,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void ToggleFullScreen() => RequestToggleFullScreen?.Invoke();
 
-    public MainViewModel()
+    public MainViewModel() : this(AppSettings.Load(), CreateInitializedDatabase(), deferInitialLoad: false) { }
+
+    public MainViewModel(AppSettings settings, NovelDatabase database, bool deferInitialLoad = true)
     {
-        _settings = AppSettings.Load();
+        _settings = settings;
         _editorFontSize = Math.Clamp(_settings.EditorFontSize > 0 ? _settings.EditorFontSize : 20, 12, 32);
         if (!string.IsNullOrWhiteSpace(_settings.EditorFontFamily))
         {
@@ -289,8 +291,7 @@ public partial class MainViewModel : ObservableObject
         }
         _themeMode = string.IsNullOrWhiteSpace(_settings.ThemeMode) ? "Light" : _settings.ThemeMode;
         UpdateActiveModelDisplay();
-        _database = new NovelDatabase();
-        _database.Initialize();
+        _database = database;
         _repository = new NovelRepository(_database);
         Editor = new EditorViewModel(_repository);
         Editor.OnParagraphContentChanged = () =>
@@ -312,7 +313,17 @@ public partial class MainViewModel : ObservableObject
             await SaveCurrentChapterInternalAsync(isAutoSave: true);
         };
 
-        _ = LoadInitialDataAsync();
+        if (!deferInitialLoad)
+        {
+            _ = LoadInitialDataAsync();
+        }
+    }
+
+    private static NovelDatabase CreateInitializedDatabase()
+    {
+        var db = new NovelDatabase();
+        db.Initialize();
+        return db;
     }
 
     public void ReloadSettings()
@@ -476,7 +487,7 @@ public partial class MainViewModel : ObservableObject
         SaveStatusText = $"บันทึกข้อมูลเรื่อง \"{SelectedStory.Title}\" แล้ว";
     }
 
-    private async Task LoadInitialDataAsync()
+    internal async Task LoadInitialDataAsync()
     {
         var stories = await _repository.GetAllStoriesAsync();
         Stories.Clear();
