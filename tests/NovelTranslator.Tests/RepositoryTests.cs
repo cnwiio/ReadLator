@@ -222,4 +222,62 @@ public class RepositoryTests : IDisposable
         Assert.NotNull(updated);
         Assert.Equal("Cost is $100.", updated!.TranslatedText);
     }
+
+    [Fact]
+    public async Task TranslateChapter_Resume_PreservesManualEdits()
+    {
+        var story = new Story { Title = "Resume Story", SourceLang = "English", TargetLang = "Thai" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var chapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "Ch 1",
+            OriginalText = "First paragraph.\n\nSecond paragraph.",
+            TranslatedText = "ย่อหน้าแรก (แก้แล้ว)"
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        // Save chunk 0 as already completed with old AI output, and chunk 1 as uncompleted
+        var settings = new NovelTranslator.Core.Settings.AppSettings { MaxChunkWords = 2 };
+        var splitTexts = NovelTranslator.Core.Translation.Chunker.SplitIntoChunks(chapter.OriginalText, settings.MaxChunkWords);
+        Assert.True(splitTexts.Count >= 2);
+        await _repository.SaveChunksAsync(chapter.Id, splitTexts);
+        var chunks = await _repository.GetChunksByChapterAsync(chapter.Id);
+        chunks[0].TranslatedText = "ย่อหน้าแรก (AI เก่า)";
+        chunks[0].IsCompleted = true;
+        await _repository.UpdateChunkAsync(chunks[0]);
+
+        var pipeline = new NovelTranslator.Core.Translation.TranslationPipeline(_repository, new FakeLlmClient("ย่อหน้าสอง (AI ใหม่)"), settings);
+        await pipeline.TranslateChapterAsync(story, chapter, new Progress<NovelTranslator.Core.Translation.TranslationProgressInfo>());
+
+        Assert.StartsWith("ย่อหน้าแรก (แก้แล้ว)", chapter.TranslatedText);
+        Assert.Contains("ย่อหน้าสอง (AI ใหม่)", chapter.TranslatedText);
+        Assert.DoesNotContain("ย่อหน้าแรก (AI เก่า)", chapter.TranslatedText);
+    }
+
+    private sealed class FakeLlmClient : NovelTranslator.Core.Llm.ILlmClient
+    {
+        private readonly string _response;
+        public FakeLlmClient(string response) => _response = response;
+
+        public async IAsyncEnumerable<string> StreamChatAsync(
+            System.Collections.Generic.IEnumerable<NovelTranslator.Core.Llm.ChatMessage> messages,
+            float temperature,
+            [System.Runtime.CompilerServices.EnumeratorCancellation] System.Threading.CancellationToken cancellationToken = default)
+        {
+            await Task.CompletedTask;
+            yield return _response;
+        }
+
+        public Task<System.Collections.Generic.List<NovelTranslator.Core.Llm.ModelInfo>> GetModelsAsync(System.Threading.CancellationToken cancellationToken = default)
+            => Task.FromResult(new System.Collections.Generic.List<NovelTranslator.Core.Llm.ModelInfo>());
+
+        public Task<(bool Success, string Message)> TestConnectionAsync(System.Threading.CancellationToken cancellationToken = default)
+            => Task.FromResult((true, "OK"));
+
+        public Task PullOllamaModelAsync(string modelName, IProgress<string> progress, System.Threading.CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+    }
 }

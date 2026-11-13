@@ -62,10 +62,19 @@ public class TranslationPipeline
             chunks = await _repository.GetChunksByChapterAsync(chapter.Id);
         }
 
-        // ประกอบคำแปลรวมล่าสุดที่มีอยู่แล้ว
-        chapter.TranslatedText = string.Join("\n\n", chunks.Select(c => c.TranslatedText).Where(t => !string.IsNullOrEmpty(t)));
-
         int completedCount = chunks.Count(c => c.IsCompleted && !string.IsNullOrEmpty(c.TranslatedText));
+        bool preserveExistingTranslation = !forceRetranslate && completedCount > 0 && !string.IsNullOrWhiteSpace(chapter.TranslatedText);
+        var appendedParts = new List<string>();
+        if (preserveExistingTranslation)
+        {
+            appendedParts.Add(chapter.TranslatedText);
+        }
+        else
+        {
+            // ประกอบคำแปลรวมล่าสุดที่มีอยู่แล้ว
+            chapter.TranslatedText = string.Join("\n\n", chunks.Select(c => c.TranslatedText).Where(t => !string.IsNullOrEmpty(t)));
+        }
+
         progress.Report(new TranslationProgressInfo
         {
             CurrentChunkIndex = completedCount,
@@ -150,7 +159,11 @@ public class TranslationPipeline
                     if (tokenCount % 3 == 0 || delta.Contains('\n'))
                     {
                         int wordCount = chunkSb.ToString().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
-                        string liveCombined = BuildCombinedTextSoFar(chunks, i, chunkSb.ToString());
+                        string liveCombined = preserveExistingTranslation
+                            ? (chunkSb.Length == 0
+                                ? chapter.TranslatedText
+                                : string.Join("\n\n", appendedParts.Concat(new[] { OutputValidator.CleanPreamble(chunkSb.ToString()) })))
+                            : BuildCombinedTextSoFar(chunks, i, chunkSb.ToString());
                         progress.Report(new TranslationProgressInfo
                         {
                             CurrentChunkIndex = i + 1,
@@ -192,8 +205,19 @@ public class TranslationPipeline
             chunk.IsCompleted = true;
             await _repository.UpdateChunkAsync(chunk);
 
-            // ประกอบคำแปลรวมล่าสุดของทั้งตอน
-            chapter.TranslatedText = string.Join("\n\n", chunks.Select(c => c.TranslatedText).Where(t => !string.IsNullOrEmpty(t)));
+            // ประกอบคำแปลรวมล่าสุดของทั้งตอน (คงคำแปลที่ผู้ใช้แก้เองไว้เมื่อ resume)
+            if (preserveExistingTranslation)
+            {
+                if (!string.IsNullOrEmpty(chunk.TranslatedText))
+                {
+                    appendedParts.Add(chunk.TranslatedText);
+                }
+                chapter.TranslatedText = string.Join("\n\n", appendedParts);
+            }
+            else
+            {
+                chapter.TranslatedText = string.Join("\n\n", chunks.Select(c => c.TranslatedText).Where(t => !string.IsNullOrEmpty(t)));
+            }
             await _repository.UpdateChapterAsync(chapter);
 
             // เตรียม context สำหรับชิ้นถัดไป

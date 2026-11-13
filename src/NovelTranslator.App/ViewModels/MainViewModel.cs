@@ -311,6 +311,10 @@ public partial class MainViewModel : ObservableObject
         {
             _autoSaveTimer.Stop();
             await SaveCurrentChapterInternalAsync(isAutoSave: true);
+            if (SelectedStory != null)
+            {
+                await Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, OriginalText);
+            }
         };
 
         if (!deferInitialLoad)
@@ -601,6 +605,18 @@ public partial class MainViewModel : ObservableObject
         OnPropertyChanged(nameof(ReadingChapterPositionText));
     }
 
+    partial void OnSelectedChapterChanging(Chapter? value)
+    {
+        if (SelectedChapter != null && !ReferenceEquals(SelectedChapter, value) && _autoSaveTimer.IsEnabled)
+        {
+            _autoSaveTimer.Stop();
+            var outgoing = SelectedChapter;
+            outgoing.OriginalText = OriginalText;
+            outgoing.TranslatedText = TranslatedText;
+            _ = SaveChapterSnapshotAsync(outgoing, isAutoSave: true);
+        }
+    }
+
     partial void OnSelectedChapterChanged(Chapter? value)
     {
         OnPropertyChanged(nameof(ReadingChapterPositionText));
@@ -623,7 +639,10 @@ public partial class MainViewModel : ObservableObject
                 SaveStatusText = $"บันทึกแล้ว {value.UpdatedAt.ToLocalTime():HH:mm:ss}";
                 SaveStateColor = "#4CC38A";
 
-                Editor.SyncParagraphPairs(OriginalText, TranslatedText);
+                if (Editor.IsParagraphMode)
+                {
+                    Editor.SyncParagraphPairs(OriginalText, TranslatedText);
+                }
                 if (SelectedStory != null)
                 {
                     _ = Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, OriginalText);
@@ -668,13 +687,9 @@ public partial class MainViewModel : ObservableObject
         if (!_isLoadingChapter && SelectedChapter != null && SelectedChapter.OriginalText != value)
         {
             SelectedChapter.OriginalText = value;
-            if (!Editor.IsUpdatingFromParagraph)
+            if (Editor.IsParagraphMode && !Editor.IsUpdatingFromParagraph)
             {
                 Editor.SyncParagraphPairs(value, TranslatedText);
-            }
-            if (SelectedStory != null)
-            {
-                _ = Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, value);
             }
             MarkUnsavedChanges();
         }
@@ -688,7 +703,7 @@ public partial class MainViewModel : ObservableObject
         {
             SelectedChapter.TranslatedText = value;
             SelectedChapter.Status = ChapterStatus.Edited;
-            if (!Editor.IsUpdatingFromParagraph)
+            if (Editor.IsParagraphMode && !Editor.IsUpdatingFromParagraph)
             {
                 Editor.SyncParagraphPairs(OriginalText, value);
             }
@@ -1456,24 +1471,39 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedChapter == null) return;
 
-        SaveStatusText = "กำลังบันทึก";
-        SaveStateColor = "#F59E0B";
+        SelectedChapter.OriginalText = OriginalText;
+        SelectedChapter.TranslatedText = TranslatedText;
+        await SaveChapterSnapshotAsync(SelectedChapter, isAutoSave);
+    }
+
+    private async Task SaveChapterSnapshotAsync(Chapter chapter, bool isAutoSave)
+    {
+        bool isCurrent = ReferenceEquals(SelectedChapter, chapter);
+        if (isCurrent)
+        {
+            SaveStatusText = "กำลังบันทึก";
+            SaveStateColor = "#F59E0B";
+        }
 
         try
         {
-            SelectedChapter.OriginalText = OriginalText;
-            SelectedChapter.TranslatedText = TranslatedText;
-            await _repository.UpdateChapterAsync(SelectedChapter);
+            await _repository.UpdateChapterAsync(chapter);
 
-            SaveStatusText = isAutoSave
-                ? $"บันทึกอัตโนมัติ {DateTime.Now:HH:mm:ss}"
-                : $"บันทึกแล้ว {DateTime.Now:HH:mm:ss}";
-            SaveStateColor = "#4CC38A";
+            if (ReferenceEquals(SelectedChapter, chapter))
+            {
+                SaveStatusText = isAutoSave
+                    ? $"บันทึกอัตโนมัติ {DateTime.Now:HH:mm:ss}"
+                    : $"บันทึกแล้ว {DateTime.Now:HH:mm:ss}";
+                SaveStateColor = "#4CC38A";
+            }
         }
         catch (Exception ex)
         {
-            SaveStatusText = $"บันทึกล้มเหลว · {ex.Message}";
-            SaveStateColor = "#E5484D";
+            if (ReferenceEquals(SelectedChapter, chapter))
+            {
+                SaveStatusText = $"บันทึกล้มเหลว · {ex.Message}";
+                SaveStateColor = "#E5484D";
+            }
         }
     }
 
