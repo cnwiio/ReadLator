@@ -810,7 +810,7 @@ public partial class MainViewModel : ObservableObject
         _fakeProgressTimer.Tick += (_, _) =>
         {
             currentSubProgress += (42.0 - currentSubProgress) * 0.08;
-            TranslationProgressPercentage = Math.Min(45.0, basePercent + (spanPercent * (currentSubProgress / 100.0)));
+            TranslationProgressPercentage = Math.Min(99.0, basePercent + (spanPercent * (Math.Min(45.0, currentSubProgress) / 100.0)));
         };
         _fakeProgressTimer.Start();
     }
@@ -952,6 +952,11 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedStory == null || SelectedChapter == null || string.IsNullOrWhiteSpace(selectedParagraph)) return;
 
+        _translationCts?.Cancel();
+        _translationCts?.Dispose();
+        _translationCts = new CancellationTokenSource();
+        var ct = _translationCts.Token;
+
         IsTranslating = true;
         ProgressText = "กำลังแปลซ้ำเฉพาะย่อหน้าที่เลือก...";
 
@@ -962,14 +967,18 @@ public partial class MainViewModel : ObservableObject
         {
             string newTranslation = await Task.Run(async () =>
             {
-                return await pipeline.RetranslateParagraphAsync(SelectedStory, selectedParagraph, null);
-            });
+                return await pipeline.RetranslateParagraphAsync(SelectedStory, selectedParagraph, null, ct);
+            }, ct);
             ProgressText = "แปลซ้ำย่อหน้านี้แล้ว";
             // แจ้งเตือนผู้ใช้ให้นำผลแปลไปวาง
             if (RequestPromptDialog != null)
             {
                 await RequestPromptDialog("ผลการแปลซ้ำย่อหน้าที่เลือก", newTranslation);
             }
+        }
+        catch (OperationCanceledException)
+        {
+            ProgressText = "ยกเลิกการแปลซ้ำย่อหน้าแล้ว";
         }
         catch (Exception ex)
         {
@@ -978,6 +987,8 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             IsTranslating = false;
+            _translationCts?.Dispose();
+            _translationCts = null;
         }
     }
 
@@ -1011,6 +1022,12 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedStory == null || SelectedChapter == null || string.IsNullOrWhiteSpace(pair.SourceText)) return;
 
+        _translationCts?.Cancel();
+        _translationCts?.Dispose();
+        _translationCts = new CancellationTokenSource();
+        var ct = _translationCts.Token;
+
+        IsTranslating = true;
         ProgressText = $"กำลังแปลใหม่เฉพาะย่อหน้าที่ {pair.Index}...";
         var llmClient = new LlmClient(_settings);
         var pipeline = new TranslationPipeline(_repository, llmClient, _settings);
@@ -1019,8 +1036,8 @@ public partial class MainViewModel : ObservableObject
         {
             string newTranslation = await Task.Run(async () =>
             {
-                return await pipeline.RetranslateParagraphAsync(SelectedStory, pair.SourceText, null);
-            });
+                return await pipeline.RetranslateParagraphAsync(SelectedStory, pair.SourceText, null, ct);
+            }, ct);
 
             if (!string.IsNullOrWhiteSpace(newTranslation))
             {
@@ -1030,9 +1047,19 @@ public partial class MainViewModel : ObservableObject
                 MarkUnsavedChanges();
             }
         }
+        catch (OperationCanceledException)
+        {
+            ProgressText = $"ยกเลิกการแปลใหม่ย่อหน้าที่ {pair.Index} แล้ว";
+        }
         catch (Exception ex)
         {
             ProgressText = $"แปลใหม่ย่อหน้าที่ {pair.Index} ล้มเหลว · {ex.Message}";
+        }
+        finally
+        {
+            IsTranslating = false;
+            _translationCts?.Dispose();
+            _translationCts = null;
         }
     }
 
@@ -1516,7 +1543,7 @@ public partial class MainViewModel : ObservableObject
         if (files == null || files.Length == 0) return;
 
         int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
-        foreach (var path in files.OrderBy(f => f))
+        foreach (var path in files.OrderBy(f => System.Text.RegularExpressions.Regex.Replace(System.IO.Path.GetFileName(f), @"\d+", m => m.Value.PadLeft(10, '0'))))
         {
             var chap = await TextExportImportService.ImportChapterFromFileAsync(path, SelectedStory.Id, nextOrdinal++);
             chap.Id = await _repository.InsertChapterAsync(chap);

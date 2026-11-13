@@ -22,22 +22,27 @@ public class GlossaryService
         {
             if (string.IsNullOrWhiteSpace(entry.SourceTerm)) continue;
 
-            // ตรวจการมีอยู่ของคำแบบ Whole Word หรือ Substring ตามความเหมาะสม
-            // สำหรับคำศัพท์ภาษาอังกฤษ ใช้ Regex Word Boundary (\b)
-            string pattern = @"\b" + Regex.Escape(entry.SourceTerm.Trim()) + @"\b";
-            if (Regex.IsMatch(chunkText, pattern, RegexOptions.IgnoreCase))
+            string term = entry.SourceTerm.Trim();
+            bool useWordBoundary = IsAsciiWordChar(term[0]) && IsAsciiWordChar(term[^1]);
+
+            if (useWordBoundary)
             {
-                matched.Add(entry);
+                string pattern = @"\b" + Regex.Escape(term) + @"\b";
+                if (Regex.IsMatch(chunkText, pattern, RegexOptions.IgnoreCase))
+                {
+                    matched.Add(entry);
+                }
             }
-            else if (chunkText.IndexOf(entry.SourceTerm.Trim(), StringComparison.OrdinalIgnoreCase) >= 0)
+            else if (chunkText.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                // สำรองสำหรับคำที่มีอักขระพิเศษหรือภาษาที่ไม่ใช้ word boundary
                 matched.Add(entry);
             }
         }
 
         return matched;
     }
+
+    private static bool IsAsciiWordChar(char c) => char.IsAsciiLetterOrDigit(c) || c == '_';
 
     /// <summary>
     /// ส่งออกรายการ Glossary เป็นไฟล์ CSV

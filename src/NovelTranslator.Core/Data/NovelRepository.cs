@@ -326,44 +326,6 @@ public class NovelRepository
         });
         return fallback.ToList();
     }
-
-    public async Task<List<TranslationMemoryMatch>> FindSimilarTranslationAsync(long storyId, string sourceText, int limit = 3)
-    {
-        if (string.IsNullOrWhiteSpace(sourceText)) return new();
-
-        var words = sourceText.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)
-                              .Where(w => w.Length > 3)
-                              .Take(6)
-                              .Select(w => "\"" + w.Replace("\"", "") + "\"")
-                              .ToList();
-
-        if (words.Count == 0) return new();
-
-        string ftsQuery = string.Join(" OR ", words);
-
-        using var conn = _database.CreateConnection();
-        string sql = @"
-            SELECT ChapterId, StoryId, Title, OriginalText AS MatchedSource, TranslatedText AS MatchedTranslation, rank AS Score
-            FROM Chapters_Fts
-            WHERE StoryId = @StoryId AND OriginalText MATCH @FtsQuery AND TranslatedText != ''
-            ORDER BY rank
-            LIMIT @Limit";
-
-        try
-        {
-            var matches = await conn.QueryAsync<TranslationMemoryMatch>(sql, new
-            {
-                StoryId = storyId,
-                FtsQuery = ftsQuery,
-                Limit = limit
-            });
-            return matches.ToList();
-        }
-        catch
-        {
-            return new();
-        }
-    }
 }
 
 public class FtsSearchResult
@@ -372,15 +334,5 @@ public class FtsSearchResult
     public long StoryId { get; set; }
     public string Title { get; set; } = string.Empty;
     public string Snippet { get; set; } = string.Empty;
-    public double Score { get; set; }
-}
-
-public class TranslationMemoryMatch
-{
-    public long ChapterId { get; set; }
-    public long StoryId { get; set; }
-    public string Title { get; set; } = string.Empty;
-    public string MatchedSource { get; set; } = string.Empty;
-    public string MatchedTranslation { get; set; } = string.Empty;
     public double Score { get; set; }
 }

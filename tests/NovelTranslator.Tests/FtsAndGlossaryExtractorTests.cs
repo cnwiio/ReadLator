@@ -55,11 +55,6 @@ public class FtsAndGlossaryExtractorTests : IDisposable
         var origResults = await _repository.SearchFtsAsync(storyId, "dragon", searchTranslated: false);
         Assert.NotEmpty(origResults);
         Assert.Equal(ch1.Id, origResults[0].ChapterId);
-
-        // 3. Translation Memory query
-        var tmMatches = await _repository.FindSimilarTranslationAsync(storyId, "dragon soared high", limit: 3);
-        Assert.NotEmpty(tmMatches);
-        Assert.Equal("มังกรทะยานขึ้นสู่ท้องฟ้ายามค่ำคืนอย่างสง่างาม", tmMatches[0].MatchedTranslation);
     }
 
     [Fact]
@@ -81,5 +76,23 @@ public class FtsAndGlossaryExtractorTests : IDisposable
 
         Assert.Equal("Sword Sect", terms[1].SourceTerm);
         Assert.Equal(GlossaryCategory.Location, terms[1].Category);
+    }
+
+    [Fact]
+    public void GlossaryExtractor_IgnoresTrailingBracketedNotes()
+    {
+        string jsonWithNote = """
+            ```json
+            [
+                { "source": "Jade Seal", "target": "ตราหยก", "category": "Term", "notes": "ของวิเศษ" }
+            ]
+            ```
+            [หมายเหตุ: ดึงเฉพาะคำสำคัญจากเนื้อหา]
+            """;
+
+        var terms = NovelTranslator.Core.Glossary.GlossaryExtractor.ParseAndFilterResults(jsonWithNote, new System.Collections.Generic.HashSet<string>());
+
+        Assert.Single(terms);
+        Assert.Equal("Jade Seal", terms[0].SourceTerm);
     }
 }

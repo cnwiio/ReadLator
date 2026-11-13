@@ -44,26 +44,6 @@ public class TextExportImportService
     }
 
     /// <summary>
-    /// ส่งออกทั้งเรื่องโดยแยก 1 ไฟล์ .txt ต่อ 1 ตอน ลงในโฟลเดอร์ที่กำหนด
-    /// </summary>
-    public static async Task ExportStoryMultipleFilesAsync(string folderPath, IEnumerable<Chapter> chapters)
-    {
-        if (!Directory.Exists(folderPath))
-        {
-            Directory.CreateDirectory(folderPath);
-        }
-
-        foreach (var chap in chapters.OrderBy(c => c.Ordinal))
-        {
-            string safeTitle = string.Join("_", chap.Title.Split(Path.GetInvalidFileNameChars())).Trim();
-            if (string.IsNullOrEmpty(safeTitle)) safeTitle = $"Chapter_{chap.Ordinal}";
-            string fileName = $"{chap.Ordinal:D3}_{safeTitle}.txt";
-            string fullPath = Path.Combine(folderPath, fileName);
-            await ExportChapterAsync(fullPath, chap);
-        }
-    }
-
-    /// <summary>
     /// นำเข้าไฟล์ .txt (1 ไฟล์ = 1 ตอน)
     /// </summary>
     public static async Task<Chapter> ImportChapterFromFileAsync(string filePath, long storyId, int nextOrdinal)

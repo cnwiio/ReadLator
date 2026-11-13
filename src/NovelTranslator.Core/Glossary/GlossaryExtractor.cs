@@ -96,13 +96,13 @@ public class GlossaryExtractor
         var results = new List<ExtractedTerm>();
         if (string.IsNullOrWhiteSpace(jsonText)) return results;
 
-        // ดึงเฉพาะส่วนที่เป็น JSON Array [...]
-        var match = Regex.Match(jsonText, @"\[.*\]", RegexOptions.Singleline);
-        if (!match.Success) return results;
+        // ดึงเฉพาะส่วนที่เป็น JSON Array [...] แรกที่วงเล็บสมดุล (ป้องกันข้อความหมายเหตุ [...] ต่อท้าย)
+        string? jsonArray = ExtractFirstJsonArray(jsonText);
+        if (jsonArray == null) return results;
 
         try
         {
-            using var doc = JsonDocument.Parse(match.Value);
+            using var doc = JsonDocument.Parse(jsonArray);
             if (doc.RootElement.ValueKind != JsonValueKind.Array) return results;
 
             foreach (var element in doc.RootElement.EnumerateArray())
@@ -140,6 +140,41 @@ public class GlossaryExtractor
         }
 
         return results;
+    }
+
+    private static string? ExtractFirstJsonArray(string text)
+    {
+        int start = text.IndexOf('[');
+        if (start < 0) return null;
+
+        int depth = 0;
+        bool inQuotes = false;
+        bool escape = false;
+
+        for (int i = start; i < text.Length; i++)
+        {
+            char c = text[i];
+            if (escape)
+            {
+                escape = false;
+                continue;
+            }
+            if (inQuotes)
+            {
+                if (c == '\\') escape = true;
+                else if (c == '"') inQuotes = false;
+                continue;
+            }
+
+            if (c == '"') inQuotes = true;
+            else if (c == '[') depth++;
+            else if (c == ']' && --depth == 0)
+            {
+                return text.Substring(start, i - start + 1);
+            }
+        }
+
+        return null;
     }
 
     private static string TruncateWords(string text, int maxWords)

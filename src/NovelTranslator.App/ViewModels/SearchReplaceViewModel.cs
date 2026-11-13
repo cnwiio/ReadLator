@@ -59,27 +59,27 @@ public partial class SearchReplaceViewModel : ObservableObject
             return;
         }
 
-        var chapters = ScopeIndex == 0 && _currentChapter != null
-            ? new List<Chapter> { _currentChapter }
-            : await _repository.GetChaptersByStoryAsync(_story.Id);
-
-        // ถ้าค้นหาทั้งเรื่อง ให้ใช้ FTS5 ความเร็วสูงในการค้นหา
-        if (ScopeIndex == 1)
+        List<Chapter> chapters;
+        if (ScopeIndex == 0 && _currentChapter != null)
         {
+            chapters = new List<Chapter> { _currentChapter };
+        }
+        else
+        {
+            // ใช้ FTS5 กรองเฉพาะตอนที่มีคำค้นหาก่อน เพื่อไม่ต้องโหลดทั้งเรื่องเข้า RAM
             var ftsResults = await _repository.SearchFtsAsync(_story.Id, SearchText, searchTranslated: true, limit: 100);
             if (ftsResults.Count > 0)
             {
+                chapters = new List<Chapter>(ftsResults.Count);
                 foreach (var r in ftsResults)
                 {
-                    Previews.Add(new ReplacePreviewItem
-                    {
-                        ChapterId = r.ChapterId,
-                        ChapterTitle = r.Title,
-                        MatchSnippet = r.Snippet.Replace("<b>", "").Replace("</b>", "")
-                    });
+                    var chap = await _repository.GetChapterByIdAsync(r.ChapterId);
+                    if (chap != null) chapters.Add(chap);
                 }
-                StatusMessage = $"พบทั้งหมด {ftsResults.Count} จุดจาก FTS5 ใน {Previews.Select(p => p.ChapterId).Distinct().Count()} ตอน";
-                return;
+            }
+            else
+            {
+                chapters = await _repository.GetChaptersByStoryAsync(_story.Id);
             }
         }
 

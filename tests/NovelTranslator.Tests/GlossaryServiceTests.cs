@@ -28,6 +28,18 @@ public class GlossaryServiceTests
     }
 
     [Fact]
+    public void FindMatchingEntries_RespectsWordBoundariesForAsciiTerms()
+    {
+        var entries = new List<GlossaryEntry>
+        {
+            new() { SourceTerm = "cat", TargetTerm = "แมว", Category = GlossaryCategory.Term }
+        };
+
+        var matched = GlossaryService.FindMatchingEntries("A caterpillar crawled across the leaf.", entries);
+        Assert.Empty(matched);
+    }
+
+    [Fact]
     public void ExportAndImportCsv_RoundTrip_PreservesData()
     {
         string tempFile = Path.Combine(Path.GetTempPath(), $"test_glossary_{Path.GetRandomFileName()}.csv");
