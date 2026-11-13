@@ -1528,6 +1528,56 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public async Task ImportFromUrlAsync()
+    {
+        if (SelectedStory == null || RequestPromptDialog == null) return;
+
+        string? url = await RequestPromptDialog("นำเข้าจาก URL (Reader Mode)", "วางลิงก์หน้าเว็บนิยาย (http:// หรือ https://):");
+        if (string.IsNullOrWhiteSpace(url)) return;
+
+        SaveStatusText = "กำลังดึงเนื้อหาจากเว็บ...";
+        try
+        {
+            var result = await WebChapterImportService.FetchReadableChapterAsync(url);
+
+            if (SelectedChapter != null && string.IsNullOrWhiteSpace(OriginalText))
+            {
+                if (string.IsNullOrWhiteSpace(SelectedChapter.Title) || SelectedChapter.Title.StartsWith("ตอนที่ "))
+                {
+                    SelectedChapter.Title = result.Title;
+                    ChapterTitleEdit = result.Title;
+                }
+                OriginalText = result.Content;
+                await SaveCurrentChapterInternalAsync(isAutoSave: false);
+                SaveStatusText = $"ดึงเนื้อหา \"{SelectedChapter.Title}\" เรียบร้อย";
+            }
+            else
+            {
+                int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
+                var chap = new Chapter
+                {
+                    StoryId = SelectedStory.Id,
+                    Ordinal = nextOrdinal,
+                    Title = result.Title,
+                    OriginalText = result.Content,
+                    TranslatedText = string.Empty,
+                    Status = ChapterStatus.NotTranslated
+                };
+                chap.Id = await _repository.InsertChapterAsync(chap);
+                Chapters.Add(chap);
+                RefreshFilteredChapters();
+                SelectedChapter = chap;
+                SaveStatusText = $"นำเข้า \"{chap.Title}\" จาก URL แล้ว";
+            }
+        }
+        catch (Exception ex)
+        {
+            SaveStatusText = "นำเข้าจาก URL ไม่สำเร็จ";
+            RequestShowErrorDialog?.Invoke(ex.Message);
+        }
+    }
+
+    [RelayCommand]
     public async Task ExportCurrentChapterAsync()
     {
         if (SelectedChapter == null || RequestSaveFileDialog == null) return;

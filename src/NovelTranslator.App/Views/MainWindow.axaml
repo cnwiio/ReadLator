@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v4.5"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v4.6"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -65,6 +65,7 @@
                                 <MenuItem Header="สแกนหาศัพท์ใหม่ในตอนนี้ (AI)" Command="{Binding ScanNewTermsCommand}" />
                                 <Separator />
                                 <MenuItem Header="นำเข้าไฟล์นิยาย (.txt)" Command="{Binding ImportTxtFilesCommand}" />
+                                <MenuItem Header="นำเข้าจาก URL (Reader Mode)..." Command="{Binding ImportFromUrlCommand}" />
                                 <MenuItem Header="ส่งออกตอนนี้ (.txt)" Command="{Binding ExportCurrentChapterCommand}" />
                                 <MenuItem Header="ส่งออกทั้งเรื่อง (.txt)" Command="{Binding ExportStoryCommand}" />
                                 <Separator />
@@ -443,9 +444,15 @@
                             <ColumnDefinition Width="{Binding SplitterColumnWidth}" />
                             <ColumnDefinition Width="{Binding TranslatedColumnWidth}" />
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="ต้นฉบับ" FontSize="12" FontWeight="Medium"
-                                   Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"
-                                   IsVisible="{Binding IsOriginalPaneVisible}" />
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center"
+                                    IsVisible="{Binding IsOriginalPaneVisible}">
+                            <TextBlock Text="ต้นฉบับ" FontSize="12" FontWeight="Medium"
+                                       Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                            <Button Content="นำเข้าจาก URL" Command="{Binding ImportFromUrlCommand}"
+                                    Classes="ghost" Height="22" Padding="8,0" FontSize="11"
+                                    VerticalContentAlignment="Center"
+                                    ToolTip.Tip="ดึงเนื้อหาจากลิงก์หน้าเว็บ (Reader Mode)" />
+                        </StackPanel>
                         <TextBlock Grid.Column="2" Text="คำแปล" FontSize="12" FontWeight="Medium"
                                    Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center"
                                    IsVisible="{Binding IsTranslatedPaneVisible}" />
