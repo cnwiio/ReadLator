@@ -40,42 +40,50 @@ public class OutputValidator
 
         string text = rawText.Trim();
 
-        // 1. ตัดครอบโค้ดบล็อก เช่น ```markdown ... ``` หรือ ``` ... ```
-        if (text.StartsWith("```"))
+        while (true)
         {
-            int firstNewline = text.IndexOf('\n');
-            if (firstNewline >= 0)
-            {
-                text = text.Substring(firstNewline + 1).Trim();
-            }
-            if (text.EndsWith("```"))
-            {
-                text = text.Substring(0, text.Length - 3).Trim();
-            }
-        }
+            string before = text;
 
-        // 2. ตัดบรรทัดคำเกริ่น
-        var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).ToList();
-        while (lines.Count > 0)
-        {
-            string firstLine = lines[0].Trim();
-            bool isPreamble = PreamblePrefixes.Any(p => firstLine.StartsWith(p, StringComparison.OrdinalIgnoreCase));
-            if (isPreamble)
+            // 1. ตัดครอบโค้ดบล็อก เช่น ```markdown ... ``` หรือ ``` ... ```
+            if (text.StartsWith("```"))
             {
-                lines.RemoveAt(0);
-                // ตัดบรรทัดว่างถัดไป
-                while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[0]))
+                int firstNewline = text.IndexOf('\n');
+                if (firstNewline >= 0)
                 {
-                    lines.RemoveAt(0);
+                    text = text.Substring(firstNewline + 1).Trim();
+                }
+                if (text.EndsWith("```"))
+                {
+                    text = text.Substring(0, text.Length - 3).Trim();
                 }
             }
-            else
+
+            // 2. ตัดบรรทัดคำเกริ่น
+            var lines = text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None).ToList();
+            while (lines.Count > 0)
             {
-                break;
+                string firstLine = lines[0].Trim();
+                bool isPreamble = PreamblePrefixes.Any(p => firstLine.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+                if (isPreamble)
+                {
+                    lines.RemoveAt(0);
+                    // ตัดบรรทัดว่างถัดไป
+                    while (lines.Count > 0 && string.IsNullOrWhiteSpace(lines[0]))
+                    {
+                        lines.RemoveAt(0);
+                    }
+                }
+                else
+                {
+                    break;
+                }
             }
+
+            text = string.Join("\n", lines).Trim();
+            if (text == before) break;
         }
 
-        return string.Join("\n", lines).Trim();
+        return text;
     }
 
     /// <summary>

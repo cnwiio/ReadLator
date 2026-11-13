@@ -17,6 +17,15 @@ public class OutputValidatorTests
     }
 
     [Fact]
+    public void CleanPreamble_StripsCodeBlocksPrecededByIntroLine()
+    {
+        string raw = "Here is the translation:\n```markdown\nท้องฟ้ายามค่ำคืนเต็มไปด้วยดวงดาวระยิบระยับ\n```";
+        string cleaned = OutputValidator.CleanPreamble(raw);
+
+        Assert.Equal("ท้องฟ้ายามค่ำคืนเต็มไปด้วยดวงดาวระยิบระยับ", cleaned);
+    }
+
+    [Fact]
     public void Validate_EmptyTranslation_ReturnsInvalid()
     {
         var result = OutputValidator.Validate("Some English text that needs translation", "   ");
