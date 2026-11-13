@@ -68,20 +68,19 @@ public class GlossaryService
         var entries = new List<GlossaryEntry>();
         if (!File.Exists(filePath)) return entries;
 
-        var lines = File.ReadAllLines(filePath, Encoding.UTF8);
+        string content = File.ReadAllText(filePath, Encoding.UTF8);
         bool isHeader = true;
 
-        foreach (var line in lines)
+        foreach (var parts in ParseCsvRecords(content))
         {
-            if (string.IsNullOrWhiteSpace(line)) continue;
+            if (parts.Count == 1 && string.IsNullOrWhiteSpace(parts[0])) continue;
             if (isHeader)
             {
                 isHeader = false;
                 // ถ้าเป็นบรรทัดหัวข้อ ข้ามไป
-                if (line.StartsWith("SourceTerm", StringComparison.OrdinalIgnoreCase)) continue;
+                if (parts[0].Trim().Equals("SourceTerm", StringComparison.OrdinalIgnoreCase)) continue;
             }
 
-            var parts = ParseCsvLine(line);
             if (parts.Count >= 2)
             {
                 string src = parts[0].Trim();
@@ -120,18 +119,19 @@ public class GlossaryService
         return value;
     }
 
-    private static List<string> ParseCsvLine(string line)
+    private static List<List<string>> ParseCsvRecords(string content)
     {
-        var result = new List<string>();
+        var records = new List<List<string>>();
+        var row = new List<string>();
         var current = new StringBuilder();
         bool inQuotes = false;
 
-        for (int i = 0; i < line.Length; i++)
+        for (int i = 0; i < content.Length; i++)
         {
-            char c = line[i];
+            char c = content[i];
             if (c == '"')
             {
-                if (inQuotes && i + 1 < line.Length && line[i + 1] == '"')
+                if (inQuotes && i + 1 < content.Length && content[i + 1] == '"')
                 {
                     current.Append('"');
                     i++; // ข้าม quote ตัวที่สอง
@@ -143,8 +143,19 @@ public class GlossaryService
             }
             else if (c == ',' && !inQuotes)
             {
-                result.Add(current.ToString());
+                row.Add(current.ToString());
                 current.Clear();
+            }
+            else if ((c == '\r' || c == '\n') && !inQuotes)
+            {
+                if (c == '\r' && i + 1 < content.Length && content[i + 1] == '\n')
+                {
+                    i++;
+                }
+                row.Add(current.ToString());
+                current.Clear();
+                records.Add(row);
+                row = new List<string>();
             }
             else
             {
@@ -152,7 +163,12 @@ public class GlossaryService
             }
         }
 
-        result.Add(current.ToString());
-        return result;
+        if (current.Length > 0 || row.Count > 0)
+        {
+            row.Add(current.ToString());
+            records.Add(row);
+        }
+
+        return records;
     }
 }

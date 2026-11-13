@@ -1,4 +1,10 @@
 using System;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using NovelTranslator.Core.Export;
 using Xunit;
@@ -48,5 +54,80 @@ public class WebChapterImportServiceTests
     {
         Assert.Throws<InvalidOperationException>(() =>
             WebChapterImportService.ExtractFromHtml("https://example.com/empty", "   "));
+    }
+
+    [Theory]
+    [InlineData("http://localhost:11434/api/tags")]
+    [InlineData("http://127.0.0.1/admin")]
+    [InlineData("http://192.168.1.1/status")]
+    [InlineData("http://10.0.0.5/internal")]
+    public async Task FetchReadableChapterAsync_RejectsLoopbackAndPrivateHosts(string url)
+    {
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            WebChapterImportService.FetchReadableChapterAsync(url));
+    }
+
+    [Fact]
+    public async Task FetchReadableChapterAsync_RejectsNonHtmlContentType()
+    {
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            var resp = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new ByteArrayContent(new byte[] { 1, 2, 3, 4 })
+            };
+            resp.Content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            return resp;
+        }));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            WebChapterImportService.FetchReadableChapterAsync("https://example.com/file.bin", client));
+    }
+
+    [Fact]
+    public async Task FetchReadableChapterAsync_RejectsOversizedContentLengthHeader()
+    {
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            var resp = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes("<html></html>")))
+            };
+            resp.Content.Headers.ContentType = new MediaTypeHeaderValue("text/html");
+            resp.Content.Headers.ContentLength = WebChapterImportService.MaxResponseBytes + 1;
+            return resp;
+        }));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            WebChapterImportService.FetchReadableChapterAsync("https://example.com/huge", client));
+    }
+
+    [Fact]
+    public async Task FetchReadableChapterAsync_RejectsStreamExceedingMaxBytes()
+    {
+        byte[] oversized = new byte[WebChapterImportService.MaxResponseBytes + 1024];
+        Array.Fill(oversized, (byte)'a');
+
+        using var client = new HttpClient(new StubHttpMessageHandler(_ =>
+        {
+            var resp = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StreamContent(new MemoryStream(oversized))
+            };
+            resp.Content.Headers.ContentType = new MediaTypeHeaderValue("text/html");
+            return resp;
+        }));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            WebChapterImportService.FetchReadableChapterAsync("https://example.com/stream", client));
+    }
+
+    private sealed class StubHttpMessageHandler : HttpMessageHandler
+    {
+        private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;
+        public StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> handler) => _handler = handler;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(_handler(request));
     }
 }

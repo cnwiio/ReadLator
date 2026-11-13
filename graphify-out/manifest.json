@@ -66,9 +66,9 @@
     "semantic_hash": ""
   },
   "src/NovelTranslator.App/NovelTranslator.App.csproj": {
-    "mtime": 1794582462.0024903,
-    "seen": 1794587956.4050012,
-    "ast_hash": "60ee01cb407fdf668d863419190310d7",
+    "mtime": 1794590451.9298651,
+    "seen": 1794591475.3080742,
+    "ast_hash": "15fd96680b6c4ebd43c06a0522de9dc8",
     "semantic_hash": ""
   },
   "src/NovelTranslator.App/Program.cs": {
@@ -90,15 +90,15 @@
     "semantic_hash": ""
   },
   "src/NovelTranslator.App/ViewModels/MainViewModel.cs": {
-    "mtime": 1794580544.7101226,
-    "seen": 1794587956.4050088,
-    "ast_hash": "e8f3bea6ab9fbf845a434b47c746047d",
+    "mtime": 1794590418.788843,
+    "seen": 1794591475.3080819,
+    "ast_hash": "c9f619d2a71d8b78c86af4c735d3c436",
     "semantic_hash": ""
   },
   "src/NovelTranslator.App/ViewModels/SearchReplaceViewModel.cs": {
-    "mtime": 1794502973.1417224,
-    "seen": 1794587956.4050112,
-    "ast_hash": "ddac7ff12d03035bc8cbe57e54975bde",
+    "mtime": 1794588348.9176154,
+    "seen": 1794591475.3080845,
+    "ast_hash": "1b8773021529b8ee83a1dda16a673d06",
     "semantic_hash": ""
   },
   "src/NovelTranslator.App/ViewModels/SettingsViewModel.cs": {
@@ -120,9 +120,9 @@
     "semantic_hash": ""
   },
   "src/NovelTranslator.App/Views/MainWindow.axaml.cs": {
-    "mtime": 1794510023.2409046,
-    "seen": 1794587956.405019,
-    "ast_hash": "da317bf632eeca6322690249c7b48e55",
+    "mtime": 1794589707.617595,
+    "seen": 1794591475.3080924,
+    "ast_hash": "d5a96b8659c4d0d5df65b45c6c31beda",
     "semantic_hash": ""
   },
   "src/NovelTranslator.App/Views/SearchReplaceWindow.axaml.cs": {
@@ -138,9 +138,9 @@
     "semantic_hash": ""
   },
   "src/NovelTranslator.Core/Data/NovelDatabase.cs": {
-    "mtime": 1794502907.8385618,
-    "seen": 1794587956.4050236,
-    "ast_hash": "5103fe04d40d81708c82f201296c5b06",
+    "mtime": 1794588350.5283153,
+    "seen": 1794591475.308097,
+    "ast_hash": "c90da721798c96bcb45dbb3355bd9fe2",
     "semantic_hash": ""
   },
   "src/NovelTranslator.Core/Data/NovelRepository.cs": {
@@ -180,15 +180,15 @@
     "semantic_hash": ""
   },
   "src/NovelTranslator.Core/NovelTranslator.Core.csproj": {
-    "mtime": 1794388446.0669317,
-    "seen": 1794409184.1694133,
-    "ast_hash": "297a9f31871f6bbf00d4461d6e56bcf9",
-    "semantic_hash": "297a9f31871f6bbf00d4461d6e56bcf9"
+    "mtime": 1794590376.7698772,
+    "seen": 1794591475.308107,
+    "ast_hash": "415f4cc4b0aaab1de624456186eecea3",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.Core/Settings/AppSettings.cs": {
-    "mtime": 1794463166.4773514,
-    "seen": 1794494546.0716612,
-    "ast_hash": "0618dbb227f44ba0c9c0fdaf695e9ff5",
+    "mtime": 1794589654.214418,
+    "seen": 1794591475.308108,
+    "ast_hash": "78d4a43e19daf66690c94aa499993f9e",
     "semantic_hash": ""
   },
   "src/NovelTranslator.Core/Translation/Chunker.cs": {
@@ -198,10 +198,10 @@
     "semantic_hash": "d1b495d72b844ae3917b52d75e246ffe"
   },
   "src/NovelTranslator.Core/Translation/OutputValidator.cs": {
-    "mtime": 1794388566.991468,
-    "seen": 1794409184.1694157,
-    "ast_hash": "fe3bdde83c8544eb36fec89fbe9f1925",
-    "semantic_hash": "fe3bdde83c8544eb36fec89fbe9f1925"
+    "mtime": 1794589106.8795142,
+    "seen": 1794591475.3081102,
+    "ast_hash": "96e1a4b7225ecfbd920752dcf17ccc76",
+    "semantic_hash": ""
   },
   "src/NovelTranslator.Core/Translation/PromptBuilder.cs": {
     "mtime": 1794501824.368192,
@@ -210,9 +210,9 @@
     "semantic_hash": ""
   },
   "src/NovelTranslator.Core/Translation/TranslationPipeline.cs": {
-    "mtime": 1794504450.565277,
-    "seen": 1794587956.4050384,
-    "ast_hash": "d89fe9a9308ddfc5b727ebc800d13782",
+    "mtime": 1794588770.2847004,
+    "seen": 1794591475.3081124,
+    "ast_hash": "3d88f4ce55718df67f7d5ec6610a1fec",
     "semantic_hash": ""
   },
   "tests/NovelTranslator.Tests/ChunkerTests.cs": {
@@ -234,15 +234,15 @@
     "semantic_hash": ""
   },
   "tests/NovelTranslator.Tests/OutputValidatorTests.cs": {
-    "mtime": 1794402733.719684,
-    "seen": 1794409184.1694207,
-    "ast_hash": "d0002966c2e79915a6e53dde227da95d",
-    "semantic_hash": "d0002966c2e79915a6e53dde227da95d"
+    "mtime": 1794589108.0776227,
+    "seen": 1794591475.3081193,
+    "ast_hash": "ccb35b4f563fbab45406bd7288f30737",
+    "semantic_hash": ""
   },
   "tests/NovelTranslator.Tests/RepositoryTests.cs": {
-    "mtime": 1794501881.2317405,
-    "seen": 1794587956.4050486,
-    "ast_hash": "119491f04e3cf47e1a76118f46b89032",
+    "mtime": 1794588833.8442688,
+    "seen": 1794591475.3081226,
+    "ast_hash": "251278c64961cf5892dc6d55d1276fa9",
     "semantic_hash": ""
   },
   "README.md": {
@@ -282,9 +282,9 @@
     "semantic_hash": ""
   },
   "tests/NovelTranslator.Tests/SettingsTests.cs": {
-    "mtime": 1794461733.149078,
-    "seen": 1794494546.0716736,
-    "ast_hash": "deb213bee0f39e8d161473507d907b48",
+    "mtime": 1794589657.0643637,
+    "seen": 1794591475.3081248,
+    "ast_hash": "ba43e577bf14109110192ad42c7ba159",
     "semantic_hash": ""
   },
   ".agents/rules/auto_update_and_commit.md": {
@@ -429,6 +429,18 @@
     "mtime": 1794511537.6944041,
     "seen": 1794587956.4050496,
     "ast_hash": "ed21bc36f18e52f3fb471d8f9cc06602",
+    "semantic_hash": ""
+  },
+  "src/NovelTranslator.Core/Export/WebChapterImportService.cs": {
+    "mtime": 1794590550.4479258,
+    "seen": 1794591475.3081005,
+    "ast_hash": "bde950ff4e135f5d36a6d3ddaea31699",
+    "semantic_hash": ""
+  },
+  "tests/NovelTranslator.Tests/WebChapterImportServiceTests.cs": {
+    "mtime": 1794590552.5087125,
+    "seen": 1794591475.3081257,
+    "ast_hash": "0da7dbd1f09f2a358c16edd709ca4782",
     "semantic_hash": ""
   }
 }

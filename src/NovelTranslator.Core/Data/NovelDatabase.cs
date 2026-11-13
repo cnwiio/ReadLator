@@ -151,9 +151,14 @@ public class NovelDatabase
 
     public void RestoreFrom(string sourceBackupPath)
     {
-        using var sourceConn = new SqliteConnection($"Data Source={sourceBackupPath}");
-        sourceConn.Open();
-        using var destConn = CreateConnection();
-        sourceConn.BackupDatabase(destConn);
+        using (var sourceConn = new SqliteConnection($"Data Source={sourceBackupPath}"))
+        {
+            sourceConn.Open();
+            using var destConn = CreateConnection();
+            sourceConn.BackupDatabase(destConn);
+        }
+
+        SqliteConnection.ClearAllPools();
+        Initialize();
     }
 }

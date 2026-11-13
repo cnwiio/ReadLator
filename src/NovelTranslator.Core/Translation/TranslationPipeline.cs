@@ -63,7 +63,8 @@ public class TranslationPipeline
         }
 
         int completedCount = chunks.Count(c => c.IsCompleted && !string.IsNullOrEmpty(c.TranslatedText));
-        bool preserveExistingTranslation = !forceRetranslate && completedCount > 0 && !string.IsNullOrWhiteSpace(chapter.TranslatedText);
+        bool isContiguousPrefix = chunks.Take(completedCount).All(c => c.IsCompleted && !string.IsNullOrEmpty(c.TranslatedText));
+        bool preserveExistingTranslation = !forceRetranslate && completedCount > 0 && isContiguousPrefix && !string.IsNullOrWhiteSpace(chapter.TranslatedText);
         var appendedParts = new List<string>();
         if (preserveExistingTranslation)
         {

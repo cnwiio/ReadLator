@@ -257,6 +257,75 @@ public class RepositoryTests : IDisposable
         Assert.DoesNotContain("ย่อหน้าแรก (AI เก่า)", chapter.TranslatedText);
     }
 
+    [Fact]
+    public async Task TranslateChapterAsync_NonContiguousIncompleteChunk_AssemblesInChunkOrder()
+    {
+        var story = new Story { Title = "Order Test" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var chapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "Ch 1",
+            OriginalText = "First paragraph.\n\nSecond paragraph.",
+            TranslatedText = "ย่อหน้าสอง (เก่า)"
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        var settings = new NovelTranslator.Core.Settings.AppSettings { MaxChunkWords = 2 };
+        var splitTexts = NovelTranslator.Core.Translation.Chunker.SplitIntoChunks(chapter.OriginalText, settings.MaxChunkWords);
+        Assert.True(splitTexts.Count >= 2);
+        await _repository.SaveChunksAsync(chapter.Id, splitTexts);
+
+        // Chunk 0 is incomplete (e.g. edited/reset), while Chunk 1 is already completed
+        var chunks = await _repository.GetChunksByChapterAsync(chapter.Id);
+        chunks[0].IsCompleted = false;
+        chunks[0].TranslatedText = "";
+        chunks[1].IsCompleted = true;
+        chunks[1].TranslatedText = "ย่อหน้าสอง (เสร็จแล้ว)";
+        await _repository.UpdateChunkAsync(chunks[0]);
+        await _repository.UpdateChunkAsync(chunks[1]);
+
+        var pipeline = new NovelTranslator.Core.Translation.TranslationPipeline(_repository, new FakeLlmClient("ย่อหน้าแรก (แปลใหม่)"), settings);
+        await pipeline.TranslateChapterAsync(story, chapter, new Progress<NovelTranslator.Core.Translation.TranslationProgressInfo>());
+
+        Assert.Equal("ย่อหน้าแรก (แปลใหม่)\n\nย่อหน้าสอง (เสร็จแล้ว)", chapter.TranslatedText);
+    }
+
+    [Fact]
+    public async Task RestoreFrom_OlderBackupWithoutFts_RecreatesFtsAndSearches()
+    {
+        string backupPath = Path.Combine(Path.GetTempPath(), $"old_backup_{Guid.NewGuid():N}.db");
+        try
+        {
+            using (var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={backupPath}"))
+            {
+                conn.Open();
+                using var cmd = conn.CreateCommand();
+                cmd.CommandText = @"
+                    CREATE TABLE Stories (Id INTEGER PRIMARY KEY AUTOINCREMENT, Title TEXT NOT NULL, SourceLang TEXT NOT NULL DEFAULT 'English', TargetLang TEXT NOT NULL DEFAULT 'Thai', StyleNotes TEXT NOT NULL DEFAULT '', CreatedAt TEXT NOT NULL);
+                    CREATE TABLE Chapters (Id INTEGER PRIMARY KEY AUTOINCREMENT, StoryId INTEGER NOT NULL, Ordinal INTEGER NOT NULL, Title TEXT NOT NULL, OriginalText TEXT NOT NULL DEFAULT '', TranslatedText TEXT NOT NULL DEFAULT '', Status INTEGER NOT NULL DEFAULT 0, UpdatedAt TEXT NOT NULL);
+                    CREATE TABLE ChapterChunks (Id INTEGER PRIMARY KEY AUTOINCREMENT, ChapterId INTEGER NOT NULL, ChunkIndex INTEGER NOT NULL, SourceText TEXT NOT NULL, TranslatedText TEXT NOT NULL DEFAULT '', IsCompleted INTEGER NOT NULL DEFAULT 0, HasWarning INTEGER NOT NULL DEFAULT 0, WarningMessage TEXT NOT NULL DEFAULT '');
+                    CREATE TABLE GlossaryEntries (Id INTEGER PRIMARY KEY AUTOINCREMENT, StoryId INTEGER NOT NULL, SourceTerm TEXT NOT NULL, TargetTerm TEXT NOT NULL, Category INTEGER NOT NULL DEFAULT 2, Notes TEXT NOT NULL DEFAULT '');
+                    INSERT INTO Stories (Title, CreatedAt) VALUES ('Old Story', '2025-01-01T00:00:00Z');
+                    INSERT INTO Chapters (StoryId, Ordinal, Title, OriginalText, TranslatedText, Status, UpdatedAt) VALUES (1, 1, 'Dragon Gate', 'Hero enters the dragon gate.', 'ผู้กล้าเข้าสู่ประตูมังกร', 2, '2025-01-01T00:00:00Z');
+                ";
+                cmd.ExecuteNonQuery();
+            }
+
+            _database.RestoreFrom(backupPath);
+            var results = await _repository.SearchFtsAsync(1, "dragon", searchTranslated: false);
+            Assert.Single(results);
+            Assert.Equal("Dragon Gate", results[0].Title);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            if (File.Exists(backupPath)) File.Delete(backupPath);
+        }
+    }
+
     private sealed class FakeLlmClient : NovelTranslator.Core.Llm.ILlmClient
     {
         private readonly string _response;

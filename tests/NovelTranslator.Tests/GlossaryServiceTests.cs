@@ -54,4 +54,31 @@ public class GlossaryServiceTests
             if (File.Exists(tempFile)) File.Delete(tempFile);
         }
     }
+
+    [Fact]
+    public void ExportAndImportCsv_RoundTrip_PreservesMultilineNotes()
+    {
+        string tempFile = Path.Combine(Path.GetTempPath(), $"test_glossary_ml_{Path.GetRandomFileName()}.csv");
+        try
+        {
+            var original = new List<GlossaryEntry>
+            {
+                new() { SourceTerm = "Mana", TargetTerm = "มานา", Category = GlossaryCategory.Term, Notes = "บรรทัด 1\nบรรทัด 2 \"อ้างอิง\"" },
+                new() { SourceTerm = "Alice", TargetTerm = "อลิซ", Category = GlossaryCategory.Person, Notes = "นางเอก" }
+            };
+
+            GlossaryService.ExportToCsv(tempFile, original);
+            var imported = GlossaryService.ImportFromCsv(tempFile, storyId: 1);
+
+            Assert.Equal(2, imported.Count);
+            Assert.Equal("Mana", imported[0].SourceTerm);
+            Assert.Equal("บรรทัด 1\nบรรทัด 2 \"อ้างอิง\"", imported[0].Notes);
+            Assert.Equal("Alice", imported[1].SourceTerm);
+            Assert.Equal("นางเอก", imported[1].Notes);
+        }
+        finally
+        {
+            if (File.Exists(tempFile)) File.Delete(tempFile);
+        }
+    }
 }
