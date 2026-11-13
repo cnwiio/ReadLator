@@ -129,7 +129,7 @@ public partial class SearchReplaceViewModel : ObservableObject
                 chap.TranslatedText = Regex.Replace(
                     chap.TranslatedText,
                     Regex.Escape(SearchText),
-                    ReplaceText ?? string.Empty,
+                    _ => ReplaceText ?? string.Empty,
                     RegexOptions.IgnoreCase);
 
                 chap.Status = ChapterStatus.Edited;

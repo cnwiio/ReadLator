@@ -169,4 +169,57 @@ public class RepositoryTests : IDisposable
         var none = await _repository.GetPreviousTranslatedChapterAsync(storyId, 1);
         Assert.Null(none);
     }
+
+    [Fact]
+    public async Task DeleteStory_CascadesToChaptersChunksAndGlossary()
+    {
+        long storyId = await _repository.InsertStoryAsync(new Story { Title = "Cascade Story" });
+        long chapterId = await _repository.InsertChapterAsync(new Chapter
+        {
+            StoryId = storyId,
+            Ordinal = 1,
+            Title = "Ch 1",
+            OriginalText = "Hello"
+        });
+        await _repository.SaveChunksAsync(chapterId, new() { "Hello" });
+        await _repository.InsertGlossaryEntryAsync(new GlossaryEntry
+        {
+            StoryId = storyId,
+            SourceTerm = "Hero",
+            TargetTerm = "ฮีโร่"
+        });
+
+        await _repository.DeleteStoryAsync(storyId);
+
+        Assert.Empty(await _repository.GetChaptersByStoryAsync(storyId));
+        Assert.Empty(await _repository.GetChunksByChapterAsync(chapterId));
+        Assert.Empty(await _repository.GetGlossaryByStoryAsync(storyId));
+    }
+
+    [Fact]
+    public async Task SearchReplace_WithDollarSignInReplacement_ReplacesLiterally()
+    {
+        var story = new Story { Title = "Dollar Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+        var chapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "Ch 1",
+            TranslatedText = "Cost is OLD_PRICE."
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        var vm = new NovelTranslator.App.ViewModels.SearchReplaceViewModel(_repository, story, chapter)
+        {
+            SearchText = "old_price",
+            ReplaceText = "$100"
+        };
+
+        await vm.ApplyReplaceAsync();
+
+        var updated = await _repository.GetChapterByIdAsync(chapter.Id);
+        Assert.NotNull(updated);
+        Assert.Equal("Cost is $100.", updated!.TranslatedText);
+    }
 }

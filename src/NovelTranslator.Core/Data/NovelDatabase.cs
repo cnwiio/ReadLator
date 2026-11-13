@@ -20,7 +20,7 @@ public class NovelDatabase
             }
             dbPath = Path.Combine(folder, "novels.db");
         }
-        _connectionString = $"Data Source={dbPath}";
+        _connectionString = $"Data Source={dbPath};Foreign Keys=True";
     }
 
     public SqliteConnection CreateConnection()
