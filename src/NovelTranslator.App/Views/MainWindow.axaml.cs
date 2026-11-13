@@ -93,19 +93,42 @@ public partial class MainWindow : Window
 
         ViewModel.RequestOpenAutoGlossary = async (story, chapter) =>
         {
-            if (chapter == null || string.IsNullOrWhiteSpace(chapter.OriginalText)) return;
+            if (chapter == null || string.IsNullOrWhiteSpace(chapter.OriginalText) || ViewModel.IsTranslating) return;
 
-            var db = new NovelDatabase();
-            var repo = new NovelRepository(db);
-            var settings = ViewModel.Settings;
-            var llm = new NovelTranslator.Core.Llm.LlmClient(settings);
-            var extractor = new NovelTranslator.Core.Glossary.GlossaryExtractor(llm, settings);
+            ViewModel.IsTranslating = true;
+            ViewModel.IsTranslatingIndeterminate = true;
+            ViewModel.LastErrorDetails = string.Empty;
+            ViewModel.ProgressText = "กำลังสแกนหาศัพท์ใหม่ในตอนนี้ด้วย AI...";
 
-            var existingGlossary = await repo.GetGlossaryByStoryAsync(story.Id);
-            var extracted = await extractor.ExtractNewTermsAsync(chapter.OriginalText, chapter.TranslatedText ?? "", existingGlossary);
+            List<NovelTranslator.Core.Glossary.ExtractedTerm> extracted;
+            NovelRepository repo;
+            try
+            {
+                var db = new NovelDatabase();
+                repo = new NovelRepository(db);
+                var settings = ViewModel.Settings;
+                var llm = new NovelTranslator.Core.Llm.LlmClient(settings);
+                var extractor = new NovelTranslator.Core.Glossary.GlossaryExtractor(llm, settings);
+
+                var existingGlossary = await repo.GetGlossaryByStoryAsync(story.Id);
+                extracted = await extractor.ExtractNewTermsAsync(chapter.OriginalText, chapter.TranslatedText ?? "", existingGlossary);
+            }
+            catch (Exception ex)
+            {
+                ViewModel.LastErrorDetails = ex.ToString();
+                string firstLine = ex.Message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ex.Message;
+                ViewModel.ProgressText = $"สแกนศัพท์ไม่สำเร็จ · {firstLine}";
+                return;
+            }
+            finally
+            {
+                ViewModel.IsTranslating = false;
+                ViewModel.IsTranslatingIndeterminate = false;
+            }
 
             if (extracted.Count == 0)
             {
+                ViewModel.ProgressText = "ไม่พบชื่อเฉพาะใหม่ในตอนนี้";
                 ViewModel.SaveStatusText = "ไม่พบชื่อเฉพาะใหม่ในตอนนี้";
                 return;
             }
@@ -114,6 +137,7 @@ public partial class MainWindow : Window
             var dialog = new AutoGlossaryDialog { DataContext = autoVm };
             autoVm.RequestClose = () => dialog.Close();
             await dialog.ShowDialog(this);
+            ViewModel.ProgressText = "สแกนศัพท์เสร็จสิ้น";
             ViewModel.SaveStatusText = "อัปเดตคำศัพท์เข้า Glossary เรียบร้อยแล้ว";
         };
 

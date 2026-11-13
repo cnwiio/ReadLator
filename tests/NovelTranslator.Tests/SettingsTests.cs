@@ -73,4 +73,31 @@ public class SettingsTests
         Assert.Equal(120, info.StreamedWordCount);
         Assert.Contains("120 คำ", info.StatusMessage);
     }
+
+    [Fact]
+    public void AppSettings_Save_WritesAtomicallyWithoutLeavingTempFile()
+    {
+        string dir = Path.Combine(Path.GetTempPath(), $"nt_settings_{Path.GetRandomFileName()}");
+        Directory.CreateDirectory(dir);
+        string path = Path.Combine(dir, "settings.json");
+
+        try
+        {
+            var initial = new AppSettings { ApiKey = "old-key", ModelName = "m1" };
+            initial.Save(path);
+
+            var updated = new AppSettings { ApiKey = "new-key", ModelName = "m2" };
+            updated.Save(path);
+
+            Assert.True(File.Exists(path));
+            Assert.False(File.Exists(path + ".tmp"));
+            string json = File.ReadAllText(path);
+            Assert.Contains("new-key", json);
+            Assert.DoesNotContain("old-key", json);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
 }

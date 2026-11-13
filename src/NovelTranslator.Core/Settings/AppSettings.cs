@@ -90,9 +90,10 @@ public class AppSettings
         }
     }
 
-    public void Save()
+    public void Save(string? targetPath = null)
     {
-        string path = GetSettingsFilePath();
+        string path = string.IsNullOrWhiteSpace(targetPath) ? GetSettingsFilePath() : targetPath;
+        string tempPath = path + ".tmp";
         lock (FileLock)
         {
             for (int attempt = 0; attempt < 3; attempt++)
@@ -100,10 +101,13 @@ public class AppSettings
                 try
                 {
                     string json = JsonSerializer.Serialize(this, JsonOptions);
-                    using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read);
-                    using var writer = new StreamWriter(stream);
-                    writer.Write(json);
-                    writer.Flush();
+                    using (var stream = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                    using (var writer = new StreamWriter(stream))
+                    {
+                        writer.Write(json);
+                        writer.Flush();
+                    }
+                    File.Move(tempPath, path, overwrite: true);
                     break;
                 }
                 catch (IOException) when (attempt < 2)
