@@ -20,8 +20,14 @@ public class LlmClient : ILlmClient
     public LlmClient(AppSettings settings, HttpClient? httpClient = null)
     {
         _settings = settings;
-        _httpClient = httpClient ?? new HttpClient();
-        _httpClient.Timeout = TimeSpan.FromMinutes(5); // เผื่อโมเดลขนาดใหญ่ประมวลผลนาน
+        if (httpClient == null)
+        {
+            _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) }; // เผื่อโมเดลขนาดใหญ่ประมวลผลนาน
+        }
+        else
+        {
+            _httpClient = httpClient;
+        }
     }
 
     private string GetCompletionsUrl()
@@ -261,5 +267,49 @@ public class LlmClient : ILlmClient
             return "ไม่พบ LM Studio ที่ localhost:1234 กรุณาเปิด Local Server ในโปรแกรม LM Studio ก่อนใช้งาน";
         }
         return $"ไม่สามารถเชื่อมต่อไปยัง AI Backend ที่ {_settings.BaseUrl} ได้: {ex.Message}";
+    }
+
+    public static async Task<(BackendType? DetectedBackend, string BaseUrl, string? FirstModelId)> ProbeLocalBackendsAsync(
+        HttpClient? httpClient = null,
+        CancellationToken cancellationToken = default)
+    {
+        bool ownsClient = httpClient == null;
+        var client = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
+        try
+        {
+            var candidates = new[]
+            {
+                (Backend: BackendType.Ollama, BaseUrl: "http://localhost:11434/v1"),
+                (Backend: BackendType.LmStudio, BaseUrl: "http://localhost:1234/v1")
+            };
+
+            foreach (var candidate in candidates)
+            {
+                try
+                {
+                    var probeSettings = new AppSettings
+                    {
+                        Backend = candidate.Backend,
+                        BaseUrl = candidate.BaseUrl
+                    };
+                    var probeClient = new LlmClient(probeSettings, client);
+                    var models = await probeClient.GetModelsAsync(cancellationToken);
+                    return (candidate.Backend, candidate.BaseUrl, models.Count > 0 ? models[0].Id : null);
+                }
+                catch
+                {
+                    // ลอง backend ถัดไปเมื่อเชื่อมต่อไม่ได้หรือ timeout
+                }
+            }
+
+            return (null, string.Empty, null);
+        }
+        finally
+        {
+            if (ownsClient)
+            {
+                client.Dispose();
+            }
+        }
     }
 }

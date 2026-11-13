@@ -8,6 +8,7 @@ using Avalonia.Styling;
 using NovelTranslator.App.ViewModels;
 using NovelTranslator.App.Views;
 using NovelTranslator.Core.Data;
+using NovelTranslator.Core.Llm;
 using NovelTranslator.Core.Settings;
 
 namespace NovelTranslator.App;
@@ -65,6 +66,32 @@ public partial class App : Application
             desktop.MainWindow = mainWindow;
             mainWindow.Show();
             splash.Close();
+
+            if (!settings.HasCompletedFirstRun && string.IsNullOrWhiteSpace(settings.ApiKey))
+            {
+                var (backend, baseUrl, firstModel) = await LlmClient.ProbeLocalBackendsAsync();
+                if (backend.HasValue)
+                {
+                    settings.Backend = backend.Value;
+                    settings.BaseUrl = baseUrl;
+                    if (string.IsNullOrWhiteSpace(settings.ModelName) && !string.IsNullOrWhiteSpace(firstModel))
+                    {
+                        settings.ModelName = firstModel;
+                    }
+                    settings.HasCompletedFirstRun = true;
+                    settings.Save();
+                    viewModel.ReloadSettings();
+                }
+                else
+                {
+                    var firstRun = new FirstRunWindow(settings);
+                    await firstRun.ShowDialog(mainWindow);
+                    if (firstRun.SettingsUpdated)
+                    {
+                        viewModel.ReloadSettings();
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {

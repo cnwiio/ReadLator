@@ -1,0 +1,106 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="NovelTranslator.App.Views.FirstRunWindow"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="ยินดีต้อนรับสู่ NovelTranslator"
+        Width="560"
+        SizeToContent="Height"
+        CanResize="False"
+        WindowDecorations="None"
+        Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        WindowStartupLocation="CenterOwner">
+
+    <Border Margin="12"
+            CornerRadius="12"
+            Background="{DynamicResource MainBgBrush}"
+            BorderBrush="{DynamicResource BorderSubtleBrush}"
+            BorderThickness="1"
+            BoxShadow="0 8 32 0 #60000000">
+        <Grid RowDefinitions="Auto, *">
+            <!-- Titlebar -->
+            <Border Background="{DynamicResource HeaderBgBrush}"
+                    BorderBrush="{DynamicResource BorderSubtleBrush}"
+                    BorderThickness="0,0,0,1"
+                    CornerRadius="11,11,0,0"
+                    Height="42"
+                    Padding="16,0,10,0"
+                    PointerPressed="OnTitleBarPointerPressed">
+                <Grid ColumnDefinitions="*, Auto">
+                    <TextBlock Text="เริ่มต้นใช้งานครั้งแรก (First-Run Setup)"
+                               FontSize="13" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}"
+                               VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="✕" Classes="ghost" Click="OnSkipClicked"
+                            Width="28" Height="28" Padding="0" FontSize="12"
+                            Foreground="{DynamicResource TextMutedBrush}"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                </Grid>
+            </Border>
+
+            <!-- Content -->
+            <StackPanel Grid.Row="1" Margin="20" Spacing="16">
+                <StackPanel Spacing="4">
+                    <TextBlock Text="ยังไม่พบโปรแกรม AI ในเครื่อง (Ollama หรือ LM Studio)"
+                               FontSize="16" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" />
+                    <TextBlock Text="โปรแกรมนี้ไม่ได้ฝังโมเดล AI ไว้ภายใน เพื่อความเป็นส่วนตัวและขนาดไฟล์ที่เบา กรุณาเลือกวิธีเชื่อมต่อ AI ด้านล่าง:"
+                               FontSize="12.5" TextWrapping="Wrap"
+                               Foreground="{DynamicResource TextSecondaryBrush}" />
+                </StackPanel>
+
+                <!-- Option 1: Local AI -->
+                <Border Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="ตัวเลือกที่ 1: ใช้ AI ฟรีในเครื่อง (แนะนำ — ข้อมูลไม่ออกจากเครื่อง)"
+                                   FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="ติดตั้งและเปิดโปรแกรม Ollama หรือ LM Studio แล้วดาวน์โหลดโมเดลที่รองรับภาษาไทย (เช่น qwen2.5, gemma3, typhoon)"
+                                   FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                        <WrapPanel Orientation="Horizontal">
+                            <Button Content="ดาวน์โหลด Ollama" Click="OnOpenOllamaClicked" Margin="0,0,8,4" FontSize="12.5" />
+                            <Button Content="ดาวน์โหลด LM Studio" Click="OnOpenLmStudioClicked" Margin="0,0,8,4" FontSize="12.5" />
+                            <Button x:Name="RecheckButton" Content="ตรวจสอบอีกครั้ง" Classes="primary" Click="OnRecheckClicked" Margin="0,0,0,4" FontSize="12.5" />
+                        </WrapPanel>
+                        <TextBlock x:Name="ProbeStatusText" IsVisible="False" FontSize="12" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource TextSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Option 2: Cloud AI -->
+                <Border Background="{DynamicResource CardBgBrush}"
+                        BorderBrush="{DynamicResource BorderSubtleBrush}"
+                        BorderThickness="1" CornerRadius="10" Padding="16">
+                    <StackPanel Spacing="10">
+                        <TextBlock Text="ตัวเลือกที่ 2: ใช้บริการ Cloud AI (OpenAI-compatible API)"
+                                   FontSize="13.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <Grid ColumnDefinitions="90, *" RowDefinitions="Auto, Auto, Auto" RowSpacing="8">
+                            <TextBlock Text="Base URL" FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBox x:Name="CloudBaseUrlBox" Grid.Column="1" Text="https://api.openai.com/v1" Height="32" VerticalContentAlignment="Center" />
+
+                            <TextBlock Grid.Row="1" Text="API Key" FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBox x:Name="CloudApiKeyBox" Grid.Row="1" Grid.Column="1" PasswordChar="●" PlaceholderText="sk-..." Height="32" VerticalContentAlignment="Center" />
+
+                            <TextBlock Grid.Row="2" Text="ชื่อโมเดล" FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            <TextBox x:Name="CloudModelBox" Grid.Row="2" Grid.Column="1" Text="gpt-4o-mini" Height="32" VerticalContentAlignment="Center" />
+                        </Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="10" HorizontalAlignment="Right">
+                            <Button Content="บันทึกและใช้ Cloud AI" Classes="primary" Click="OnSaveCloudClicked" FontSize="12.5" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Footer -->
+                <Grid ColumnDefinitions="*, Auto">
+                    <TextBlock Text="สามารถเปลี่ยนการตั้งค่าทั้งหมดได้ภายหลังที่ปุ่ม ⚙️ ตั้งค่า"
+                               FontSize="11.5" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                    <Button Grid.Column="1" Content="ข้ามไปตั้งค่าภายหลัง" Classes="ghost" Click="OnSkipClicked" FontSize="12.5" />
+                </Grid>
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

@@ -49,6 +49,7 @@ public class AppSettings
     public ShortkeysSettings Shortkeys { get; set; } = new();
     public long? LastSelectedStoryId { get; set; }
     public long? LastSelectedChapterId { get; set; }
+    public bool HasCompletedFirstRun { get; set; } = false;
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
     private static readonly object FileLock = new();

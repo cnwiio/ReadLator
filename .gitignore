@@ -15,3 +15,7 @@
 graphify-out/cache/
 graphify-out/.graphify_*
 graphify-out/*.py
+
+# Publish & installer outputs
+publish/
+installer/Releases/
