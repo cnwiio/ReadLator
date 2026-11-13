@@ -132,6 +132,39 @@ public class NovelRepository
         await conn.ExecuteAsync("DELETE FROM Chapters WHERE Id = @Id", new { Id = id });
     }
 
+    public async Task<long> RestoreChapterWithChunksAsync(Chapter chapter, IEnumerable<ChapterChunk> chunks)
+    {
+        using var conn = _database.CreateConnection();
+        using var transaction = conn.BeginTransaction();
+
+        const string insertChapterSql = @"
+            INSERT INTO Chapters (StoryId, Ordinal, Title, OriginalText, TranslatedText, Status, UpdatedAt)
+            VALUES (@StoryId, @Ordinal, @Title, @OriginalText, @TranslatedText, @Status, @UpdatedAt);
+            SELECT last_insert_rowid();";
+        chapter.Id = await conn.ExecuteScalarAsync<long>(insertChapterSql, chapter, transaction);
+
+        const string insertChunkSql = @"
+            INSERT INTO ChapterChunks (ChapterId, ChunkIndex, SourceText, TranslatedText, IsCompleted, HasWarning, WarningMessage)
+            VALUES (@ChapterId, @ChunkIndex, @SourceText, @TranslatedText, @IsCompleted, @HasWarning, @WarningMessage)";
+        foreach (var chunk in chunks)
+        {
+            chunk.ChapterId = chapter.Id;
+            await conn.ExecuteAsync(insertChunkSql, new
+            {
+                ChapterId = chapter.Id,
+                chunk.ChunkIndex,
+                chunk.SourceText,
+                chunk.TranslatedText,
+                IsCompleted = chunk.IsCompleted ? 1 : 0,
+                HasWarning = chunk.HasWarning ? 1 : 0,
+                chunk.WarningMessage
+            }, transaction);
+        }
+
+        transaction.Commit();
+        return chapter.Id;
+    }
+
     // ================= Chapter Chunks (สำหรับการ Optimize แปลต่อจากจุดค้าง) =================
 
     public async Task<List<ChapterChunk>> GetChunksByChapterAsync(long chapterId)

@@ -160,17 +160,19 @@ public class TranslationPipeline
                     if (tokenCount % 3 == 0 || delta.Contains('\n'))
                     {
                         int wordCount = chunkSb.ToString().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
-                        string liveCombined = preserveExistingTranslation
-                            ? (chunkSb.Length == 0
-                                ? chapter.TranslatedText
-                                : string.Join("\n\n", appendedParts.Concat(new[] { OutputValidator.CleanPreamble(chunkSb.ToString()) })))
-                            : BuildCombinedTextSoFar(chunks, i, chunkSb.ToString());
+                        string liveCombined = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord
+                            ? (preserveExistingTranslation
+                                ? (chunkSb.Length == 0
+                                    ? chapter.TranslatedText
+                                    : string.Join("\n\n", appendedParts.Concat(new[] { OutputValidator.CleanPreamble(chunkSb.ToString()) })))
+                                : BuildCombinedTextSoFar(chunks, i, chunkSb.ToString()))
+                            : string.Empty;
                         progress.Report(new TranslationProgressInfo
                         {
                             CurrentChunkIndex = i + 1,
                             TotalChunks = chunks.Count,
-                            StreamingDelta = delta,
-                            FullCurrentChunkText = chunkSb.ToString(),
+                            StreamingDelta = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord ? delta : string.Empty,
+                            FullCurrentChunkText = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord ? chunkSb.ToString() : string.Empty,
                             CombinedTranslatedTextSoFar = liveCombined,
                             StreamedWordCount = wordCount,
                             StatusMessage = $"กำลังแปลส่วนที่ {i + 1}/{chunks.Count} (สตรีมสด {wordCount} คำ)..."

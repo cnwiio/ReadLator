@@ -109,7 +109,7 @@ public static class WebChapterImportService
             throw new InvalidOperationException("เนื้อหาที่ดึงได้ว่างเปล่า กรุณาคัดลอกข้อความมาวางเอง");
         }
 
-        string title = string.IsNullOrWhiteSpace(article.Title) ? "ตอนจากเว็บ" : article.Title.Trim();
+        string title = SmartChapterNaming.ResolveTitle(article.Title, normalized, 0);
         return new WebChapterResult(title, normalized);
     }
 

@@ -205,7 +205,61 @@ public partial class MainViewModel : ObservableObject
         "Sepia" => "ถนอมสายตา",
         _ => "โหมดสว่าง"
     };
-    partial void OnThemeModeChanged(string value) => OnPropertyChanged(nameof(ThemeButtonText));
+
+    public int ThemeModeIndex
+    {
+        get => ThemeMode switch
+        {
+            "Dark" => 1,
+            "Sepia" => 2,
+            _ => 0
+        };
+        set
+        {
+            string mode = value switch
+            {
+                1 => "Dark",
+                2 => "Sepia",
+                _ => "Light"
+            };
+            if (ThemeMode != mode)
+            {
+                ThemeMode = mode;
+                _settings.ThemeMode = mode;
+                _settings.Save();
+                App.ApplyTheme(mode);
+            }
+        }
+    }
+
+    partial void OnThemeModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(ThemeButtonText));
+        OnPropertyChanged(nameof(ThemeModeIndex));
+    }
+
+    [ObservableProperty]
+    private double _brightnessLevel = 100.0;
+
+    public double DimOverlayOpacity => Math.Clamp((100.0 - BrightnessLevel) / 100.0, 0.0, 0.70);
+    public string BrightnessDisplayText => $"{Math.Round(BrightnessLevel):0}%";
+
+    partial void OnBrightnessLevelChanged(double value)
+    {
+        double clamped = Math.Clamp(value, 30.0, 100.0);
+        if (Math.Abs(clamped - value) > 0.01)
+        {
+            BrightnessLevel = clamped;
+            return;
+        }
+        OnPropertyChanged(nameof(DimOverlayOpacity));
+        OnPropertyChanged(nameof(BrightnessDisplayText));
+        if (_settings != null)
+        {
+            _settings.BrightnessLevel = clamped;
+            _settings.Save();
+        }
+    }
 
     [ObservableProperty]
     private string _activeModelDisplay = "ยังไม่ได้ตั้งค่าโมเดล";
@@ -290,6 +344,7 @@ public partial class MainViewModel : ObservableObject
             _editorFontFamily = _settings.EditorFontFamily;
         }
         _themeMode = string.IsNullOrWhiteSpace(_settings.ThemeMode) ? "Light" : _settings.ThemeMode;
+        _brightnessLevel = _settings.BrightnessLevel is >= 30.0 and <= 100.0 ? _settings.BrightnessLevel : 100.0;
         UpdateActiveModelDisplay();
         _database = database;
         _repository = new NovelRepository(_database);
@@ -342,11 +397,24 @@ public partial class MainViewModel : ObservableObject
         _settings.ContextParagraphCount = fresh.ContextParagraphCount;
         _settings.CustomSystemPrompt = fresh.CustomSystemPrompt;
         _settings.Shortkeys = fresh.Shortkeys;
+        _settings.ThemeMode = fresh.ThemeMode;
+        _settings.BrightnessLevel = fresh.BrightnessLevel;
+        _settings.TranslationAppearance = fresh.TranslationAppearance;
         _settings.EditorFontFamily = fresh.EditorFontFamily;
         _settings.EditorFontSize = fresh.EditorFontSize;
         _settings.AutoSaveDelaySeconds = fresh.AutoSaveDelaySeconds;
         _settings.LastSelectedStoryId = fresh.LastSelectedStoryId;
         _settings.LastSelectedChapterId = fresh.LastSelectedChapterId;
+
+        if (!string.IsNullOrWhiteSpace(fresh.ThemeMode) && ThemeMode != fresh.ThemeMode)
+        {
+            ThemeMode = fresh.ThemeMode;
+            App.ApplyTheme(fresh.ThemeMode);
+        }
+        if (fresh.BrightnessLevel is >= 30.0 and <= 100.0)
+        {
+            BrightnessLevel = fresh.BrightnessLevel;
+        }
 
         if (!string.IsNullOrWhiteSpace(fresh.EditorFontFamily))
         {
@@ -1317,6 +1385,14 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private sealed record DeletedChapterSnapshot(Chapter Chapter, List<ChapterChunk> Chunks, int OriginalIndex);
+    private List<DeletedChapterSnapshot> _lastDeletedChapters = new();
+
+    public bool CanUndoDeleteChapter => _lastDeletedChapters.Count > 0;
+    public string UndoDeleteButtonText => _lastDeletedChapters.Count > 1
+        ? $"เลิกทำลบ ({_lastDeletedChapters.Count} ตอน)"
+        : "เลิกทำลบตอน";
+
     [RelayCommand]
     public async Task DeleteChapterAsync()
     {
@@ -1328,6 +1404,16 @@ public partial class MainViewModel : ObservableObject
             bool ok = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอนที่เลือกทั้งหมด {checkedChapters.Count} ตอน?");
             if (!ok) return;
 
+            var snapshots = new List<DeletedChapterSnapshot>();
+            foreach (var ch in checkedChapters)
+            {
+                var chunks = await _repository.GetChunksByChapterAsync(ch.Id);
+                snapshots.Add(new DeletedChapterSnapshot(ch, chunks, Chapters.IndexOf(ch)));
+            }
+            _lastDeletedChapters = snapshots;
+            OnPropertyChanged(nameof(CanUndoDeleteChapter));
+            OnPropertyChanged(nameof(UndoDeleteButtonText));
+
             foreach (var ch in checkedChapters)
             {
                 await _repository.DeleteChapterAsync(ch.Id);
@@ -1336,6 +1422,7 @@ public partial class MainViewModel : ObservableObject
             await ResequenceOrdinalsAsync();
             RefreshFilteredChapters();
             SelectedChapter = FilteredChapters.FirstOrDefault() ?? Chapters.FirstOrDefault();
+            SaveStatusText = $"ลบ {checkedChapters.Count} ตอนแล้ว (กด Ctrl+Z หรือ 'เลิกทำ' เพื่อกู้คืน)";
             return;
         }
 
@@ -1345,11 +1432,54 @@ public partial class MainViewModel : ObservableObject
         bool singleOk = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอน \"{target.Title}\"?");
         if (!singleOk) return;
 
+        var targetChunks = await _repository.GetChunksByChapterAsync(target.Id);
+        _lastDeletedChapters = new List<DeletedChapterSnapshot>
+        {
+            new(target, targetChunks, Chapters.IndexOf(target))
+        };
+        OnPropertyChanged(nameof(CanUndoDeleteChapter));
+        OnPropertyChanged(nameof(UndoDeleteButtonText));
+
         await _repository.DeleteChapterAsync(target.Id);
         Chapters.Remove(target);
         await ResequenceOrdinalsAsync();
         RefreshFilteredChapters();
         SelectedChapter = FilteredChapters.FirstOrDefault() ?? Chapters.FirstOrDefault();
+        SaveStatusText = $"ลบตอน \"{target.Title}\" แล้ว (กด Ctrl+Z หรือ 'เลิกทำ' เพื่อกู้คืน)";
+    }
+
+    [RelayCommand]
+    public async Task UndoDeleteChapterAsync()
+    {
+        if (_lastDeletedChapters.Count == 0 || SelectedStory == null) return;
+
+        var toRestore = _lastDeletedChapters
+            .OrderBy(s => s.OriginalIndex)
+            .ToList();
+        _lastDeletedChapters.Clear();
+        OnPropertyChanged(nameof(CanUndoDeleteChapter));
+        OnPropertyChanged(nameof(UndoDeleteButtonText));
+
+        Chapter? firstRestored = null;
+        foreach (var snap in toRestore)
+        {
+            if (snap.Chapter.StoryId != SelectedStory.Id) continue;
+
+            await _repository.RestoreChapterWithChunksAsync(snap.Chapter, snap.Chunks);
+            int insertIndex = Math.Clamp(snap.OriginalIndex, 0, Chapters.Count);
+            Chapters.Insert(insertIndex, snap.Chapter);
+            firstRestored ??= snap.Chapter;
+        }
+
+        await ResequenceOrdinalsAsync();
+        RefreshFilteredChapters();
+        if (firstRestored != null)
+        {
+            SelectedChapter = firstRestored;
+            SaveStatusText = toRestore.Count > 1
+                ? $"กู้คืน {toRestore.Count} ตอนที่ลบเรียบร้อยแล้ว"
+                : $"กู้คืนตอน \"{firstRestored.Title}\" เรียบร้อยแล้ว";
+        }
     }
 
     public async Task ReorderChaptersAsync(IList<Chapter> movingChapters, Chapter targetChapter, bool dropAfter)

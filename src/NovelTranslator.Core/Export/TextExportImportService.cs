@@ -50,12 +50,13 @@ public class TextExportImportService
     {
         string content = await File.ReadAllTextAsync(filePath, Encoding.UTF8);
         string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
+        string title = SmartChapterNaming.ResolveTitle(fileNameWithoutExt, content, nextOrdinal);
 
         return new Chapter
         {
             StoryId = storyId,
             Ordinal = nextOrdinal,
-            Title = fileNameWithoutExt,
+            Title = title,
             OriginalText = content,
             TranslatedText = string.Empty,
             Status = ChapterStatus.NotTranslated

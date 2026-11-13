@@ -11,6 +11,12 @@ public enum BackendType
     Custom
 }
 
+public enum TranslationAppearanceMode
+{
+    PerChunk,
+    WordByWord
+}
+
 public class ShortkeysSettings
 {
     public string TranslateKey { get; set; } = "Ctrl+Enter";
@@ -35,6 +41,8 @@ public class AppSettings
     public int ContextParagraphCount { get; set; } = 2;
     public string CustomSystemPrompt { get; set; } = string.Empty;
     public string ThemeMode { get; set; } = "Light"; // Light, Dark, Sepia
+    public double BrightnessLevel { get; set; } = 100.0; // 30.0 to 100.0
+    public TranslationAppearanceMode TranslationAppearance { get; set; } = TranslationAppearanceMode.PerChunk;
     public int EditorFontSize { get; set; } = 20;
     public string EditorFontFamily { get; set; } = "Tahoma";
     public double AutoSaveDelaySeconds { get; set; } = 1.5;

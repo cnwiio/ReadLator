@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v4.8"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v4.9"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -248,14 +248,21 @@
                         </ListBox>
                     </Border>
 
-                    <!-- ปุ่มเลือกทั้งหมด & ลบตอนด้านล่าง (Quiet Danger style) -->
-                    <Grid Grid.Row="7" ColumnDefinitions="Auto, *" Margin="0,12,0,0">
-                        <Button Content="เลือกทั้งหมด" Command="{Binding ToggleSelectAllChaptersCommand}"
-                                Height="32" FontSize="12" Padding="10,0" VerticalContentAlignment="Center" />
-                        <Button Grid.Column="1" Content="ลบตอนที่เลือก" Classes="danger" Command="{Binding DeleteChapterCommand}"
-                                Height="32" FontSize="12" Margin="8,0,0,0"
-                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
-                    </Grid>
+                    <!-- ปุ่มเลือกทั้งหมด & ลบตอนด้านล่าง (Quiet Danger style) + เลิกทำ -->
+                    <StackPanel Grid.Row="7" Spacing="6" Margin="0,12,0,0">
+                        <Button Content="{Binding UndoDeleteButtonText}" Command="{Binding UndoDeleteChapterCommand}"
+                                IsVisible="{Binding CanUndoDeleteChapter}"
+                                Height="30" FontSize="12" HorizontalAlignment="Stretch"
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                ToolTip.Tip="กู้คืนตอนที่เพิ่งลบ (Ctrl+Z)" />
+                        <Grid ColumnDefinitions="Auto, *">
+                            <Button Content="เลือกทั้งหมด" Command="{Binding ToggleSelectAllChaptersCommand}"
+                                    Height="32" FontSize="12" Padding="10,0" VerticalContentAlignment="Center" />
+                            <Button Grid.Column="1" Content="ลบตอนที่เลือก" Classes="danger" Command="{Binding DeleteChapterCommand}"
+                                    Height="32" FontSize="12" Margin="8,0,0,0"
+                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                        </Grid>
+                    </StackPanel>
                 </Grid>
             </Border>
 
@@ -430,6 +437,23 @@
                                                 <Button Grid.Column="3" Content="A+" Command="{Binding IncreaseFontSizeCommand}" Width="32" Height="28" Padding="0" HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
                                             </Grid>
                                             <CheckBox Content="เลื่อนหน้าจอซ้าย-ขวาพร้อมกัน" IsChecked="{Binding IsSyncScrollEnabled}" FontSize="12" />
+                                            <Separator Background="{DynamicResource BorderSubtleBrush}" />
+                                            <StackPanel Spacing="6">
+                                                <TextBlock Text="โหมดสี (Theme)" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                <ComboBox SelectedIndex="{Binding ThemeModeIndex}" HorizontalAlignment="Stretch" FontSize="12" Height="30">
+                                                    <ComboBoxItem Content="โหมดสว่าง (Light)" />
+                                                    <ComboBoxItem Content="โหมดมืด (Dark)" />
+                                                    <ComboBoxItem Content="ถนอมสายตา (Sepia)" />
+                                                </ComboBox>
+                                            </StackPanel>
+                                            <StackPanel Spacing="2">
+                                                <Grid ColumnDefinitions="*, Auto">
+                                                    <TextBlock Text="ความสว่างหน้าจอ" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                                    <TextBlock Grid.Column="1" Text="{Binding BrightnessDisplayText}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                                                </Grid>
+                                                <Slider Minimum="30" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
+                                                        Value="{Binding BrightnessLevel}" />
+                                            </StackPanel>
                                         </StackPanel>
                                     </Flyout>
                                 </Button.Flyout>
@@ -727,7 +751,10 @@
                         <!-- เส้นคั่นบางๆ -->
                         <Border Height="18" Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="2,0" />
 
-                        <!-- ปรับขนาดตัวอักษร A- / A+ -->
+                        <!-- ปรับฟอนต์และขนาดตัวอักษร A- / A+ -->
+                        <ComboBox ItemsSource="{Binding AvailableEditorFonts}" SelectedItem="{Binding EditorFontFamily, Mode=TwoWay}"
+                                  Width="136" Height="30" FontSize="12" VerticalAlignment="Center"
+                                  ToolTip.Tip="เลือกแบบอักษร" />
                         <Button Command="{Binding DecreaseFontSizeCommand}" Content="A-" Width="30" Height="30" Padding="0"
                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="ลดขนาดตัวอักษร" />
                         <TextBlock Text="{Binding EditorFontSize, StringFormat='{}{0}px'}" FontSize="11" Width="36"
@@ -738,18 +765,40 @@
                         <!-- เส้นคั่นบางๆ -->
                         <Border Height="18" Width="1" Background="{DynamicResource BorderSubtleBrush}" Margin="2,0" />
 
-                        <!-- ปุ่มเปลี่ยนธีม สว่าง / มืด / ซีเปีย -->
-                        <Button Content="{Binding ThemeButtonText}" Command="{Binding CycleThemeCommand}"
-                                Height="30" FontSize="12" Padding="8,0" ToolTip.Tip="เปลี่ยนธีม: สว่าง / มืด / ถนอมสายตา" />
+                        <!-- ปรับแสงและธีมในโหมดอ่าน -->
+                        <Button Content="แสงและสี ▾" Height="30" FontSize="12" Padding="8,0" ToolTip.Tip="ปรับโหมดสีและความสว่างหน้าจอ">
+                            <Button.Flyout>
+                                <Flyout Placement="BottomEdgeAlignedRight">
+                                    <StackPanel Spacing="10" Width="220" Margin="4">
+                                        <StackPanel Spacing="4">
+                                            <TextBlock Text="โหมดสี (Theme)" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            <ComboBox SelectedIndex="{Binding ThemeModeIndex}" HorizontalAlignment="Stretch" FontSize="12" Height="30">
+                                                <ComboBoxItem Content="โหมดสว่าง (Light)" />
+                                                <ComboBoxItem Content="โหมดมืด (Dark)" />
+                                                <ComboBoxItem Content="ถนอมสายตา (Sepia)" />
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <StackPanel Spacing="2">
+                                            <Grid ColumnDefinitions="*, Auto">
+                                                <TextBlock Text="ความสว่างหน้าจอ" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                                <TextBlock Grid.Column="1" Text="{Binding BrightnessDisplayText}" FontSize="11" Foreground="{DynamicResource TextMutedBrush}" VerticalAlignment="Center" />
+                                            </Grid>
+                                            <Slider Minimum="30" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
+                                                    Value="{Binding BrightnessLevel}" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Flyout>
+                            </Button.Flyout>
+                        </Button>
                     </StackPanel>
                 </Grid>
             </Border>
         </Grid>
 
-        <!-- Overlay Canvas สำหรับ Floating Drag Ghost Card -->
+        <!-- Overlay Canvas สำหรับ Floating Drag Ghost Card และ MMB Scroll Anchor -->
         <Canvas x:Name="DragGhostCanvas" Grid.RowSpan="2" IsHitTestVisible="False" ZIndex="9999" IsVisible="False">
             <Border x:Name="DragGhostBorder" Background="#26262B" BorderBrush="#3B82F6" BorderThickness="1.5"
-                    CornerRadius="8" Padding="12,8" BoxShadow="0 6 20 0 #60000000" Opacity="0.95">
+                    CornerRadius="8" Padding="12,8" BoxShadow="0 6 20 0 #60000000" Opacity="0.95" IsVisible="False">
                 <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <Path Data="M3,5 L17,5 M3,10 L17,10 M3,15 L17,15"
                           Stroke="#3B82F6" StrokeThickness="2" StrokeLineCap="Round"
@@ -758,7 +807,18 @@
                                Foreground="#FFFFFF" VerticalAlignment="Center" />
                 </StackPanel>
             </Border>
+            <Border x:Name="MmbScrollAnchor" Width="28" Height="28" CornerRadius="14"
+                    Background="#CC1E293B" BorderBrush="#94A3B8" BorderThickness="1.5"
+                    IsVisible="False">
+                <Path Data="M12,4 L15,8 L9,8 Z M12,20 L15,16 L9,16 Z" Fill="#F8FAFC"
+                      Width="14" Height="16" Stretch="Uniform"
+                      HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
         </Canvas>
+
+        <!-- Dimming Overlay สำหรับปรับแสงหน้าจอ (Light Adjustment) -->
+        <Border Grid.RowSpan="2" Background="#000000" Opacity="{Binding DimOverlayOpacity}"
+                IsHitTestVisible="False" ZIndex="9990" />
 
         <!-- Popup สำหรับเพิ่มคำศัพท์เข้า Glossary เมื่อมีการลากคลุมคำ (Pill Blue Only, ไม่มีพื้นหลังข้าง) -->
         <Popup x:Name="GlossaryPopup" IsLightDismissEnabled="True" Placement="TopEdgeAlignedLeft">

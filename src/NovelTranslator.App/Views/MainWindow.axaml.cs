@@ -39,6 +39,16 @@ public partial class MainWindow : Window
     private readonly IBrush _dragIndicatorBrush = new SolidColorBrush(Color.Parse("#2563EB"));
     private string _glossarySelectedText = "";
 
+    // สถานะสำหรับการเลื่อนหน้าจอด้วยปุ่มเมาส์กลาง (MMB Quick Scroll)
+    private ScrollViewer? _mmbScrollViewer;
+    private Point _mmbAnchorPoint;
+    private Point _mmbCurrentPoint;
+    private bool _mmbActive;
+    private bool _mmbLatched;
+    private bool _mmbMovedBeyondDeadzone;
+    private DateTime _mmbPressTimeUtc;
+    private DispatcherTimer? _mmbScrollTimer;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -646,9 +656,11 @@ public partial class MainWindow : Window
             }
         };
 
-        // ตรวจจับเมาส์ระดับ Window เพื่อป้องกันการหลุด capture ขณะลากวาง และควบคุมการแสดงแถบด้านบน
+        // ตรวจจับเมาส์ระดับ Window เพื่อป้องกันการหลุด capture ขณะลากวาง และควบคุมการแสดงแถบด้านบน + MMB Quick Scroll
+        AddHandler(PointerPressedEvent, OnWindowPointerPressed, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, OnWindowPointerMoved, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
         AddHandler(PointerReleasedEvent, OnWindowPointerReleased, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
+        AddHandler(PointerWheelChangedEvent, OnWindowPointerWheelChanged, RoutingStrategies.Tunnel);
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -775,6 +787,20 @@ public partial class MainWindow : Window
         if (e.Key == Key.F2 && ViewModel?.SelectedChapter != null && !ViewModel.SelectedChapter.IsEditingTitle)
         {
             ViewModel.StartRenameChapter(ViewModel.SelectedChapter);
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Escape && _mmbActive)
+        {
+            StopMmbAutoScroll();
+            e.Handled = true;
+            return;
+        }
+        if (e.Key == Key.Z && e.KeyModifiers.HasFlag(KeyModifiers.Control) &&
+            FocusManager?.GetFocusedElement() is not TextBox &&
+            ViewModel?.CanUndoDeleteChapter == true)
+        {
+            ViewModel.UndoDeleteChapterCommand.Execute(null);
             e.Handled = true;
         }
     }
@@ -1065,8 +1091,122 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnWindowPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        var props = e.GetCurrentPoint(this).Properties;
+
+        if (_mmbActive)
+        {
+            StopMmbAutoScroll();
+            e.Handled = true;
+            return;
+        }
+
+        if (props.IsMiddleButtonPressed)
+        {
+            var sv = FindScrollableViewerAt(e.Source as Visual);
+            if (sv != null)
+            {
+                StartMmbAutoScroll(sv, e.GetPosition(DragGhostCanvas));
+                e.Handled = true;
+            }
+        }
+    }
+
+    private void OnWindowPointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        if (_mmbActive)
+        {
+            StopMmbAutoScroll();
+        }
+    }
+
+    private static ScrollViewer? FindScrollableViewerAt(Visual? source)
+    {
+        var current = source;
+        while (current != null)
+        {
+            if (current is ScrollViewer sv && sv.Extent.Height > sv.Viewport.Height + 1)
+            {
+                return sv;
+            }
+            if (current is TextBox tb)
+            {
+                var innerSv = tb.GetVisualDescendants().OfType<ScrollViewer>().FirstOrDefault();
+                if (innerSv != null && innerSv.Extent.Height > innerSv.Viewport.Height + 1)
+                {
+                    return innerSv;
+                }
+            }
+            current = current.GetVisualParent();
+        }
+        return null;
+    }
+
+    private void StartMmbAutoScroll(ScrollViewer sv, Point anchorPos)
+    {
+        _mmbScrollViewer = sv;
+        _mmbAnchorPoint = anchorPos;
+        _mmbCurrentPoint = anchorPos;
+        _mmbActive = true;
+        _mmbLatched = false;
+        _mmbMovedBeyondDeadzone = false;
+        _mmbPressTimeUtc = DateTime.UtcNow;
+
+        Canvas.SetLeft(MmbScrollAnchor, anchorPos.X - 14);
+        Canvas.SetTop(MmbScrollAnchor, anchorPos.Y - 14);
+        MmbScrollAnchor.IsVisible = true;
+        DragGhostCanvas.IsVisible = true;
+        Cursor = new Cursor(StandardCursorType.SizeNorthSouth);
+
+        _mmbScrollTimer ??= new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(16) };
+        _mmbScrollTimer.Tick -= OnMmbScrollTimerTick;
+        _mmbScrollTimer.Tick += OnMmbScrollTimerTick;
+        _mmbScrollTimer.Start();
+    }
+
+    private void StopMmbAutoScroll()
+    {
+        _mmbActive = false;
+        _mmbLatched = false;
+        _mmbScrollViewer = null;
+        _mmbScrollTimer?.Stop();
+        MmbScrollAnchor.IsVisible = false;
+        if (!_isDragging)
+        {
+            DragGhostCanvas.IsVisible = false;
+        }
+        Cursor = Cursor.Default;
+    }
+
+    private void OnMmbScrollTimerTick(object? sender, EventArgs e)
+    {
+        if (!_mmbActive || _mmbScrollViewer == null) return;
+
+        double dy = _mmbCurrentPoint.Y - _mmbAnchorPoint.Y;
+        const double deadzone = 8.0;
+        if (Math.Abs(dy) <= deadzone) return;
+
+        double effective = Math.Sign(dy) * (Math.Abs(dy) - deadzone);
+        // ความเร็วแบบเร่งตามระยะห่างจากจุดกึ่งกลางเหมือนเบราว์เซอร์
+        double delta = Math.Sign(effective) * Math.Pow(Math.Abs(effective) * 0.22, 1.35);
+
+        double maxY = Math.Max(0, _mmbScrollViewer.Extent.Height - _mmbScrollViewer.Viewport.Height);
+        double nextY = Math.Clamp(_mmbScrollViewer.Offset.Y + delta, 0, maxY);
+        _mmbScrollViewer.Offset = new Vector(_mmbScrollViewer.Offset.X, nextY);
+    }
+
     private void OnWindowPointerMoved(object? sender, PointerEventArgs e)
     {
+        if (_mmbActive)
+        {
+            _mmbCurrentPoint = e.GetPosition(DragGhostCanvas);
+            if (Math.Abs(_mmbCurrentPoint.Y - _mmbAnchorPoint.Y) > 8.0)
+            {
+                _mmbMovedBeyondDeadzone = true;
+            }
+        }
+
         if (ViewModel?.IsFocusMode == true && ReadingTopBar != null)
         {
             var pt = e.GetPosition(this);
@@ -1096,6 +1236,7 @@ public partial class MainWindow : Window
             if (Math.Abs(currentPoint.Y - _dragStartPoint.Y) > 5 || Math.Abs(currentPoint.X - _dragStartPoint.X) > 5)
             {
                 _isDragging = true;
+                DragGhostBorder.IsVisible = true;
                 DragGhostCanvas.IsVisible = true;
                 Cursor = Cursor.Default;
 
@@ -1173,6 +1314,21 @@ public partial class MainWindow : Window
 
     private async void OnWindowPointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        if (_mmbActive && !_mmbLatched && e.InitialPressMouseButton == MouseButton.Middle)
+        {
+            var elapsedMs = (DateTime.UtcNow - _mmbPressTimeUtc).TotalMilliseconds;
+            if (_mmbMovedBeyondDeadzone || elapsedMs > 250)
+            {
+                StopMmbAutoScroll();
+            }
+            else
+            {
+                _mmbLatched = true;
+            }
+            e.Handled = true;
+            return;
+        }
+
         if (_draggedChapter == null) return;
         await EndDrag(e);
     }
@@ -1185,7 +1341,11 @@ public partial class MainWindow : Window
         var toMove = new List<Chapter>(_movingChapters);
 
         ClearDragIndicator();
-        DragGhostCanvas.IsVisible = false;
+        DragGhostBorder.IsVisible = false;
+        if (!_mmbActive)
+        {
+            DragGhostCanvas.IsVisible = false;
+        }
         Cursor = Cursor.Default;
         ResetDragState();
 

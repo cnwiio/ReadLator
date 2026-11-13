@@ -170,6 +170,38 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     // หมวด System & Appearance
+    [ObservableProperty] private int _translationAppearanceIndex; // 0: PerChunk, 1: WordByWord
+    partial void OnTranslationAppearanceIndexChanged(int value)
+    {
+        if (!_isInitializing) SaveSettings();
+    }
+
+    [ObservableProperty] private int _themeModeIndex; // 0: Light, 1: Dark, 2: Sepia
+    partial void OnThemeModeIndexChanged(int value)
+    {
+        if (_isInitializing) return;
+        string mode = value switch
+        {
+            1 => "Dark",
+            2 => "Sepia",
+            _ => "Light"
+        };
+        App.ApplyTheme(mode);
+        SaveSettings();
+    }
+
+    [ObservableProperty] private double _brightnessLevel = 100.0;
+    partial void OnBrightnessLevelChanged(double value)
+    {
+        double clamped = Math.Clamp(value, 30.0, 100.0);
+        if (Math.Abs(clamped - value) > 0.01)
+        {
+            BrightnessLevel = clamped;
+            return;
+        }
+        if (!_isInitializing) SaveSettings();
+    }
+
     [ObservableProperty] private string _editorFontFamily = "Tahoma";
     public FontFamily CurrentFontFamily => new(string.IsNullOrWhiteSpace(EditorFontFamily) ? "Tahoma" : EditorFontFamily);
     partial void OnEditorFontFamilyChanged(string value)
@@ -240,6 +272,14 @@ public partial class SettingsViewModel : ObservableObject
         ToggleSidebarKey = settings.Shortkeys.ToggleSidebarKey;
 
         // โหลดค่า System & Appearance
+        TranslationAppearanceIndex = (int)settings.TranslationAppearance;
+        ThemeModeIndex = settings.ThemeMode switch
+        {
+            "Dark" => 1,
+            "Sepia" => 2,
+            _ => 0
+        };
+        BrightnessLevel = settings.BrightnessLevel is >= 30.0 and <= 100.0 ? settings.BrightnessLevel : 100.0;
         EditorFontFamily = string.IsNullOrWhiteSpace(settings.EditorFontFamily) ? "Tahoma" : settings.EditorFontFamily;
         EditorFontSize = settings.EditorFontSize > 0 ? settings.EditorFontSize : 20;
         AutoSaveDelaySeconds = settings.AutoSaveDelaySeconds > 0 ? settings.AutoSaveDelaySeconds : 1.5;
@@ -427,6 +467,16 @@ public partial class SettingsViewModel : ObservableObject
         _settings.Shortkeys.ToggleSidebarKey = ToggleSidebarKey;
 
         // บันทึก System & Appearance
+        _settings.TranslationAppearance = TranslationAppearanceIndex == 1
+            ? TranslationAppearanceMode.WordByWord
+            : TranslationAppearanceMode.PerChunk;
+        _settings.ThemeMode = ThemeModeIndex switch
+        {
+            1 => "Dark",
+            2 => "Sepia",
+            _ => "Light"
+        };
+        _settings.BrightnessLevel = Math.Clamp(BrightnessLevel, 30.0, 100.0);
         _settings.EditorFontFamily = EditorFontFamily;
         _settings.EditorFontSize = EditorFontSize;
         _settings.AutoSaveDelaySeconds = AutoSaveDelaySeconds;

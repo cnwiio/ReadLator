@@ -36,7 +36,7 @@ public class WebChapterImportServiceTests
 
         var result = WebChapterImportService.ExtractFromHtml("https://example.com/ch12", html);
 
-        Assert.Contains("Chapter 12", result.Title);
+        Assert.Equal("ตอนที่ 12: The Awakening", result.Title);
         Assert.Contains("Arthur stepped onto the balcony", result.Content);
         Assert.Contains("descended the stone staircase", result.Content);
         Assert.DoesNotContain("Copyright NovelSite", result.Content);

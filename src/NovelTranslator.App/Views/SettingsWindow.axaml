@@ -418,13 +418,42 @@
 
                                 <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,6" />
 
+                                <TextBlock Text="การปรับแสงและโหมดสี (Light Adjustment)" FontSize="15" FontWeight="SemiBold" />
+                                <Grid ColumnDefinitions="140, *" RowDefinitions="Auto, Auto" RowSpacing="12">
+                                    <TextBlock Text="โหมดสี (Theme)" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="1" SelectedIndex="{Binding ThemeModeIndex}" Height="32" HorizontalAlignment="Stretch">
+                                        <ComboBoxItem Content="โหมดสว่าง (Light)" />
+                                        <ComboBoxItem Content="โหมดมืด (Dark)" />
+                                        <ComboBoxItem Content="ถนอมสายตา (Sepia)" />
+                                    </ComboBox>
+
+                                    <TextBlock Grid.Row="1" Text="ความสว่างหน้าจอ" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                    <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, 56">
+                                        <Slider Minimum="30" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
+                                                Value="{Binding BrightnessLevel}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                        <TextBlock Grid.Column="1" Text="{Binding BrightnessLevel, StringFormat='{}{0:0}%'}" FontSize="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" TextAlignment="Right" />
+                                    </Grid>
+                                </Grid>
+
+                                <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,6" />
+
                                 <TextBlock Text="การทำงานของระบบ (System Behavior)" FontSize="15" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="*, 88">
+                                <Grid ColumnDefinitions="*, 220" RowDefinitions="Auto, Auto" RowSpacing="12">
                                     <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="รูปแบบการแสดงผลคำแปล" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="เลือกว่าจะให้คำแปลปรากฏทีละส่วนเมื่อแปลจบ Chunk หรือสตรีมสดทีละคำ" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ComboBox Grid.Column="1" SelectedIndex="{Binding TranslationAppearanceIndex}" Height="32" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                                        <ComboBoxItem Content="ทีละส่วน (Per Chunk)" />
+                                        <ComboBoxItem Content="ทีละคำ (Word by Word)" />
+                                    </ComboBox>
+
+                                    <StackPanel Grid.Row="1" Spacing="2" VerticalAlignment="Center">
                                         <TextBlock Text="หน่วงเวลาบันทึกอัตโนมัติ (วินาที)" FontSize="13" FontWeight="Medium" />
                                         <TextBlock Text="ระยะเวลารอหลังจากพิมพ์ข้อความเพื่อบันทึกอัตโนมัติลงฐานข้อมูล" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
                                     </StackPanel>
-                                    <TextBox Grid.Column="1" Text="{Binding AutoSaveDelaySeconds}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding AutoSaveDelaySeconds}" Height="32" Width="88" HorizontalAlignment="Right" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
                                 </Grid>
                             </StackPanel>
                         </Border>
