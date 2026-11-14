@@ -235,6 +235,7 @@ public partial class MainViewModel : ObservableObject
 
     public double DimOverlayOpacity => Math.Clamp((100.0 - BrightnessLevel) / 100.0, 0.0, 0.70);
     public string BrightnessDisplayText => $"{Math.Round(BrightnessLevel):0}%";
+    public double MmbScrollSensitivity => _settings.MmbScrollSensitivity is >= 0.2 and <= 5.0 ? _settings.MmbScrollSensitivity : 1.0;
 
     partial void OnBrightnessLevelChanged(double value)
     {
@@ -407,6 +408,7 @@ public partial class MainViewModel : ObservableObject
         _settings.EditorFontFamily = fresh.EditorFontFamily;
         _settings.EditorFontSize = fresh.EditorFontSize;
         _settings.AutoSaveDelaySeconds = fresh.AutoSaveDelaySeconds;
+        _settings.MmbScrollSensitivity = fresh.MmbScrollSensitivity;
         _settings.LastSelectedStoryId = fresh.LastSelectedStoryId;
         _settings.LastSelectedChapterId = fresh.LastSelectedChapterId;
 

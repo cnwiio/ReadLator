@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v5.9"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v6.0"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -835,13 +835,12 @@
                     Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}" BorderThickness="1"
                     BoxShadow="0 2 8 0 #30000000" Opacity="0.95"
                     IsVisible="False">
-                <Grid Width="16" Height="18" HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Path Data="M5,6 L8,3 L11,6 M5,12 L8,15 L11,12" Stroke="{DynamicResource TextPrimaryBrush}"
-                          StrokeThickness="1.5" StrokeLineCap="Round" StrokeJoin="Round"
-                          Width="16" Height="18" Stretch="Uniform" />
-                    <Ellipse Width="3" Height="3" Fill="{DynamicResource TextSecondaryBrush}"
-                             HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Grid>
+                <Canvas Width="26" Height="26" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Path Data="M9,9 L13,5 L17,9 M9,17 L13,21 L17,17" Stroke="{DynamicResource TextPrimaryBrush}"
+                          StrokeThickness="1.5" StrokeLineCap="Round" StrokeJoin="Round" />
+                    <Ellipse Canvas.Left="11.5" Canvas.Top="11.5" Width="3" Height="3"
+                             Fill="{DynamicResource TextSecondaryBrush}" />
+                </Canvas>
             </Border>
         </Canvas>
 

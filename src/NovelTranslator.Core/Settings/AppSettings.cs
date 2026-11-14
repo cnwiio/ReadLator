@@ -59,6 +59,7 @@ public class AppSettings
     public int EditorFontSize { get; set; } = 20;
     public string EditorFontFamily { get; set; } = "Tahoma";
     public double AutoSaveDelaySeconds { get; set; } = 1.5;
+    public double MmbScrollSensitivity { get; set; } = 1.0; // 0.2 to 5.0
     public ShortkeysSettings Shortkeys { get; set; } = new();
     public long? LastSelectedStoryId { get; set; }
     public long? LastSelectedChapterId { get; set; }

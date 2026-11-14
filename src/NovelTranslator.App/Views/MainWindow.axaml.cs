@@ -893,6 +893,9 @@ public partial class MainWindow : Window
         Canvas.SetLeft(MmbScrollAnchor, anchorPos.X - 14);
         Canvas.SetTop(MmbScrollAnchor, anchorPos.Y - 14);
         MmbScrollAnchor.IsVisible = true;
+        DragGhostCanvas.Background = Brushes.Transparent;
+        DragGhostCanvas.IsHitTestVisible = true;
+        DragGhostCanvas.Cursor = new Cursor(StandardCursorType.SizeNorthSouth);
         DragGhostCanvas.IsVisible = true;
         Cursor = new Cursor(StandardCursorType.SizeNorthSouth);
 
@@ -909,6 +912,9 @@ public partial class MainWindow : Window
         _mmbScrollViewer = null;
         _mmbScrollTimer?.Stop();
         MmbScrollAnchor.IsVisible = false;
+        DragGhostCanvas.IsHitTestVisible = false;
+        DragGhostCanvas.Background = null;
+        DragGhostCanvas.Cursor = Cursor.Default;
         if (!_isDragging)
         {
             DragGhostCanvas.IsVisible = false;
@@ -925,8 +931,9 @@ public partial class MainWindow : Window
         if (Math.Abs(dy) <= deadzone) return;
 
         double effective = Math.Sign(dy) * (Math.Abs(dy) - deadzone);
+        double sensitivity = ViewModel?.MmbScrollSensitivity ?? 1.0;
         // ความเร็วแบบเร่งตามระยะห่างจากจุดกึ่งกลางเหมือนเบราว์เซอร์
-        double delta = Math.Sign(effective) * Math.Pow(Math.Abs(effective) * 0.22, 1.35);
+        double delta = Math.Sign(effective) * Math.Pow(Math.Abs(effective) * 0.22, 1.35) * sensitivity;
 
         double maxY = Math.Max(0, _mmbScrollViewer.Extent.Height - _mmbScrollViewer.Viewport.Height);
         double nextY = Math.Clamp(_mmbScrollViewer.Offset.Y + delta, 0, maxY);

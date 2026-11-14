@@ -444,7 +444,7 @@
                                 <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,6" />
 
                                 <TextBlock Text="การทำงานของระบบ (System Behavior)" FontSize="15" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="*, 220" RowDefinitions="Auto, Auto" RowSpacing="12">
+                                <Grid ColumnDefinitions="*, 220" RowDefinitions="Auto, Auto, Auto" RowSpacing="12">
                                     <StackPanel Spacing="2" VerticalAlignment="Center">
                                         <TextBlock Text="รูปแบบการแสดงผลคำแปล" FontSize="13" FontWeight="Medium" />
                                         <TextBlock Text="เลือกว่าจะให้คำแปลปรากฏทีละส่วนเมื่อแปลจบ Chunk หรือสตรีมสดทีละคำ" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
@@ -459,6 +459,17 @@
                                         <TextBlock Text="ระยะเวลารอหลังจากพิมพ์ข้อความเพื่อบันทึกอัตโนมัติลงฐานข้อมูล" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
                                     </StackPanel>
                                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding AutoSaveDelaySeconds}" Height="32" Width="88" HorizontalAlignment="Right" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+
+                                    <StackPanel Grid.Row="2" Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="ความไวการเลื่อนด้วยเมาส์กลาง (MMB)" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="ปรับความเร็วในการเลื่อนหน้าจอเมื่อกดปุ่มเมาส์กลาง (0.2x – 5.0x)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*, 48" VerticalAlignment="Center">
+                                        <Slider Minimum="0.2" Maximum="5.0" TickFrequency="0.1" IsSnapToTickEnabled="True"
+                                                Value="{Binding MmbScrollSensitivity}" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                        <TextBlock Grid.Column="1" Text="{Binding MmbScrollSensitivity, StringFormat='{}{0:0.0}x'}" FontSize="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" TextAlignment="Right" />
+                                    </Grid>
                                 </Grid>
                             </StackPanel>
                         </Border>

@@ -222,6 +222,18 @@ public partial class SettingsViewModel : ObservableObject
         if (!_isInitializing) SaveSettings();
     }
 
+    [ObservableProperty] private double _mmbScrollSensitivity = 1.0;
+    partial void OnMmbScrollSensitivityChanged(double value)
+    {
+        double clamped = Math.Clamp(Math.Round(value, 1), 0.2, 5.0);
+        if (Math.Abs(clamped - value) > 0.01)
+        {
+            MmbScrollSensitivity = clamped;
+            return;
+        }
+        if (!_isInitializing) SaveSettings();
+    }
+
     public ObservableCollection<string> AvailableEditorFonts { get; } = new(AppSettings.DefaultEditorFonts);
 
     [ObservableProperty]
@@ -269,6 +281,7 @@ public partial class SettingsViewModel : ObservableObject
         EditorFontFamily = string.IsNullOrWhiteSpace(settings.EditorFontFamily) ? "Tahoma" : settings.EditorFontFamily;
         EditorFontSize = settings.EditorFontSize > 0 ? settings.EditorFontSize : 20;
         AutoSaveDelaySeconds = settings.AutoSaveDelaySeconds > 0 ? settings.AutoSaveDelaySeconds : 1.5;
+        MmbScrollSensitivity = settings.MmbScrollSensitivity is >= 0.2 and <= 5.0 ? settings.MmbScrollSensitivity : 1.0;
 
         BackendIndex = (int)settings.Backend;
         BaseUrl = settings.BaseUrl;
@@ -434,5 +447,6 @@ public partial class SettingsViewModel : ObservableObject
         _settings.EditorFontFamily = EditorFontFamily;
         _settings.EditorFontSize = EditorFontSize;
         _settings.AutoSaveDelaySeconds = AutoSaveDelaySeconds;
+        _settings.MmbScrollSensitivity = Math.Clamp(Math.Round(MmbScrollSensitivity, 1), 0.2, 5.0);
     }
 }
