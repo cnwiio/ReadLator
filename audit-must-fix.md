@@ -1,7 +1,7 @@
-# Ponytail Audit — Must Fix (v5.5)
+# Ponytail Audit — Must Fix (v5.8)
 
-> **Scope:** Bugs, data loss, and security issues that can break real users right now.
-> **Target:** Agent-actionable specification. All 14 findings from the previous v5.2 audit were verified resolved in `8820684` (v5.3), `b036da6` (v5.4), and `08ccd22` (v5.5). Each item below is numbered in the order it should be fixed.
+> **Scope:** Bugs, data loss, and state corruption that break real user workflows right now.
+> **Target:** Agent-actionable specification. All 12 findings from the v5.5 audit were verified resolved in `8ac11a4` (v5.6), `32815b7` (v5.7), and `108f0ce` (v5.8). Each item below is numbered in priority order.
 
 ---
 
@@ -9,96 +9,79 @@
 
 | # | Area | File | Core Issue |
 |---|---|---|---|
-| **1** | Smart Chunk Reuse | `src/NovelTranslator.Core/Translation/TranslationPipeline.cs` | Editing or appending to the last chunk of an already-translated chapter duplicates the old translation when resuming (`preserveExistingTranslation` uses stale `chapter.TranslatedText`) |
-| **2** | Auto-Save on Exit | `src/NovelTranslator.App/Views/MainWindow.axaml.cs` / `MainViewModel.cs` | Closing the main window within 1.5s of typing exits without flushing `_autoSaveTimer`, losing recent edits |
-| **3** | Paragraph Mode UI Sync | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | Translating a chapter while Paragraph Mode is active never syncs `Editor.ParagraphPairs` on completion or cancel |
-| **4** | WebView2 In-Page Redirects | `src/NovelTranslator.App/Views/BrowserImportWindow.axaml.cs` | Clicking links or JS/HTTP redirects inside `BrowserImportWindow` bypass `WebView2Host.Navigate`'s SSRF and scheme filter |
+| **1** | Translation Cancel / Error Status | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | Cancelling or failing a translation never saves the updated `Status` to SQLite (leaving it stuck as `Translating` in DB) and marks empty cancelled chapters as `Edited` |
+| **2** | Mid-Translation Chapter Switch | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `StartTranslationInternalAsync` uses the live `SelectedChapter` property instead of a captured local reference, overwriting the wrong chapter if the user switches chapters during translation |
+| **3** | Whole-Story Search & Replace | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `OpenSearchReplaceAsync` only reloads `SelectedChapter` after whole-story replace, leaving stale `TranslatedText` and `Status` in `Chapters` in memory |
+| **4** | Paragraph Retranslate Context | `src/NovelTranslator.Core/Translation/PromptBuilder.cs` / `TranslationPipeline.cs` | `PromptBuilder.BuildMessages` drops `previousSourceContext` whenever `previousTranslationContext` is `null`, so `RetranslateParagraphAsync` never includes `surroundingSourceContext` in the prompt |
 
 ---
 
-## 1. Editing or appending source text in an already-translated chapter duplicates the old translation when resuming (`preserveExistingTranslation` bug)
+## 1. Cancelling or failing a translation leaves `Chapters.Status` stuck as `Translating` in SQLite (and marks empty cancelled chapters as `Edited`)
 **Location:**
-- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L56-L77)
-- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L214-L225)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L976-L990)
+- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L91-L94)
 
-- **What this is:** Smart chunk reuse (`forceRetranslate: false`, button **แปลตอนนี้**) that reuses unchanged completed chunks when a user appends or edits paragraphs in `OriginalText`.
-- **Problem:** Suppose a chapter has 2 chunks (`chapter.TranslatedText` holds `Chunk 1 + old Chunk 2`) and the user edits or appends text in Chunk 2. At line 56, `needsResplit` is `true`, so `SaveChunksAsync` marks Chunk 1 as completed (`completedCount = 1`) and Chunk 2 as incomplete (`IsCompleted = false`). However, at line 67:
+- **What this is:** Stopping an active translation (`StopTranslationCommand` / `OperationCanceledException`) or handling an LLM/network error (`catch (Exception ex)`).
+- **Problem:** At the start of `TranslationPipeline.TranslateChapterAsync` (`L92-93`), `chapter.Status` is set to `ChapterStatus.Translating` and saved to SQLite (`await _repository.UpdateChapterAsync(chapter)`).
+  1. When an exception occurs (`MainViewModel.cs:L983-990`), `chapter.Status` is never restored in memory or SQLite—leaving the chapter permanently in `ChapterStatus.Translating` (`"กำลังแปล"`).
+  2. When the user cancels (`MainViewModel.cs:L976-982`), `SelectedChapter.Status` is set to `ChapterStatus.Edited` in memory (even when `TranslatedText` is completely empty, which causes `TranslateAllChaptersAsync` to skip the untranslated chapter!) and `_repository.UpdateChapterAsync` is **never called**, so in SQLite `Status` remains `ChapterStatus.Translating`.
+- **Fix:** In both `catch (OperationCanceledException)` and `catch (Exception ex)` in `StartTranslationInternalAsync`, compute the actual status from `chapter.TranslatedText`, persist it to SQLite, and refresh the UI:
   ```csharp
-  bool preserveExistingTranslation = !forceRetranslate && completedCount > 0 && isContiguousPrefix && !string.IsNullOrWhiteSpace(chapter.TranslatedText);
-  var appendedParts = preserveExistingTranslation
-      ? new List<string> { chapter.TranslatedText.TrimEnd() }
-      : chunks.Where(c => c.IsCompleted && !string.IsNullOrWhiteSpace(c.TranslatedText))
-              .Select(c => c.TranslatedText.TrimEnd())
-              .ToList();
+  chapter.Status = string.IsNullOrWhiteSpace(chapter.TranslatedText)
+      ? ChapterStatus.NotTranslated
+      : ChapterStatus.Edited;
+  await _repository.UpdateChapterAsync(chapter);
+  UpdateChapterStatusDisplay(chapter.Status);
+  UpdateStoryProgress();
   ```
-  Because `completedCount > 0 && isContiguousPrefix` is still true, `preserveExistingTranslation` evaluates to `true` even though `needsResplit` was `true` and Chunk 2 was invalidated. `appendedParts` starts with the **entire old `chapter.TranslatedText` (`Chunk 1 + old Chunk 2`)** and then appends the newly translated Chunk 2 at the end—duplicating Chunk 2.
-- **Fix:** Include `!needsResplit` in `preserveExistingTranslation`:
-  ```csharp
-  bool preserveExistingTranslation = !forceRetranslate && !needsResplit && completedCount > 0 && isContiguousPrefix && !string.IsNullOrWhiteSpace(chapter.TranslatedText);
-  ```
-  When `needsResplit` is true, `appendedParts` will automatically initialize from the still-valid completed chunks (`chunks.Where(c => c.IsCompleted ...)`). Add a unit test in [NovelTranslatorTests.cs](file:///d:/Work/Other/ReadLator/tests/NovelTranslator.Tests/NovelTranslatorTests.cs) verifying that modifying Chunk 2 of a 2-chunk translated chapter replaces Chunk 2 instead of duplicating it.
-- **If we skip it:** Editing or adding paragraphs to the end of an already-translated multi-chunk chapter and clicking **แปลตอนนี้** duplicates the modified chunk in `TranslatedText`.
+- **If we skip it:** Any cancelled or failed translation leaves the chapter stuck as `"กำลังแปล"` in SQLite after restart, and cancelling before Chunk 1 finishes falsely marks an empty chapter as `"แก้ไขแล้ว"`.
 
 ---
 
-## 2. Closing the main window within 1.5 seconds of typing loses unsaved chapter edits
+## 2. Switching chapters or stories while a translation is running corrupts the newly selected chapter's text and status
 **Location:**
-- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L52-L65)
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L355-L365)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L898-L1001)
 
-- **What this is:** Debounced auto-save (`_autoSaveTimer`, 1.5 seconds by default and configurable in Settings) triggered when editing `OriginalText`, `TranslatedText`, or `ChapterTitleEdit`.
-- **Problem:** `MainWindow` has no `Closing` event handler to flush `_autoSaveTimer`. While switching chapters or opening Search & Replace flushes pending edits, closing the app window (`Alt+F4` or clicking `✕`) while `_autoSaveTimer.IsEnabled` is true exits immediately before the timer ticks.
+- **What this is:** Clicking another chapter in the sidebar or pressing `Alt+Left` / `Alt+Right` while `IsTranslating` is `true`.
+- **Problem:** `StartTranslationInternalAsync` references the live `SelectedStory` and `SelectedChapter` properties throughout the method and inside the `Progress<TranslationProgressInfo>` callback (`L933`: `TranslatedText = info.CombinedTranslatedTextSoFar;`). If the user clicks Chapter 2 while Chapter 1 is translating, streaming tokens from Chapter 1 overwrite `TranslatedText` while Chapter 2 is displayed, and completion/cancellation (`L967`, `L980`) reads or mutates `SelectedChapter` (now Chapter 2) instead of Chapter 1.
 - **Fix:**
-  1. Add a synchronous or fast flush method on `MainViewModel` (e.g., `FlushPendingSaveAsync()` or `FlushPendingSave()`): if `_autoSaveTimer.IsEnabled`, stop `_autoSaveTimer` and save `SelectedChapter` via `_repository.SaveChapterAsync(SelectedChapter)`.
-  2. Override `OnClosing(WindowClosingEventArgs e)` (or hook `Closing`) in [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs) to flush pending edits before the window closes.
-- **If we skip it:** Any typing or paste made right before closing the window is silently lost.
+  1. Capture `var story = SelectedStory; var chapter = SelectedChapter;` at the top of `StartTranslationInternalAsync` and pass `(story, chapter)` to `pipeline.TranslateChapterAsync`.
+  2. In the `progress` callback and after `await Task.Run`, only assign `TranslatedText`, `UpdateChapterStatusDisplay`, and `Editor.SyncParagraphPairs` when `ReferenceEquals(SelectedChapter, chapter)`.
+  3. Guard `PreviousChapter()` and `NextChapter()` with `if (IsTranslating) return;` (or disable chapter switching while translating).
+- **If we skip it:** Clicking another chapter during translation streams Chapter 1's output into Chapter 2's editor and corrupts Chapter 2's status.
 
 ---
 
-## 3. Translating a chapter while in Paragraph Mode leaves the Paragraph Mode UI blank or stale after completion
+## 3. Whole-story Search & Replace (`ScopeIndex == 1`) updates SQLite but leaves stale `TranslatedText` and `Status` in `MainViewModel.Chapters` in memory
 **Location:**
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L758-L774)
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L953-L976)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1872-L1907)
+- [SearchReplaceViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/SearchReplaceViewModel.cs#L107-L137)
 
-- **What this is:** Translating a chapter (`StartTranslationCommand` / `RetranslateAllCommand`) while `Editor.IsParagraphMode` (`จับคู่รายย่อหน้า`) is enabled.
-- **Problem:** `OnTranslatedTextChanged` skips `Editor.SyncParagraphPairs(OriginalText, value)` whenever `IsTranslating` is `true` (to avoid rebuilding the paragraph list on every streaming token). At line 953 of `StartTranslationInternalAsync`:
-  ```csharp
-  TranslatedText = SelectedChapter.TranslatedText ?? string.Empty;
-  ```
-  `IsTranslating` is still `true` (it is only set to `false` in the `finally` block at line 973), and if streaming already set `TranslatedText` to the identical final string, the property setter doesn't even fire `OnTranslatedTextChanged`. `StartTranslationInternalAsync` never calls `Editor.SyncParagraphPairs(OriginalText, TranslatedText)` when translation finishes or is cancelled.
-- **Fix:** In `StartTranslationInternalAsync`'s `finally` block (after `IsTranslating = false;` and `_isLoadingChapter = false;`), add:
-  ```csharp
-  if (Editor.IsParagraphMode)
-      Editor.SyncParagraphPairs(OriginalText, TranslatedText);
-  ```
-- **If we skip it:** Users who click **แปลตอนนี้** while in Paragraph Mode see empty or outdated paragraph boxes even after the status bar reports `"แปลเสร็จสิ้น"`, until they manually toggle Paragraph Mode off and back on.
+- **What this is:** Running Search & Replace (`ค้นหาและแทนที่คำแปล`) with scope set to **"ทั้งเรื่อง"** (`ScopeIndex == 1`).
+- **Problem:** `SearchReplaceViewModel.ApplyReplaceAsync` loads fresh `Chapter` instances via `_repository.GetChaptersByStoryAsync(_story.Id)` and updates them in SQLite. When the dialog closes, `MainViewModel.OpenSearchReplaceAsync` (`L1884-1905`) only reloads `SelectedChapter` via `_repository.GetChapterByIdAsync(SelectedChapter.Id)`. All other `Chapter` instances in `MainViewModel.Chapters` keep their **old un-replaced `TranslatedText` and old `Status`** in memory. Clicking any other chapter loads its stale in-memory text, and `ExportStoryAsync` (`ส่งออกทั้งเรื่อง (.txt)`) exports the un-replaced in-memory `Chapters`.
+- **Fix:** In `OpenSearchReplaceAsync`, reload all chapters for `SelectedStory.Id` (`var freshChapters = await _repository.GetChaptersByStoryAsync(SelectedStory.Id);`), sync `TranslatedText`, `Status`, and `UpdatedAt` onto the matching in-memory `Chapters` items, and call `UpdateChapterStatusDisplay(SelectedChapter.Status)` and `UpdateStoryProgress()`.
+- **If we skip it:** Whole-story Search & Replace changes appear lost whenever the user clicks another chapter or exports the full story to `.txt`.
 
 ---
 
-## 4. In-page redirects and clicked links inside `BrowserImportWindow` bypass `WebView2Host.Navigate`'s SSRF/scheme check
+## 4. `RetranslateParagraphAsync` silently drops `surroundingSourceContext` because `PromptBuilder.BuildMessages` requires `previousTranslationContext` to be non-empty
 **Location:**
-- [BrowserImportWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/BrowserImportWindow.axaml.cs#L61-L65)
-- [WebView2Host.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Controls/WebView2Host.cs#L82-L91)
+- [PromptBuilder.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/PromptBuilder.cs#L109-L117)
+- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L251-L268)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1113-L1122)
 
-- **What this is:** The embedded WebView2 fallback window used to import chapters from bot-protected websites.
-- **Problem:** `WebView2Host.Navigate(string url)` blocks non-HTTP(S) schemes and private/loopback hosts (`WebChapterImportService.IsBlockedUri(uri)`), and `WebChapterImportService` checks HTTP redirects in `HttpClient`. However, once a public page loads inside `BrowserImportWindow`, any JavaScript redirect (`window.location = ...`), meta-refresh, HTTP 30x redirect inside WebView2, or user link click goes through `CoreWebView2.NavigationStarting` without calling `WebView2Host.Navigate`. Currently line 61 ignores the event args:
+- **What this is:** Re-translating a single paragraph in Paragraph Mode (`แปลย่อหน้านี้ใหม่ ↻` via `RetranslateParagraphInPlaceAsync`).
+- **Problem:** In `MainViewModel.RetranslateParagraphInPlaceAsync` (`L1113-1121`), the preceding paragraph's `SourceText` is passed as `surroundingSourceContext` to `pipeline.RetranslateParagraphAsync`, which calls:
   ```csharp
-  core.NavigationStarting += (_, _) => StatusText.Text = "กำลังโหลดหน้าเว็บ...";
+  PromptBuilder.BuildMessages(story, selectedSourceParagraph, matchedGlossary, surroundingSourceContext, null, null, _settings.CustomSystemPrompt);
   ```
-- **Fix:** Inspect `args.Uri` inside `core.NavigationStarting`:
+  However, `PromptBuilder.BuildMessages` (`L109`) checks:
   ```csharp
-  core.NavigationStarting += (_, args) =>
-  {
-      if (args.Uri != "about:blank" &&
-          (!Uri.TryCreate(args.Uri, UriKind.Absolute, out var uri) ||
-           (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) ||
-           WebChapterImportService.IsBlockedUri(uri)))
-      {
-          args.Cancel = true;
-          StatusText.Text = "บล็อกการนำทางไปยังที่อยู่ภายในหรือโปรโตคอลที่ไม่ปลอดภัย";
-          return;
-      }
-      StatusText.Text = "กำลังโหลดหน้าเว็บ...";
-  };
+  if (!string.IsNullOrWhiteSpace(previousSourceContext) && !string.IsNullOrWhiteSpace(previousTranslationContext))
   ```
-- **If we skip it:** A malicious external page opened in the WebView2 import window can redirect the embedded browser to `http://localhost:11434`, LAN admin pages, or `file://` URIs.
+  Because `previousTranslationContext` is `null`, this condition is always `false`, so `surroundingSourceContext` is silently dropped and never sent to the LLM!
+- **Fix:**
+  1. In `PromptBuilder.BuildMessages` (`L109-117`), emit the `### บริบทย่อหน้าก่อนหน้า` block whenever `!string.IsNullOrWhiteSpace(previousSourceContext)` is true, and append `[คำแปลก่อนหน้า]` inside it when `!string.IsNullOrWhiteSpace(previousTranslationContext)` is also true.
+  2. Optionally also pass the preceding paragraph's `TranslatedText` (`Editor.ParagraphPairs[pair.Index - 2].TranslatedText`) into `RetranslateParagraphAsync`.
+  3. Add a unit test in `PromptBuilderTests.cs` or `TranslationPipelineTests.cs` verifying that `RetranslateParagraphAsync` includes `surroundingSourceContext` in the built prompt.
+- **If we skip it:** Single-paragraph retranslation receives zero context from the preceding paragraph despite `MainViewModel` passing `surroundingContext`.

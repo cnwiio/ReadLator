@@ -20,20 +20,32 @@
                 Padding="12,8">
             <Grid ColumnDefinitions="Auto, *, Auto">
                 <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center" Margin="0,0,8,0">
-                    <Button x:Name="BackButton" Content="←" Classes="ghost" Width="30" Height="30" Padding="0"
-                            IsEnabled="False" ToolTip.Tip="ย้อนกลับ" Click="OnBackClicked" />
-                    <Button x:Name="ForwardButton" Content="→" Classes="ghost" Width="30" Height="30" Padding="0"
-                            IsEnabled="False" ToolTip.Tip="ไปข้างหน้า" Click="OnForwardClicked" />
-                    <Button x:Name="ReloadButton" Content="↻" Classes="ghost" Width="30" Height="30" Padding="0"
-                            ToolTip.Tip="โหลดหน้าใหม่" Click="OnReloadClicked" />
+                    <Button x:Name="BackButton" Classes="ghost" Width="32" Height="32" Padding="0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                            IsEnabled="False" ToolTip.Tip="ย้อนกลับ" Click="OnBackClicked">
+                        <Path Data="M19,12 L5,12 M12,19 L5,12 L12,5" Stroke="{DynamicResource TextSecondaryBrush}"
+                              StrokeThickness="1.5" StrokeLineCap="Round" StrokeJoin="Round" Width="14" Height="14" Stretch="Uniform" />
+                    </Button>
+                    <Button x:Name="ForwardButton" Classes="ghost" Width="32" Height="32" Padding="0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                            IsEnabled="False" ToolTip.Tip="ไปข้างหน้า" Click="OnForwardClicked">
+                        <Path Data="M5,12 L19,12 M12,5 L19,12 L12,19" Stroke="{DynamicResource TextSecondaryBrush}"
+                              StrokeThickness="1.5" StrokeLineCap="Round" StrokeJoin="Round" Width="14" Height="14" Stretch="Uniform" />
+                    </Button>
+                    <Button x:Name="ReloadButton" Classes="ghost" Width="32" Height="32" Padding="0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                            ToolTip.Tip="โหลดหน้าใหม่" Click="OnReloadClicked">
+                        <Path Data="M20,12 A8,8 0 1,1 17.66,6.34 M20,4 L20,9 L15,9" Stroke="{DynamicResource TextSecondaryBrush}"
+                              StrokeThickness="1.5" StrokeLineCap="Round" StrokeJoin="Round" Width="14" Height="14" Stretch="Uniform" />
+                    </Button>
                 </StackPanel>
 
                 <TextBox Grid.Column="1"
                          x:Name="UrlTextBox"
                          Height="32"
-                         PlaceholderText="วาง URL หน้าเว็บนิยาย แล้วกด Enter..."
+                         PlaceholderText="วาง URL หน้าเว็บนิยาย แล้วกด Enter"
                          VerticalContentAlignment="Center"
-                         Margin="0,0,10,0"
+                         Margin="0,0,12,0"
                          KeyDown="OnUrlKeyDown" />
 
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">

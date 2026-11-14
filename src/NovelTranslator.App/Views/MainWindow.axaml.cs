@@ -398,6 +398,7 @@ public partial class MainWindow : Window
         AddHandler(PointerMovedEvent, OnWindowPointerMoved, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
         AddHandler(PointerReleasedEvent, OnWindowPointerReleased, RoutingStrategies.Tunnel | RoutingStrategies.Bubble);
         AddHandler(PointerWheelChangedEvent, OnWindowPointerWheelChanged, RoutingStrategies.Tunnel);
+        Deactivated += (_, _) => StopMmbAutoScroll();
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -422,6 +423,7 @@ public partial class MainWindow : Window
         }
         else if (e.PropertyName == nameof(MainViewModel.IsFocusMode))
         {
+            StopMmbAutoScroll();
             if (ViewModel.IsFocusMode)
             {
                 ReadingScrollViewer?.ScrollToHome();
@@ -942,7 +944,7 @@ public partial class MainWindow : Window
             }
         }
 
-        if (ViewModel?.IsFocusMode == true && ReadingTopBar != null)
+        if (ViewModel?.IsFocusMode == true && ReadingTopBar != null && !_mmbActive)
         {
             var pt = e.GetPosition(this);
             bool nearTop = pt.Y <= 60;

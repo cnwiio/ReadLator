@@ -1,6 +1,6 @@
-# Ponytail Audit — Should Fix (v5.5)
+# Ponytail Audit — Should Fix (v5.8)
 
-> **Scope:** Edge-case bugs, stale state in backups, and inconsistent cross-chapter context that degrade translation quality or user workflows.
+> **Scope:** Data preservation on chunk append, duplicate glossary prevention on CSV/AI import, and UI state synchronization.
 > **Target:** Agent-actionable specification. Numbered 5–8 (continuing from `audit-must-fix.md` items 1–4).
 
 ---
@@ -9,70 +9,62 @@
 
 | # | Area | File | Core Issue |
 |---|---|---|---|
-| **5** | `.txt` Batch Import | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `ImportTxtFilesAsync` into a new story leaves the dummy `"Paste your English story here..."` Chapter 1 in place |
-| **6** | Batch Translate All | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `TranslateAllChaptersAsync` translates the default English placeholder text if Chapter 1 was left untouched |
-| **7** | Cross-Chapter Context | `src/NovelTranslator.Core/Data/NovelRepository.cs` | `GetPreviousTranslatedChapterAsync` pulls context from non-adjacent chapters (`Ordinal < CurrentOrdinal`) or partially translated chapters |
-| **8** | Database Backup | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `BackupDatabaseAsync` copies the SQLite `.db` without flushing pending `_autoSaveTimer` edits first |
+| **5** | Edited Translation Preservation on Append | `src/NovelTranslator.Core/Translation/TranslationPipeline.cs` | Appending new paragraphs to a chapter whose translation was manually edited or Search-and-Replaced overwrites the edited translation with raw `ChapterChunks` |
+| **6** | Glossary CSV & AI Deduplication | `src/NovelTranslator.App/ViewModels/GlossaryViewModel.cs` / `GlossaryExtractor.cs` | `ImportCsvAsync` inserts duplicate rows if terms already exist, and `ParseAndFilterResults` allows duplicate terms within the same LLM JSON response |
+| **7** | Glossary Window Refresh | `src/NovelTranslator.App/Views/MainWindow.axaml.cs` | Closing `GlossaryWindow` (from toolbar or text-selection popup) never refreshes `Editor.ActiveGlossary` or Paragraph Mode's `MatchedGlossary` |
+| **8** | `.txt` Starter Chapter Import Sync | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | Overwriting the starter chapter in `ImportTxtFilesAsync` does not stop `_autoSaveTimer` or sync `Editor.ParagraphPairs` in Paragraph Mode |
 
 ---
 
-## 5. `ImportTxtFilesAsync` into a brand-new story leaves the dummy `"Paste your English story here..."` Chapter 1 in place
+## 5. Appending new paragraphs to a chapter whose translation was manually edited or Search-and-Replaced overwrites the edited translation with raw `ChapterChunks`
 **Location:**
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1664-L1681)
+- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L52-L77)
 
-- **What this is:** Batch `.txt` chapter import (`นำเข้าไฟล์นิยาย (.txt)`).
-- **Problem:** When a new story is created, Chapter 1 (`ตอนที่ 1`) is pre-populated with `DefaultPlaceholderText` (`"Paste your English story here..."`). `ImportWebChapterAsync` checks for `DefaultPlaceholderText` and overwrites that starter chapter, but `ImportTxtFilesAsync` does not—it unconditionally starts at `int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;`. Importing `.txt` files into a brand-new story leaves Chapter 1 with the English instructions and imports the user's first `.txt` file as Chapter 2.
-- **Fix:** In `ImportTxtFilesAsync`, check if the first file can overwrite an untouched starter chapter (same condition as `ImportWebChapterAsync`: `Chapters.Count == 1 && (string.IsNullOrWhiteSpace(Chapters[0].OriginalText) || Chapters[0].OriginalText.Trim() == DefaultPlaceholderText) && string.IsNullOrWhiteSpace(Chapters[0].TranslatedText)`), update `Chapters[0]` for the first imported file, and select the first imported chapter afterwards.
-- **If we skip it:** Every user who creates a new story and imports `.txt` chapters gets a dummy Chapter 1 (`"Paste your English story here..."`) ahead of their actual Chapter 1.
+- **What this is:** Manually editing `TranslatedText` (or running Search & Replace) on a translated chapter, then appending new source paragraphs at the end of `OriginalText` and clicking **แปลตอนนี้** (`forceRetranslate: false`).
+- **Problem:** When the user edits `TranslatedText` in the editor or via Search & Replace, `Chapters.TranslatedText` is updated in SQLite, while `ChapterChunks.TranslatedText` still holds the unedited raw LLM output per chunk. If the user later appends new paragraphs to the end of `OriginalText` and clicks **แปลตอนนี้**, `needsResplit` is `true` (`chunks.Count != splitTexts.Count`). Because `preserveExistingTranslation` (`L67`) requires `!needsResplit`, it becomes `false` even when all previously existing chunks (`0..oldCount-1`) are still intact as an unchanged completed prefix. Line 76 then overwrites `chapter.TranslatedText` from `chunks.Select(c => c.TranslatedText)`, wiping out the user's manual edits in the first part of the chapter!
+- **Fix:** Before calling `SaveChunksAsync` when `needsResplit` is true, check whether the existing chunks were all completed and form an exact prefix of `splitTexts` (`bool isPureAppend = chunks.Count > 0 && chunks.Count < splitTexts.Count && chunks.All(c => c.IsCompleted && !string.IsNullOrEmpty(c.TranslatedText)) && chunks.Select(c => c.SourceText).SequenceEqual(splitTexts.Take(chunks.Count));`). Allow `preserveExistingTranslation` when `(!needsResplit || isPureAppend)`.
+- **If we skip it:** Polishing a translation and later appending more paragraphs to the end of the chapter reverts the polished translation back to the raw unedited chunk text.
 
 ---
 
-## 6. `TranslateAllChaptersAsync` translates the English starter placeholder text if Chapter 1 was left untouched
+## 6. `GlossaryViewModel.ImportCsvAsync` and `GlossaryExtractor.ParseAndFilterResults` allow duplicate `SourceTerm` entries
 **Location:**
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L819-L835)
+- [GlossaryViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/GlossaryViewModel.cs#L170-L176)
+- [GlossaryExtractor.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Glossary/GlossaryExtractor.cs#L125-L153)
 
-- **What this is:** Batch translation of all untranslated chapters (`แปลทุกตอนที่เหลือ`).
-- **Problem:** Line 823 selects pending chapters using:
+- **What this is:** Importing a Glossary CSV file (`นำเข้า CSV`) or extracting new terms via AI (`Auto-Glossary`).
+- **Problem:**
+  1. `GlossaryViewModel.ImportCsvAsync` calls `_repository.BulkInsertGlossaryEntriesAsync(imported)` directly without checking `_allEntries` or deduplicating within the CSV. If a user exports `glossary.csv`, edits it, and imports it back, every existing term is duplicated in SQLite.
+  2. In `GlossaryExtractor.ParseAndFilterResults` (`L138`), `existingLowerTerms.Contains(source.ToLowerInvariant())` checks against existing DB entries, but never adds newly accepted terms into `existingLowerTerms`. If the LLM outputs the same character name twice in one JSON array, both duplicates are returned.
+- **Fix:**
+  1. In `GlossaryExtractor.ParseAndFilterResults` (`L138`), change `if (existingLowerTerms.Contains(source.ToLowerInvariant())) continue;` to `if (!existingLowerTerms.Add(source.ToLowerInvariant())) continue;`.
+  2. In `GlossaryViewModel.ImportCsvAsync`, match imported rows against `_allEntries` by `SourceTerm` (`StringComparison.OrdinalIgnoreCase`): update existing rows via `UpdateGlossaryEntryAsync` and only pass genuinely new, distinct terms to `BulkInsertGlossaryEntriesAsync`.
+- **If we skip it:** Re-importing a CSV or receiving repeated terms from the LLM creates duplicate glossary rules.
+
+---
+
+## 7. Closing `GlossaryWindow` (from toolbar or text-selection popup) never refreshes `Editor.ActiveGlossary` or Paragraph Mode's `MatchedGlossary`
+**Location:**
+- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L110-L115)
+- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L714-L735)
+
+- **What this is:** Adding, editing, or importing glossary terms via **พจนานุกรมคำศัพท์ (Glossary)** (`RequestOpenGlossary`) or the floating **เพิ่มเข้า Glossary** selection button (`OnAddSelectedToGlossaryClicked`).
+- **Problem:** When `GlossaryWindow` closes after `await win.ShowDialog(this)`, neither handler refreshes `ViewModel.Editor.ActiveGlossary` or re-syncs `ViewModel.Editor.ParagraphPairs` when Paragraph Mode is active.
+- **Fix:** After `await win.ShowDialog(this)` in both `RequestOpenGlossary` and `OnAddSelectedToGlossaryClicked`, call:
   ```csharp
-  var pending = Chapters.Where(c => c.Status == ChapterStatus.NotTranslated && !string.IsNullOrWhiteSpace(c.OriginalText)).ToList();
+  await ViewModel.Editor.RefreshActiveGlossaryAsync(story.Id, ViewModel.OriginalText);
+  if (ViewModel.Editor.IsParagraphMode)
+      ViewModel.Editor.SyncParagraphPairs(ViewModel.OriginalText, ViewModel.TranslatedText);
   ```
-  Unlike `StartTranslationAsync` (which blocks translating `DefaultPlaceholderText` at line 798), `TranslateAllChaptersAsync` does not filter out `c.OriginalText.Trim() == DefaultPlaceholderText`. If Chapter 1 still contains the starter placeholder, batch translation sends the placeholder instructions to the LLM API.
-- **Fix:** Add `&& c.OriginalText.Trim() != DefaultPlaceholderText` to the `pending` filter in `TranslateAllChaptersAsync`.
-- **If we skip it:** Batch translation wastes API tokens translating the app's own tutorial placeholder text.
+- **If we skip it:** Terms added via the Glossary window or selection popup are not reflected in `Editor.ActiveGlossary` or `ParagraphPairViewModel.MatchedGlossary` until switching chapters.
 
 ---
 
-## 7. Cross-chapter context (`GetPreviousTranslatedChapterAsync`) pulls from non-adjacent chapters or mismatched partial translations
+## 8. Overwriting the starter chapter in `ImportTxtFilesAsync` does not stop `_autoSaveTimer` or sync `Editor.ParagraphPairs`
 **Location:**
-- [NovelRepository.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Data/NovelRepository.cs#L78-L90)
-- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L99-L104)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1699-L1740)
 
-- **What this is:** Cross-chapter context continuity—injecting the last `ContextParagraphCount` source and translated paragraphs of the previous chapter into Chunk 1 of the current chapter.
-- **Problem:** `GetPreviousTranslatedChapterAsync` runs:
-  ```sql
-  SELECT * FROM Chapters
-  WHERE StoryId = @StoryId AND Ordinal < @CurrentOrdinal AND TRIM(TranslatedText) != ''
-  ORDER BY Ordinal DESC LIMIT 1;
-  ```
-  This causes two subtle bugs:
-  1. **Non-adjacent chapter:** If Chapter 1 is translated, Chapter 2 is untranslated, and the user translates Chapter 3, `Ordinal < @CurrentOrdinal` returns **Chapter 1** and tells the LLM those paragraphs immediately preceded Chapter 3.
-  2. **Partial/interrupted chapter:** If Chapter 1 was stopped halfway (`Status == ChapterStatus.Translating` or `NotTranslated` with partial `TranslatedText`), `TranslationPipeline` takes `GetLastParagraphs(prevChapter.OriginalText, count)` (the end of Chapter 1's source text) and pairs it with `GetLastParagraphs(prevChapter.TranslatedText, count)` (the middle of Chapter 1's translation)—feeding mismatched source/translation pairs into the prompt.
-- **Fix:** Restrict the query in `GetPreviousTranslatedChapterAsync` to the immediately preceding completed chapter:
-  ```sql
-  SELECT * FROM Chapters
-  WHERE StoryId = @StoryId AND Ordinal = @CurrentOrdinal - 1 AND Status IN (2, 3) AND TRIM(TranslatedText) != ''
-  LIMIT 1;
-  ```
-  (`2 = Translated`, `3 = Edited`).
-- **If we skip it:** Translating chapters out of order or after cancelling a previous chapter feeds mismatched source and translation paragraphs into the AI prompt.
-
----
-
-## 8. `BackupDatabaseAsync` does not flush pending auto-save edits before copying the SQLite database
-**Location:**
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1850-L1858)
-
-- **What this is:** Exporting a full SQLite `.db` backup file (`สำรองฐานข้อมูล (.db)`).
-- **Problem:** If a user edits a chapter and immediately clicks **สำรองฐานข้อมูล (.db)** before `_autoSaveTimer` ticks (or if auto-save is disabled in Settings), `BackupDatabaseAsync` calls `_database.BackupTo(path)` directly without saving the in-memory edits on `SelectedChapter`.
-- **Fix:** At the start of `BackupDatabaseAsync`, if `_autoSaveTimer.IsEnabled` (or if `SelectedChapter != null`), stop `_autoSaveTimer` and `await SaveCurrentChapterInternalAsync(isAutoSave: true);` before calling `_database.BackupTo(path)`.
-- **If we skip it:** Backing up right after editing produces a `.db` file missing the latest chapter changes.
+- **What this is:** Importing `.txt` files into a brand-new story (`ImportTxtFilesAsync`) when Chapter 1 is still the starter placeholder.
+- **Problem:** When `ReferenceEquals(SelectedChapter, starter)` is true (`L1709`), `ImportTxtFilesAsync` assigns `ChapterTitleEdit` and `OriginalText` under `_isLoadingChapter = true`, and at line 1738 `SelectedChapter = firstImported` is a no-op because `SelectedChapter` is already `starter`. Consequently, `OnSelectedChapterChanged` does not fire: `_autoSaveTimer` is not stopped beforehand, `Editor.SyncParagraphPairs` is not called if `Editor.IsParagraphMode` is true, and `Editor.RefreshActiveGlossaryAsync` is not called.
+- **Fix:** Call `_autoSaveTimer.Stop();` before overwriting `starter`, and inside the `if (ReferenceEquals(SelectedChapter, starter))` block, call `if (Editor.IsParagraphMode) Editor.SyncParagraphPairs(OriginalText, TranslatedText);` and `_ = Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, OriginalText);`.
+- **If we skip it:** Importing `.txt` files into a new story while in Paragraph Mode leaves the `"Paste your English story here..."` placeholder displayed in Paragraph Mode for Chapter 1.

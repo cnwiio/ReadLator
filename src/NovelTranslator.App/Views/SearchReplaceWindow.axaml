@@ -17,15 +17,17 @@
         <Grid RowDefinitions="Auto, *">
             <!-- Custom Modern Titlebar -->
             <Border Background="{DynamicResource HeaderBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                    BorderThickness="0,0,0,1" CornerRadius="11,11,0,0" Height="42" Padding="16,0,10,0"
+                    BorderThickness="0,0,0,1" CornerRadius="11,11,0,0" Height="40" Padding="16,0,8,0"
                     PointerPressed="OnTitleBarPointerPressed">
                 <Grid ColumnDefinitions="*, Auto">
                     <TextBlock Text="ค้นหาและแทนที่คำแปล" FontSize="13" FontWeight="SemiBold"
                                Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
-                    <Button Grid.Column="1" Content="✕" Classes="ghost" Click="OnCloseClicked"
-                            Width="28" Height="28" Padding="0" FontSize="12"
-                            Foreground="{DynamicResource TextMutedBrush}"
-                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center" />
+                    <Button Grid.Column="1" Classes="ghost" Click="OnCloseClicked"
+                            Width="28" Height="28" Padding="0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center">
+                        <Path Data="M6,6 L18,18 M18,6 L6,18" Stroke="{DynamicResource TextMutedBrush}"
+                              StrokeThickness="1.5" StrokeLineCap="Round" Width="12" Height="12" Stretch="Uniform" />
+                    </Button>
                 </Grid>
             </Border>
 
@@ -57,7 +59,7 @@
                 <TextBlock Grid.Row="1" Text="{Binding StatusMessage}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,8" />
 
                 <!-- ตัวอย่างผลลัพธ์ -->
-                <Border Grid.Row="2" Background="{DynamicResource CardBgBrush}" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" CornerRadius="8" Padding="6">
+                <Border Grid.Row="2" Background="{DynamicResource CardBgBrush}" BorderThickness="1" BorderBrush="{DynamicResource BorderSubtleBrush}" CornerRadius="8" Padding="4">
                     <ListBox ItemsSource="{Binding Previews}" Background="Transparent">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
