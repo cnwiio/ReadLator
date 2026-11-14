@@ -32,7 +32,8 @@ public partial class MainViewModel : ObservableObject
     // Sub-ViewModels สำหรับลดภาระ God Node
     public StoryListViewModel StoryList { get; } = new();
     public EditorViewModel Editor { get; }
-    public TranslationQueueViewModel Queue { get; } = new();
+
+    private const string DefaultPlaceholderText = "Paste your English story here...\n\nThen click the 'แปล' button!";
 
     // รายการเรื่องและตอน
     public ObservableCollection<Story> Stories => StoryList.Stories;
@@ -617,7 +618,7 @@ public partial class MainViewModel : ObservableObject
                     StoryId = value.Id,
                     Ordinal = 1,
                     Title = "ตอนที่ 1",
-                    OriginalText = "Paste your English story here...\n\nThen click the 'แปล' button!",
+                    OriginalText = DefaultPlaceholderText,
                     Status = ChapterStatus.NotTranslated
                 };
                 firstChap.Id = await _repository.InsertChapterAsync(firstChap);
@@ -1718,7 +1719,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedStory == null) return;
 
-        if (SelectedChapter != null && string.IsNullOrWhiteSpace(OriginalText))
+        if (SelectedChapter != null && (string.IsNullOrWhiteSpace(OriginalText) || OriginalText.Trim() == DefaultPlaceholderText))
         {
             if (string.IsNullOrWhiteSpace(SelectedChapter.Title) || SelectedChapter.Title.StartsWith("ตอนที่ "))
             {

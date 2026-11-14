@@ -23,4 +23,10 @@
     <ProjectReference Include="..\..\src\NovelTranslator.App\NovelTranslator.App.csproj" />
   </ItemGroup>
 
+  <Target Name="RemoveUnusedWebView2References" AfterTargets="ResolvePackageAssets" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf' or '%(Filename)' == 'Microsoft.Web.WebView2.WinForms'" />
+    </ItemGroup>
+  </Target>
+
 </Project>

@@ -142,6 +142,37 @@ public class NewFeaturesTests : IDisposable
         Assert.Equal("สวัสดี ชาวโลก ทั้งหลาย!", chapter.TranslatedText);
     }
 
+    [Fact]
+    public async Task ImportWebChapterAsync_ReplacesStarterPlaceholderInChapter1()
+    {
+        var story = new Story { Title = "New Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+        var ch1 = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "ตอนที่ 1",
+            OriginalText = "Paste your English story here...\n\nThen click the 'แปล' button!"
+        };
+        ch1.Id = await _repository.InsertChapterAsync(ch1);
+
+        var vm = new NovelTranslator.App.ViewModels.MainViewModel(new AppSettings(), _database, deferInitialLoad: true);
+        vm.Stories.Add(story);
+        vm.SelectedStory = story;
+        for (int i = 0; i < 20 && vm.Chapters.Count == 0; i++)
+        {
+            await Task.Delay(25);
+        }
+        Assert.Single(vm.Chapters);
+        vm.SelectedChapter = vm.Chapters[0];
+
+        await vm.ImportWebChapterAsync(new NovelTranslator.Core.Export.WebChapterResult("Chapter One", "Imported web content."));
+
+        Assert.Single(vm.Chapters);
+        Assert.Equal("Chapter One", vm.SelectedChapter.Title);
+        Assert.Equal("Imported web content.", vm.OriginalText);
+    }
+
     private sealed class SynchronousProgress<T> : IProgress<T>
     {
         private readonly Action<T> _handler;

@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-VERSION="${1:-5.0.0}"
+VERSION="${1:-}"
 RUNTIME="${2:-osx-arm64}" # osx-arm64, osx-x64, linux-x64
 CONFIGURATION="Release"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 PROJECT_PATH="$ROOT_DIR/src/NovelTranslator.App/NovelTranslator.App.csproj"
+if [ -z "$VERSION" ]; then
+  VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' "$PROJECT_PATH" | head -n 1)
+fi
 PUBLISH_DIR="$ROOT_DIR/publish/$RUNTIME"
 RELEASES_DIR="$SCRIPT_DIR/Releases/$RUNTIME"
 

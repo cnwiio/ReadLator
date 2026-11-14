@@ -3,12 +3,11 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <Version>5.3.0</Version>
+    <Version>5.4.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
 
   <ItemGroup>
-    <Folder Include="Models\" />
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
@@ -32,6 +31,13 @@
     <ItemGroup>
       <Analyzer Remove="@(Analyzer)" Condition="'%(FileName)' == 'CommunityToolkit.Mvvm.SourceGenerators' and !$([System.String]::Copy('%(Analyzer.Identity)').Contains('roslyn4.12'))" />
       <Analyzer Remove="@(Analyzer)" Condition="'%(FileName)' == 'CommunityToolkit.Mvvm.CodeFixers' and !$([System.String]::Copy('%(Analyzer.Identity)').Contains('roslyn4.12'))" />
+    </ItemGroup>
+  </Target>
+
+  <!-- ตัด Microsoft.Web.WebView2.Wpf และ WinForms เพื่อไม่ให้เกิด WindowsBase conflict -->
+  <Target Name="RemoveUnusedWebView2References" AfterTargets="ResolvePackageAssets" BeforeTargets="ResolveAssemblyReferences">
+    <ItemGroup>
+      <Reference Remove="@(Reference)" Condition="'%(Filename)' == 'Microsoft.Web.WebView2.Wpf' or '%(Filename)' == 'Microsoft.Web.WebView2.WinForms'" />
     </ItemGroup>
   </Target>
 

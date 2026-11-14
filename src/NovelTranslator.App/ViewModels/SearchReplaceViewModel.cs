@@ -67,19 +67,12 @@ public partial class SearchReplaceViewModel : ObservableObject
         else
         {
             // ใช้ FTS5 กรองเฉพาะตอนที่มีคำค้นหาก่อน เพื่อไม่ต้องโหลดทั้งเรื่องเข้า RAM
-            var ftsResults = await _repository.SearchFtsAsync(_story.Id, SearchText, searchTranslated: true, limit: 100);
-            if (ftsResults.Count > 0)
+            var ftsResults = await _repository.SearchFtsAsync(_story.Id, SearchText, searchTranslated: true, limit: 10000);
+            chapters = new List<Chapter>(ftsResults.Count);
+            foreach (var r in ftsResults)
             {
-                chapters = new List<Chapter>(ftsResults.Count);
-                foreach (var r in ftsResults)
-                {
-                    var chap = await _repository.GetChapterByIdAsync(r.ChapterId);
-                    if (chap != null) chapters.Add(chap);
-                }
-            }
-            else
-            {
-                chapters = await _repository.GetChaptersByStoryAsync(_story.Id);
+                var chap = await _repository.GetChapterByIdAsync(r.ChapterId);
+                if (chap != null) chapters.Add(chap);
             }
         }
 

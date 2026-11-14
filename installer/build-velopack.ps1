@@ -1,5 +1,5 @@
 ﻿param(
-    [string]$Version = "5.0.0",
+    [string]$Version = "",
     [string]$Runtime = "win-x64",
     [string]$Configuration = "Release"
 )
@@ -8,6 +8,10 @@ $ErrorActionPreference = "Stop"
 
 $RootDir = Split-Path -Parent $PSScriptRoot
 $ProjectPath = Join-Path $RootDir "src\NovelTranslator.App\NovelTranslator.App.csproj"
+if ([string]::IsNullOrWhiteSpace($Version)) {
+    [xml]$csproj = Get-Content $ProjectPath
+    $Version = $csproj.Project.PropertyGroup.Version | Select-Object -First 1
+}
 $PublishDir = Join-Path $RootDir "publish\$Runtime"
 $ReleasesDir = Join-Path $PSScriptRoot "Releases\$Runtime"
 $IconPath = Join-Path $RootDir "src\NovelTranslator.App\Assets\avalonia-logo.ico"

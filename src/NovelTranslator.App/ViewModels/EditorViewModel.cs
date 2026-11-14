@@ -22,9 +22,6 @@ public partial class EditorViewModel : ObservableObject
 
     public string ParagraphModeButtonText => IsParagraphMode ? "ข้อความปกติ" : "จับคู่รายย่อหน้า";
 
-    [ObservableProperty]
-    private ParagraphPairViewModel? _selectedParagraphPair;
-
     public ObservableCollection<ParagraphPairViewModel> ParagraphPairs { get; } = new();
     public ObservableCollection<GlossaryEntry> ActiveGlossary { get; } = new();
 
@@ -136,12 +133,5 @@ public partial class EditorViewModel : ObservableObject
         {
             ActiveGlossary.Add(m);
         }
-    }
-
-    public async Task QuickUpdateGlossaryEntryAsync(GlossaryEntry entry, string newTargetTerm)
-    {
-        if (string.IsNullOrWhiteSpace(newTargetTerm)) return;
-        entry.TargetTerm = newTargetTerm.Trim();
-        await _repository.UpdateGlossaryEntryAsync(entry);
     }
 }
