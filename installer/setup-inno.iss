@@ -3,7 +3,9 @@
 ; 2. เปิดไฟล์นี้ด้วยโปรแกรม Inno Setup Compiler แล้วกด Compile (หรือรัน iscc installer\setup-inno.iss)
 
 #define MyAppName "NovelTranslator"
-#define MyAppVersion "5.8.0"
+#ifndef MyAppVersion
+  #define MyAppVersion "6.0.0"
+#endif
 #define MyAppExeName "NovelTranslator.App.exe"
 
 [Setup]
@@ -11,6 +13,7 @@ AppId={{8E9E4A21-3C7D-4B18-A2D4-7B9F0C1E2345}
 AppName={#MyAppName}
 AppVersion={#MyAppVersion}
 DefaultDirName={autopf}\{#MyAppName}
+DisableDirPage=no
 DefaultGroupName={#MyAppName}
 OutputDir=Releases\inno
 OutputBaseFilename=NovelTranslator-Setup-{#MyAppVersion}-win-x64
@@ -20,6 +23,7 @@ SolidCompression=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
+PrivilegesRequiredOverridesAllowed=dialog
 
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
