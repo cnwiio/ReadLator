@@ -100,4 +100,37 @@ public class SettingsTests
             if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
         }
     }
+
+    [Fact]
+    public void AppSettings_PolishMode_DefaultsAndPersistence()
+    {
+        var defaults = new AppSettings();
+        Assert.False(defaults.EnablePolishMode);
+        Assert.Equal(string.Empty, defaults.PolishModelName);
+
+        string dir = Path.Combine(Path.GetTempPath(), $"nt_polish_{Path.GetRandomFileName()}");
+        Directory.CreateDirectory(dir);
+        string path = Path.Combine(dir, "settings.json");
+
+        try
+        {
+            var saved = new AppSettings
+            {
+                EnablePolishMode = true,
+                PolishModelName = "qwen2.5:14b"
+            };
+            saved.Save(path);
+
+            string json = File.ReadAllText(path);
+            var reloaded = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(json);
+
+            Assert.NotNull(reloaded);
+            Assert.True(reloaded!.EnablePolishMode);
+            Assert.Equal("qwen2.5:14b", reloaded.PolishModelName);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
 }

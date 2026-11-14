@@ -186,6 +186,31 @@
                                     <TextBox Text="{Binding CustomSystemPrompt}" AcceptsReturn="True" TextWrapping="Wrap"
                                              Height="72" Padding="12" PlaceholderText="เว้นว่างไว้หากต้องการใช้เฉพาะกฎมาตรฐานและ Style Notes" />
                                 </StackPanel>
+
+                                <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,4" />
+                                <StackPanel Spacing="12">
+                                    <Grid ColumnDefinitions="*, Auto">
+                                        <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <TextBlock Text="โหมดเกลาคำอัตโนมัติหลังแปล (AI Polish)" FontSize="13" FontWeight="Medium" />
+                                            <TextBlock Text="ให้ AI อ่านทวนคำแปลเทียบกับต้นฉบับเพื่อเกลาสำนวนไทยให้สละสลวยขึ้นทีละส่วน"
+                                                       FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnablePolishMode}"
+                                                      OnContent="เปิด" OffContent="ปิด" VerticalAlignment="Center" />
+                                    </Grid>
+
+                                    <StackPanel Spacing="10" IsVisible="{Binding EnablePolishMode}">
+                                        <Grid ColumnDefinitions="136, *" RowDefinitions="Auto, Auto" RowSpacing="10">
+                                            <TextBlock Text="เลือกโมเดลเกลาคำ" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                            <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding PolishModelName}"
+                                                      Height="32" PlaceholderText="เว้นว่างเพื่อใช้โมเดลเดียวกับการแปลหลัก" HorizontalAlignment="Stretch" />
+
+                                            <TextBlock Grid.Row="1" Text="หรือระบุชื่อโมเดล" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PolishModelName}" Height="32" VerticalContentAlignment="Center"
+                                                     PlaceholderText="เว้นว่างเพื่อใช้โมเดลเดียวกับการแปลหลัก" />
+                                        </Grid>
+                                    </StackPanel>
+                                </StackPanel>
                             </StackPanel>
                         </Border>
                     </StackPanel>

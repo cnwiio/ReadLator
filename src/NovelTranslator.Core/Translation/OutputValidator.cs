@@ -28,7 +28,12 @@ public class OutputValidator
         "Sure, here is",
         "Here's the translation",
         "บทแปล:",
-        "แน่นอน นี่คือคำแปล"
+        "แน่นอน นี่คือคำแปล",
+        "นี่คือข้อความที่เกลาแล้ว",
+        "ข้อความที่เกลาแล้ว:",
+        "ฉบับเกลาคำ:",
+        "คำแปลที่เกลาแล้ว:",
+        "Here is the polished"
     };
 
     /// <summary>

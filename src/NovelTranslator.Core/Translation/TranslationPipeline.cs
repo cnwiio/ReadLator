@@ -143,8 +143,6 @@ public class TranslationPipeline
                     _settings.CustomSystemPrompt,
                     nextSourceContext);
 
-                var chunkSb = new StringBuilder();
-
                 progress.Report(new TranslationProgressInfo
                 {
                     CurrentChunkIndex = i + 1,
@@ -152,37 +150,18 @@ public class TranslationPipeline
                     StatusMessage = $"กำลังแปลส่วนที่ {i + 1}/{chunks.Count} (รอบที่ {attempt})..."
                 });
 
-                long lastReportTick = Environment.TickCount64 - 80;
-                await foreach (var delta in _llmClient.StreamChatAsync(messages, _settings.Temperature, cancellationToken))
-                {
-                    chunkSb.Append(delta);
-                    long now = Environment.TickCount64;
-                    if (now - lastReportTick >= 80 || delta.Contains('\n'))
-                    {
-                        lastReportTick = now;
-                        string currentText = chunkSb.ToString();
-                        int wordCount = Chunker.EstimateWordCount(currentText);
-                        string liveCombined = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord
-                            ? (preserveExistingTranslation
-                                ? (currentText.Length == 0
-                                    ? chapter.TranslatedText
-                                    : string.Join("\n\n", appendedParts.Concat(new[] { OutputValidator.CleanPreamble(currentText) })))
-                                : BuildCombinedTextSoFar(chunks, i, currentText))
-                            : string.Empty;
-                        progress.Report(new TranslationProgressInfo
-                        {
-                            CurrentChunkIndex = i + 1,
-                            TotalChunks = chunks.Count,
-                            StreamingDelta = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord ? delta : string.Empty,
-                            FullCurrentChunkText = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord ? currentText : string.Empty,
-                            CombinedTranslatedTextSoFar = liveCombined,
-                            StreamedWordCount = wordCount,
-                            StatusMessage = $"กำลังแปลส่วนที่ {i + 1}/{chunks.Count} (สตรีมสด {wordCount} คำ)..."
-                        });
-                    }
-                }
+                string rawResult = await StreamChunkWithProgressAsync(
+                    messages,
+                    modelOverride: null,
+                    statusPrefix: $"กำลังแปลส่วนที่ {i + 1}/{chunks.Count}",
+                    chunks,
+                    chunkIndex: i,
+                    chapter,
+                    preserveExistingTranslation,
+                    appendedParts,
+                    progress,
+                    cancellationToken);
 
-                string rawResult = chunkSb.ToString();
                 var validation = OutputValidator.Validate(chunk.SourceText, rawResult, matchedGlossary);
 
                 if (validation.IsValid)
@@ -202,6 +181,48 @@ public class TranslationPipeline
                         chunk.HasWarning = true;
                         chunk.WarningMessage = $"ตรวจพบข้อผิดพลาดหลังลองแปล 2 ครั้ง: {validation.RetryHint}";
                     }
+                }
+            }
+
+            if (_settings.EnablePolishMode && !string.IsNullOrWhiteSpace(translatedChunk))
+            {
+                string? polishModel = string.IsNullOrWhiteSpace(_settings.PolishModelName)
+                    ? null
+                    : _settings.PolishModelName.Trim();
+
+                var polishMessages = PromptBuilder.BuildPolishMessages(
+                    story,
+                    chunk.SourceText,
+                    translatedChunk,
+                    matchedGlossary,
+                    previousTranslationContext,
+                    _settings.CustomSystemPrompt);
+
+                progress.Report(new TranslationProgressInfo
+                {
+                    CurrentChunkIndex = i + 1,
+                    TotalChunks = chunks.Count,
+                    StatusMessage = $"กำลังเกลาคำส่วนที่ {i + 1}/{chunks.Count}..."
+                });
+
+                string rawPolished = await StreamChunkWithProgressAsync(
+                    polishMessages,
+                    modelOverride: polishModel,
+                    statusPrefix: $"กำลังเกลาคำส่วนที่ {i + 1}/{chunks.Count}",
+                    chunks,
+                    chunkIndex: i,
+                    chapter,
+                    preserveExistingTranslation,
+                    appendedParts,
+                    progress,
+                    cancellationToken);
+
+                var polishValidation = OutputValidator.Validate(chunk.SourceText, rawPolished, matchedGlossary);
+                if (polishValidation.IsValid)
+                {
+                    translatedChunk = polishValidation.CleanedText;
+                    chunk.HasWarning = polishValidation.HasParagraphMismatchWarning;
+                    chunk.WarningMessage = polishValidation.RetryHint ?? string.Empty;
                 }
             }
 
@@ -272,7 +293,82 @@ public class TranslationPipeline
             sb.Append(delta);
         }
 
-        return OutputValidator.CleanPreamble(sb.ToString());
+        string draft = OutputValidator.CleanPreamble(sb.ToString());
+        if (_settings.EnablePolishMode && !string.IsNullOrWhiteSpace(draft))
+        {
+            string? polishModel = string.IsNullOrWhiteSpace(_settings.PolishModelName)
+                ? null
+                : _settings.PolishModelName.Trim();
+
+            var polishMessages = PromptBuilder.BuildPolishMessages(
+                story,
+                selectedSourceParagraph,
+                draft,
+                matchedGlossary,
+                null,
+                _settings.CustomSystemPrompt);
+
+            var polishSb = new StringBuilder();
+            await foreach (var delta in _llmClient.StreamChatAsync(polishMessages, _settings.Temperature, polishModel, cancellationToken))
+            {
+                polishSb.Append(delta);
+            }
+
+            string polished = OutputValidator.CleanPreamble(polishSb.ToString());
+            if (!string.IsNullOrWhiteSpace(polished))
+            {
+                return polished;
+            }
+        }
+
+        return draft;
+    }
+
+    private async Task<string> StreamChunkWithProgressAsync(
+        List<ChatMessage> messages,
+        string? modelOverride,
+        string statusPrefix,
+        List<ChapterChunk> chunks,
+        int chunkIndex,
+        Chapter chapter,
+        bool preserveExistingTranslation,
+        List<string> appendedParts,
+        IProgress<TranslationProgressInfo> progress,
+        CancellationToken cancellationToken)
+    {
+        var chunkSb = new StringBuilder();
+        long lastReportTick = Environment.TickCount64 - 80;
+
+        await foreach (var delta in _llmClient.StreamChatAsync(messages, _settings.Temperature, modelOverride, cancellationToken))
+        {
+            chunkSb.Append(delta);
+            long now = Environment.TickCount64;
+            if (now - lastReportTick >= 80 || delta.Contains('\n'))
+            {
+                lastReportTick = now;
+                string currentText = chunkSb.ToString();
+                int wordCount = Chunker.EstimateWordCount(currentText);
+                string liveCombined = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord
+                    ? (preserveExistingTranslation
+                        ? (currentText.Length == 0
+                            ? chapter.TranslatedText
+                            : string.Join("\n\n", appendedParts.Concat(new[] { OutputValidator.CleanPreamble(currentText) })))
+                        : BuildCombinedTextSoFar(chunks, chunkIndex, currentText))
+                    : string.Empty;
+                progress.Report(new TranslationProgressInfo
+                {
+                    CurrentChunkIndex = chunkIndex + 1,
+                    TotalChunks = chunks.Count,
+                    StreamingDelta = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord ? delta : string.Empty,
+                    FullCurrentChunkText = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord ? currentText : string.Empty,
+                    CombinedTranslatedTextSoFar = liveCombined,
+                    StreamedWordCount = wordCount,
+                    StatusMessage = $"{statusPrefix} (สตรีมสด {wordCount} คำ)..."
+                });
+            }
+        }
+
+        return chunkSb.ToString();
     }
 
     private static string GetLastParagraphs(string text, int count)

@@ -401,6 +401,8 @@ public partial class MainViewModel : ObservableObject
         _settings.MaxChunkWords = fresh.MaxChunkWords;
         _settings.ContextParagraphCount = fresh.ContextParagraphCount;
         _settings.CustomSystemPrompt = fresh.CustomSystemPrompt;
+        _settings.EnablePolishMode = fresh.EnablePolishMode;
+        _settings.PolishModelName = fresh.PolishModelName;
         _settings.Shortkeys = fresh.Shortkeys;
         _settings.ThemeMode = fresh.ThemeMode;
         _settings.BrightnessLevel = fresh.BrightnessLevel;
@@ -452,7 +454,12 @@ public partial class MainViewModel : ObservableObject
     private void UpdateActiveModelDisplay()
     {
         string model = string.IsNullOrWhiteSpace(_settings.ModelName) ? "ยังไม่ระบุโมเดล" : _settings.ModelName;
-        ActiveModelDisplay = $"{_settings.Backend} · {model}";
+        string polishSuffix = _settings.EnablePolishMode
+            ? (string.IsNullOrWhiteSpace(_settings.PolishModelName)
+                ? " (+เกลาคำ)"
+                : $" (+เกลา: {_settings.PolishModelName.Trim()})")
+            : string.Empty;
+        ActiveModelDisplay = $"{_settings.Backend} · {model}{polishSuffix}";
     }
 
     [RelayCommand]

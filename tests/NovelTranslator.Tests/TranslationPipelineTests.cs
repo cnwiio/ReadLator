@@ -162,20 +162,138 @@ public class TranslationPipelineTests : IDisposable
         Assert.DoesNotContain("ย่อหน้าสองเดิม", chapter.TranslatedText);
     }
 
+    [Fact]
+    public async Task TranslateChapterAsync_WhenPolishModeEnabled_RunsPolishPassAndUsesPolishedText()
+    {
+        var story = new Story { Title = "Polish Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        await _repository.InsertGlossaryEntryAsync(new GlossaryEntry
+        {
+            StoryId = story.Id,
+            SourceTerm = "Dragon",
+            TargetTerm = "มังกร"
+        });
+
+        var chapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "Ch 1",
+            OriginalText = "First Dragon here.\n\nSecond paragraph here."
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        var settings = new AppSettings
+        {
+            MaxChunkWords = 3,
+            EnablePolishMode = true,
+            PolishModelName = "polish-model"
+        };
+
+        var llm = new QueueLlmClient(
+            "มังกรตัวแรกอยู่ที่นี่",
+            "มังกรตนแรกปรากฏกาย ณ ที่แห่งนี้",
+            "ย่อหน้าสองตรงนี้",
+            "ส่วนที่สองสละสลวยยิ่งขึ้น");
+        var pipeline = new TranslationPipeline(_repository, llm, settings);
+
+        await pipeline.TranslateChapterAsync(story, chapter, new Progress<TranslationProgressInfo>());
+
+        Assert.Equal("มังกรตนแรกปรากฏกาย ณ ที่แห่งนี้\n\nส่วนที่สองสละสลวยยิ่งขึ้น", chapter.TranslatedText);
+        Assert.Equal(ChapterStatus.Translated, chapter.Status);
+        Assert.Equal(4, llm.CallCount);
+        Assert.Equal(new string?[] { null, "polish-model", null, "polish-model" }, llm.RecordedModelOverrides);
+
+        // Pass 2 ของส่วนที่ 1 ต้องมีทั้งต้นฉบับ ร่างคำแปลแรก และ Glossary
+        string chunk1PolishPrompt = llm.RecordedMessages[1][1].Content;
+        Assert.Contains("First Dragon here.", chunk1PolishPrompt);
+        Assert.Contains("มังกรตัวแรกอยู่ที่นี่", chunk1PolishPrompt);
+        Assert.Contains("Dragon => มังกร", chunk1PolishPrompt);
+
+        // ส่วนที่ 2 ต้องได้รับบริบทที่เกลาแล้วจากส่วนที่ 1
+        string chunk2TranslatePrompt = llm.RecordedMessages[2][1].Content;
+        Assert.Contains("มังกรตนแรกปรากฏกาย ณ ที่แห่งนี้", chunk2TranslatePrompt);
+    }
+
+    [Fact]
+    public async Task TranslateChapterAsync_WhenPolishPassFailsValidation_FallsBackToFirstPassTranslation()
+    {
+        var story = new Story { Title = "Polish Fallback Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var chapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "Ch 1",
+            OriginalText = "The hero walked into the quiet forest at dawn."
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        var settings = new AppSettings
+        {
+            MaxChunkWords = 50,
+            EnablePolishMode = true
+        };
+
+        // Pass 1 valid, Pass 2 returns empty (fails validation)
+        var llm = new QueueLlmClient("ผู้กล้าเดินเข้าสู่ป่าอันเงียบสงบยามรุ่งสาง", "");
+        var pipeline = new TranslationPipeline(_repository, llm, settings);
+
+        await pipeline.TranslateChapterAsync(story, chapter, new Progress<TranslationProgressInfo>());
+
+        Assert.Equal("ผู้กล้าเดินเข้าสู่ป่าอันเงียบสงบยามรุ่งสาง", chapter.TranslatedText);
+        Assert.Equal(2, llm.CallCount);
+    }
+
+    [Fact]
+    public async Task RetranslateParagraphAsync_WhenPolishModeEnabled_ReturnsPolishedParagraph()
+    {
+        var story = new Story { Title = "Polish Paragraph Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var settings = new AppSettings
+        {
+            EnablePolishMode = true,
+            PolishModelName = "editor-llm"
+        };
+
+        var llm = new QueueLlmClient("เขาเปิดประตูอย่างช้าๆ", "เขาค่อยๆ แง้มบานประตูออก");
+        var pipeline = new TranslationPipeline(_repository, llm, settings);
+
+        string result = await pipeline.RetranslateParagraphAsync(story, "He opened the door slowly.", null);
+
+        Assert.Equal("เขาค่อยๆ แง้มบานประตูออก", result);
+        Assert.Equal(2, llm.CallCount);
+        Assert.Equal(new string?[] { null, "editor-llm" }, llm.RecordedModelOverrides);
+    }
+
     private sealed class QueueLlmClient : ILlmClient
     {
         private readonly Queue<string> _responses;
         public int CallCount { get; private set; }
+        public List<string?> RecordedModelOverrides { get; } = new();
+        public List<List<ChatMessage>> RecordedMessages { get; } = new();
 
         public QueueLlmClient(params string[] responses)
             => _responses = new Queue<string>(responses);
 
+        public IAsyncEnumerable<string> StreamChatAsync(
+            IEnumerable<ChatMessage> messages,
+            float temperature,
+            CancellationToken cancellationToken = default)
+            => StreamChatAsync(messages, temperature, null, cancellationToken);
+
         public async IAsyncEnumerable<string> StreamChatAsync(
             IEnumerable<ChatMessage> messages,
             float temperature,
+            string? modelOverride,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)
         {
             CallCount++;
+            RecordedModelOverrides.Add(modelOverride);
+            RecordedMessages.Add(new List<ChatMessage>(messages));
             await Task.CompletedTask;
             yield return _responses.Count > 0 ? _responses.Dequeue() : string.Empty;
         }

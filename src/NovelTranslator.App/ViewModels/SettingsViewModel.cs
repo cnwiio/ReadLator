@@ -39,6 +39,12 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _customSystemPrompt = string.Empty;
 
+    [ObservableProperty]
+    private bool _enablePolishMode;
+
+    [ObservableProperty]
+    private string _polishModelName = string.Empty;
+
     // หมวดการตั้งค่าหลัก (0: AI, 1: Shortkeys, 2: System)
     [ObservableProperty]
     private int _selectedCategoryIndex;
@@ -291,6 +297,8 @@ public partial class SettingsViewModel : ObservableObject
         MaxChunkWords = settings.MaxChunkWords;
         ContextParagraphCount = settings.ContextParagraphCount;
         CustomSystemPrompt = settings.CustomSystemPrompt ?? string.Empty;
+        EnablePolishMode = settings.EnablePolishMode;
+        PolishModelName = settings.PolishModelName ?? string.Empty;
 
         _isInitializing = false;
         _ = RefreshModelsSilentAsync();
@@ -316,17 +324,7 @@ public partial class SettingsViewModel : ObservableObject
             var models = await client.GetModelsAsync();
             if (models.Count > 0)
             {
-                string currentModel = ModelName;
-                AvailableModels.Clear();
-                foreach (var m in models)
-                {
-                    AvailableModels.Add(m.Id);
-                }
-                if (!string.IsNullOrEmpty(currentModel) && !AvailableModels.Contains(currentModel))
-                {
-                    AvailableModels.Insert(0, currentModel);
-                }
-                ModelName = string.IsNullOrEmpty(currentModel) ? AvailableModels[0] : currentModel;
+                PopulateAvailableModels(models);
             }
         }
         catch
@@ -373,19 +371,7 @@ public partial class SettingsViewModel : ObservableObject
             if (result.Success)
             {
                 var models = await client.GetModelsAsync();
-                string currentModel = ModelName;
-                AvailableModels.Clear();
-                foreach (var m in models)
-                {
-                    AvailableModels.Add(m.Id);
-                }
-                if (!string.IsNullOrEmpty(currentModel) && !AvailableModels.Contains(currentModel))
-                {
-                    AvailableModels.Insert(0, currentModel);
-                }
-                ModelName = string.IsNullOrEmpty(currentModel) && AvailableModels.Count > 0
-                    ? AvailableModels[0]
-                    : currentModel;
+                PopulateAvailableModels(models);
             }
         }
         catch (Exception ex)
@@ -396,6 +382,29 @@ public partial class SettingsViewModel : ObservableObject
         {
             IsBusy = false;
         }
+    }
+
+    private void PopulateAvailableModels(System.Collections.Generic.List<ModelInfo> models)
+    {
+        string currentModel = ModelName;
+        string currentPolishModel = PolishModelName;
+        AvailableModels.Clear();
+        foreach (var m in models)
+        {
+            AvailableModels.Add(m.Id);
+        }
+        if (!string.IsNullOrEmpty(currentModel) && !AvailableModels.Contains(currentModel))
+        {
+            AvailableModels.Insert(0, currentModel);
+        }
+        if (!string.IsNullOrEmpty(currentPolishModel) && !AvailableModels.Contains(currentPolishModel))
+        {
+            AvailableModels.Insert(0, currentPolishModel);
+        }
+        ModelName = string.IsNullOrEmpty(currentModel) && AvailableModels.Count > 0
+            ? AvailableModels[0]
+            : currentModel;
+        PolishModelName = currentPolishModel;
     }
 
     [RelayCommand]
@@ -421,6 +430,8 @@ public partial class SettingsViewModel : ObservableObject
         _settings.MaxChunkWords = MaxChunkWords;
         _settings.ContextParagraphCount = ContextParagraphCount;
         _settings.CustomSystemPrompt = CustomSystemPrompt ?? string.Empty;
+        _settings.EnablePolishMode = EnablePolishMode;
+        _settings.PolishModelName = PolishModelName?.Trim() ?? string.Empty;
 
         // บันทึก Shortkeys
         _settings.Shortkeys.TranslateKey = TranslateKey;

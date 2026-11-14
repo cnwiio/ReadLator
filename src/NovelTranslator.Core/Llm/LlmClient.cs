@@ -58,12 +58,20 @@ public class LlmClient : ILlmClient
         }
     }
 
+    public IAsyncEnumerable<string> StreamChatAsync(
+        IEnumerable<ChatMessage> messages,
+        float temperature,
+        CancellationToken cancellationToken = default)
+        => StreamChatAsync(messages, temperature, null, cancellationToken);
+
     public async IAsyncEnumerable<string> StreamChatAsync(
         IEnumerable<ChatMessage> messages,
         float temperature,
+        string? modelOverride,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(_settings.ModelName))
+        string targetModel = !string.IsNullOrWhiteSpace(modelOverride) ? modelOverride.Trim() : _settings.ModelName;
+        if (string.IsNullOrWhiteSpace(targetModel))
         {
             throw new InvalidOperationException("กรุณาเลือกโมเดล AI ในหน้าตั้งค่าก่อนเริ่มแปล");
         }
@@ -71,7 +79,7 @@ public class LlmClient : ILlmClient
         string url = GetCompletionsUrl();
         var requestBody = new
         {
-            model = _settings.ModelName,
+            model = targetModel,
             messages,
             temperature,
             stream = true

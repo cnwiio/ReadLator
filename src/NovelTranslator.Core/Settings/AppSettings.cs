@@ -53,6 +53,8 @@ public class AppSettings
     public int MaxChunkWords { get; set; } = 600;
     public int ContextParagraphCount { get; set; } = 2;
     public string CustomSystemPrompt { get; set; } = string.Empty;
+    public bool EnablePolishMode { get; set; } = false;
+    public string PolishModelName { get; set; } = string.Empty;
     public string ThemeMode { get; set; } = "Light"; // Light, Dark, Sepia
     public double BrightnessLevel { get; set; } = 100.0; // 30.0 to 100.0
     public TranslationAppearanceMode TranslationAppearance { get; set; } = TranslationAppearanceMode.PerChunk;

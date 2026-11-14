@@ -39,6 +39,13 @@ public interface ILlmClient
         float temperature,
         CancellationToken cancellationToken = default);
 
+    IAsyncEnumerable<string> StreamChatAsync(
+        IEnumerable<ChatMessage> messages,
+        float temperature,
+        string? modelOverride,
+        CancellationToken cancellationToken = default)
+        => StreamChatAsync(messages, temperature, cancellationToken);
+
     Task<List<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default);
 
     Task<(bool Success, string Message)> TestConnectionAsync(CancellationToken cancellationToken = default);
