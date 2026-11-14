@@ -371,6 +371,17 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    public bool HasPendingAutoSave => _autoSaveTimer.IsEnabled;
+
+    public async Task FlushPendingSaveAsync()
+    {
+        if (_autoSaveTimer.IsEnabled)
+        {
+            _autoSaveTimer.Stop();
+            await SaveCurrentChapterInternalAsync(isAutoSave: true);
+        }
+    }
+
     private static NovelDatabase CreateInitializedDatabase()
     {
         var db = new NovelDatabase();
@@ -980,6 +991,10 @@ public partial class MainViewModel : ObservableObject
             StopFakeProgressTimer();
             IsTranslating = false;
             IsTranslatingIndeterminate = false;
+            if (Editor.IsParagraphMode)
+            {
+                Editor.SyncParagraphPairs(OriginalText, TranslatedText);
+            }
         }
     }
 

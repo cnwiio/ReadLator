@@ -133,6 +133,35 @@ public class TranslationPipelineTests : IDisposable
         });
     }
 
+    [Fact]
+    public async Task TranslateChapterAsync_EditingLastChunk_ReplacesInsteadOfDuplicating()
+    {
+        var story = new Story { Title = "Resplit Reuse Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var chapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "Ch 1",
+            OriginalText = "First paragraph here.\n\nSecond paragraph here."
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        var settings = new AppSettings { MaxChunkWords = 3 };
+        var firstPipeline = new TranslationPipeline(_repository, new QueueLlmClient("ย่อหน้าหนึ่ง", "ย่อหน้าสองเดิม"), settings);
+        await firstPipeline.TranslateChapterAsync(story, chapter, new Progress<TranslationProgressInfo>());
+        Assert.Equal("ย่อหน้าหนึ่ง\n\nย่อหน้าสองเดิม", chapter.TranslatedText);
+
+        // User edits chunk 2 source text and resumes without forceRetranslate
+        chapter.OriginalText = "First paragraph here.\n\nSecond paragraph edited.";
+        var resumePipeline = new TranslationPipeline(_repository, new QueueLlmClient("ย่อหน้าสองใหม่"), settings);
+        await resumePipeline.TranslateChapterAsync(story, chapter, new Progress<TranslationProgressInfo>());
+
+        Assert.Equal("ย่อหน้าหนึ่ง\n\nย่อหน้าสองใหม่", chapter.TranslatedText);
+        Assert.DoesNotContain("ย่อหน้าสองเดิม", chapter.TranslatedText);
+    }
+
     private sealed class QueueLlmClient : ILlmClient
     {
         private readonly Queue<string> _responses;

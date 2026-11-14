@@ -1,45 +1,80 @@
-# Ponytail Audit — Nice to Have (v5.2)
+# Ponytail Audit — Nice to Have (v5.5)
 
-## What this repo does
-**NovelTranslator (ReadLator)** is a Windows desktop app (.NET 10, Avalonia UI, SQLite with FTS5, WebView2, OpenAI-compatible SSE streaming) that translates foreign web novels into Thai using local or cloud AI models. It supports smart chunking, glossary injection, paragraph-by-paragraph editing, and importing chapters from `.txt` files, URLs (Reader Mode), or an incognito WebView2 browser.
-- **Assumed load**: Single desktop user, 1–50 stories, 100–3,000 chapters per story (~5,000–20,000 characters per chapter), glossaries of 100–2,000 terms, and streaming AI responses over slow or unstable connections.
-- **Graphify state**: 1,039 nodes, 2,494 edges, 60 communities (`graphify-out/graph.json`, updated at `8b4e793` v5.2).
+> **Scope:** UI feedback accuracy, duplicate glossary entry prevention, and single-paragraph retranslation context.
+> **Target:** Agent-actionable specification. Numbered 9–12 (continuing from `audit-should-fix.md` items 5–8).
 
 ---
 
-## Nice to have (small speed-ups, shorter forms, minor UX polish)
+## Summary Table
 
-11. **Three inline dialog builders in `MainWindow.axaml.cs` copy-paste ~250 lines of identical window chrome** (`src/NovelTranslator.App/Views/MainWindow.axaml.cs:L196-583`)
-    - **What this is:** `RequestPromptDialog`, `RequestConfirmDialog`, and `RequestShowErrorDialog` build borderless modal dialogs in C#.
-    - **Problem:** Each handler repeats the same 80-line setup for the transparent `Window`, outer `Border` card with shadow, draggable header `Grid`, `✕` close button, and `Escape` key handler.
-    - **Fix:** Extract one small helper method `CreateModalDialog(string title, double width, Control body, params Button[] buttons)` in `MainWindow.axaml.cs` and reuse it in all three handlers (~250 fewer lines).
-    - **If we skip it:** Any style tweak to modal dialogs must be edited in three places inside `MainWindow.axaml.cs`.
-
-12. **`GlossaryViewModel.ExportCsv` exports only the filtered list instead of all story terms** (`src/NovelTranslator.App/ViewModels/GlossaryViewModel.cs:L163-167`)
-    - **What this is:** Exports the story's glossary to a `.csv` file when the user clicks Export CSV.
-    - **Problem:** `ExportCsv` passes `Entries` (the currently filtered `ObservableCollection`) instead of `_allEntries`. If the user has text in the search box when clicking Export, non-matching glossary entries are silently left out of the CSV file.
-    - **Fix:** Change `GlossaryService.ExportToCsv(filePath, Entries);` to `GlossaryService.ExportToCsv(filePath, _allEntries);`.
-    - **If we skip it:** Exporting a glossary while a search filter is typed exports an incomplete CSV.
-
-13. **`TranslationPipeline` allocates full strings and word arrays on every 3rd streamed token** (`src/NovelTranslator.Core/Translation/TranslationPipeline.cs:L160-180`)
-    - **What this is:** Computes `StreamedWordCount` and `CombinedTranslatedTextSoFar` while streaming tokens from the AI model.
-    - **Problem:** Every 3rd token (`tokenCount % 3 == 0`), line 162 calls `chunkSb.ToString().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length`, allocating a full copy of the chunk string and a `string[]` array hundreds of times per chunk.
-    - **Fix:** Throttle progress reports by elapsed time (e.g., at most once every 80 ms using `Environment.TickCount64`) or use `Chunker.EstimateWordCount` only when reporting.
-    - **If we skip it:** Extra short-lived string and array allocations occur during fast token streaming.
-
-14. **`FirstRunWindow` constructor triggers `OnBackendSelectionChanged` before loading saved `BaseUrl`** (`src/NovelTranslator.App/Views/FirstRunWindow.axaml.cs:L23-31`, `L42-51`)
-    - **What this is:** Initializes the First-Run Setup window with the current `AppSettings`.
-    - **Problem:** Setting `BackendComboBox.SelectedIndex` in the constructor fires `OnBackendSelectionChanged`, which overwrites `BaseUrlBox.Text` with a hardcoded default URL, and if a user later switches providers back and forth in the dialog, any custom port they typed is immediately overwritten.
-    - **Fix:** Only overwrite `BaseUrlBox.Text` in `OnBackendSelectionChanged` when the current text is empty or matches one of the three built-in default URLs (matching the pattern used in `SettingsViewModel.OnBackendIndexChanged`).
-    - **If we skip it:** Switching the provider dropdown in `FirstRunWindow` wipes out a custom Base URL that the user already typed.
+| # | Area | File | Core Issue |
+|---|---|---|---|
+| **9** | Auto-Glossary Cancel Status | `src/NovelTranslator.App/Views/MainWindow.axaml.cs` | Cancelling `AutoGlossaryDialog` still shows `"อัปเดตคำศัพท์เข้า Glossary เรียบร้อยแล้ว"` and never refreshes `Editor.ActiveGlossary` |
+| **10** | Glossary Duplicate Terms | `src/NovelTranslator.App/ViewModels/GlossaryViewModel.cs` | `SaveEntryAsync` allows inserting duplicate `SourceTerm` rows when `SelectedEntry == null` |
+| **11** | In-Place Paragraph Retranslate | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `RetranslateParagraphInPlaceAsync` passes `null` for `surroundingSourceContext` instead of the preceding paragraph |
+| **12** | Auto-Glossary Checkbox Sync | `src/NovelTranslator.App/ViewModels/AutoGlossaryViewModel.cs` | `ExtractedTerm.IsSelected` does not raise `PropertyChanged`, so `SelectAll` / `DeselectAll` does not visually update the DataGrid checkboxes |
 
 ---
 
-## Verdict
-- **4 nice-to-have items** for leaner code and smoother edge-case UX. See [audit-must-fix.md](file:///d:/Work/Other/ReadLator/audit-must-fix.md) (items 1–4) and [audit-should-fix.md](file:///d:/Work/Other/ReadLator/audit-should-fix.md) (items 5–10) for higher-priority findings.
+## 9. Cancelling `AutoGlossaryDialog` still shows `"อัปเดตคำศัพท์เข้า Glossary เรียบร้อยแล้ว"` and never refreshes `Editor.ActiveGlossary`
+**Location:**
+- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L141-L147)
 
-## Lean
-- `Lean: -350 lines, -0 dependencies possible` across all three files.
+- **What this is:** Opening the AI-extracted glossary review dialog (`RequestOpenAutoGlossary`).
+- **Problem:** In `MainWindow.axaml.cs`:
+  ```csharp
+  var autoVm = new AutoGlossaryViewModel(ViewModel.Repository, ViewModel.CurrentStoryId, terms);
+  var dialog = new AutoGlossaryDialog(autoVm);
+  await dialog.ShowDialog(this);
+  if (ViewModel != null)
+      ViewModel.SaveStatusText = "อัปเดตคำศัพท์เข้า Glossary เรียบร้อยแล้ว";
+  ```
+  Even if the user clicks **ยกเลิก** (`Cancel`) or closes the dialog without saving, the status bar still displays `"อัปเดตคำศัพท์เข้า Glossary เรียบร้อยแล้ว"`. Conversely, when the user *does* save terms, `ViewModel.Editor.RefreshActiveGlossaryAsync` is not called to update the sidebar's active glossary highlights.
+- **Fix:** Wire `autoVm.OnTermsAdded`:
+  ```csharp
+  bool added = false;
+  autoVm.OnTermsAdded = () => added = true;
+  var dialog = new AutoGlossaryDialog(autoVm);
+  await dialog.ShowDialog(this);
+  if (added && ViewModel != null)
+  {
+      ViewModel.SaveStatusText = "อัปเดตคำศัพท์เข้า Glossary เรียบร้อยแล้ว";
+      await ViewModel.Editor.RefreshActiveGlossaryAsync(ViewModel.CurrentStoryId, ViewModel.OriginalText);
+  }
+  ```
+- **If we skip it:** Cancelling Auto-Glossary shows a false success message, and saving new terms does not immediately appear in the active glossary sidebar.
 
-## Not checked
-- Dark/light/sepia theme contrast ratios across custom Avalonia controls.
+---
+
+## 10. `GlossaryViewModel.SaveEntryAsync` allows inserting duplicate `SourceTerm` entries
+**Location:**
+- [GlossaryViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/GlossaryViewModel.cs#L103-L118)
+
+- **What this is:** Adding a term manually in the Glossary management dialog.
+- **Problem:** While `AutoGlossaryViewModel` and CSV import deduplicate against existing terms, `GlossaryViewModel.SaveEntryAsync` inserts a brand-new row whenever `SelectedEntry == null`, even if `_allEntries` already has an entry with the exact same `SourceTerm` (case-insensitive).
+- **Fix:** When `SelectedEntry == null`, check `_allEntries.FirstOrDefault(e => e.SourceTerm.Equals(SourceTerm.Trim(), StringComparison.OrdinalIgnoreCase))` first—if a match exists, update that existing `GlossaryEntry` instead of inserting a duplicate row.
+- **If we skip it:** Users can accidentally add two conflicting translations for the same character name or term.
+
+---
+
+## 11. In-place paragraph retranslation (`RetranslateParagraphInPlaceAsync`) does not pass surrounding paragraph context
+**Location:**
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1027-L1035)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1097-L1101)
+
+- **What this is:** Re-translating a single paragraph via **แปลย่อหน้านี้ใหม่ ↻** in Paragraph Mode or the Retranslate Dialog.
+- **Problem:** `TranslationPipeline.RetranslateParagraphAsync` accepts `string? surroundingSourceContext = null` and includes it in the prompt (`บริบทรอบข้าง (อ้างอิงเท่านั้น ห้ามแปล):`), but both call sites in `MainViewModel.cs` pass `null`.
+- **Fix:** In `RetranslateParagraphInPlaceAsync(ParagraphPairItem? pair)`, pass the preceding paragraph's `SourceText` (e.g. `pair.Index > 1 && pair.Index - 2 < Editor.ParagraphPairs.Count ? Editor.ParagraphPairs[pair.Index - 2].SourceText : null`) as `surroundingSourceContext`.
+- **If we skip it:** Re-translating a short line of dialogue by itself has no context from the preceding paragraph to know who is speaking.
+
+---
+
+## 12. `AutoGlossaryDialog` `SelectAll` / `DeselectAll` does not notify the DataGrid checkboxes
+**Location:**
+- [AutoGlossaryViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/AutoGlossaryViewModel.cs#L40-L58)
+- [AutoGlossaryExtractor.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/AutoGlossaryExtractor.cs#L14-L21)
+
+- **What this is:** The **เลือกทั้งหมด** (`SelectAll`) and **ไม่เลือกเลย** (`DeselectAll`) buttons and selected-term counter in `AutoGlossaryDialog`.
+- **Problem:** `ExtractedTerm` is a plain class that does not implement `INotifyPropertyChanged`. When `SelectAll()` or `DeselectAll()` mutates `t.IsSelected = true/false`, Avalonia's `DataGridCheckBoxColumn` receives no property change notification, so the checkboxes on screen do not visually update. Similarly, clicking an individual checkbox in the grid does not trigger `UpdateStatus()` to update `"พบศัพท์ใหม่ X คำ (เลือก Y คำ)"`.
+- **Fix:** Implement `INotifyPropertyChanged` on `ExtractedTerm` for `IsSelected` (or wrap/subscribe in `AutoGlossaryViewModel` so changing `IsSelected` raises `PropertyChanged` and calls `UpdateStatus()`).
+- **If we skip it:** Clicking **เลือกทั้งหมด** / **ไม่เลือกเลย** updates the text counter at the bottom, but the checkboxes inside the DataGrid stay visually unchanged until scrolled.

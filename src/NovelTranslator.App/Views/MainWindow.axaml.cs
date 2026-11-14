@@ -49,10 +49,25 @@ public partial class MainWindow : Window
     private DateTime _mmbPressTimeUtc;
     private DispatcherTimer? _mmbScrollTimer;
 
+    private bool _isClosingAfterFlush;
+
     public MainWindow()
     {
         InitializeComponent();
         Loaded += MainWindow_Loaded;
+    }
+
+    protected override async void OnClosing(WindowClosingEventArgs e)
+    {
+        if (!_isClosingAfterFlush && ViewModel is { HasPendingAutoSave: true })
+        {
+            e.Cancel = true;
+            _isClosingAfterFlush = true;
+            await ViewModel.FlushPendingSaveAsync();
+            Close();
+            return;
+        }
+        base.OnClosing(e);
     }
 
     private void MainWindow_Loaded(object? sender, RoutedEventArgs e)

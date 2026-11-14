@@ -58,11 +58,28 @@ public partial class BrowserImportWindow : Window
             UpdateNavButtons();
         });
 
-        core.NavigationStarting += (_, _) => Dispatcher.UIThread.Post(() =>
+        core.NavigationStarting += (_, args) =>
         {
-            StatusText.Text = "กำลังโหลดหน้าเว็บ...";
-            UpdateNavButtons();
-        });
+            if (args.Uri != "about:blank" &&
+                (!Uri.TryCreate(args.Uri, UriKind.Absolute, out var uri) ||
+                 (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) ||
+                 NovelTranslator.Core.Export.WebChapterImportService.IsBlockedUri(uri)))
+            {
+                args.Cancel = true;
+                Dispatcher.UIThread.Post(() =>
+                {
+                    StatusText.Text = "บล็อกการนำทางไปยังที่อยู่ภายในหรือโปรโตคอลที่ไม่ปลอดภัย";
+                    UpdateNavButtons();
+                });
+                return;
+            }
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                StatusText.Text = "กำลังโหลดหน้าเว็บ...";
+                UpdateNavButtons();
+            });
+        };
 
         core.NavigationCompleted += (_, args) => Dispatcher.UIThread.Post(() =>
         {
