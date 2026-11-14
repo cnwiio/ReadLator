@@ -63,6 +63,11 @@ public class LlmClient : ILlmClient
         float temperature,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        if (string.IsNullOrWhiteSpace(_settings.ModelName))
+        {
+            throw new InvalidOperationException("กรุณาเลือกโมเดล AI ในหน้าตั้งค่าก่อนเริ่มแปล");
+        }
+
         string url = GetCompletionsUrl();
         var requestBody = new
         {
@@ -194,68 +199,6 @@ public class LlmClient : ILlmClient
         }
     }
 
-    public async Task PullOllamaModelAsync(
-        string modelName,
-        IProgress<string> progress,
-        CancellationToken cancellationToken = default)
-    {
-        // คำนวณ Ollama base URL จาก settings (ตัด /v1 ออก)
-        string baseUrl = _settings.BaseUrl.TrimEnd('/');
-        if (baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
-        {
-            baseUrl = baseUrl.Substring(0, baseUrl.Length - 3);
-        }
-        string pullUrl = $"{baseUrl}/api/pull";
-
-        var body = new { name = modelName, stream = true };
-        string json = JsonSerializer.Serialize(body);
-
-        using var request = new HttpRequestMessage(HttpMethod.Post, pullUrl)
-        {
-            Content = new StringContent(json, Encoding.UTF8, "application/json")
-        };
-
-        var response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            string err = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new Exception($"ไม่สามารถดาวน์โหลดโมเดลได้: {err}");
-        }
-
-        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        using var reader = new StreamReader(stream, Encoding.UTF8);
-
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            string? line = await reader.ReadLineAsync(cancellationToken);
-            if (line == null) break;
-            if (string.IsNullOrWhiteSpace(line)) continue;
-
-            try
-            {
-                using var doc = JsonDocument.Parse(line);
-                string status = doc.RootElement.TryGetProperty("status", out var s) ? s.GetString() ?? "" : "";
-                if (doc.RootElement.TryGetProperty("completed", out var comp) &&
-                    doc.RootElement.TryGetProperty("total", out var tot))
-                {
-                    long completedBytes = comp.GetInt64();
-                    long totalBytes = tot.GetInt64();
-                    double pct = totalBytes > 0 ? (double)completedBytes / totalBytes * 100 : 0;
-                    progress.Report($"{status} ({pct:F1}%)");
-                }
-                else
-                {
-                    progress.Report(status);
-                }
-            }
-            catch
-            {
-                // ข้ามข้อมูลที่ไม่ใช่ JSON
-            }
-        }
-    }
-
     private string FormatConnectionError(HttpRequestException ex)
     {
         if (_settings.Backend == BackendType.Ollama && _settings.BaseUrl.Contains("localhost:11434"))
@@ -267,49 +210,5 @@ public class LlmClient : ILlmClient
             return "ไม่พบ LM Studio ที่ localhost:1234 กรุณาเปิด Local Server ในโปรแกรม LM Studio ก่อนใช้งาน";
         }
         return $"ไม่สามารถเชื่อมต่อไปยัง AI Backend ที่ {_settings.BaseUrl} ได้: {ex.Message}";
-    }
-
-    public static async Task<(BackendType? DetectedBackend, string BaseUrl, string? FirstModelId)> ProbeLocalBackendsAsync(
-        HttpClient? httpClient = null,
-        CancellationToken cancellationToken = default)
-    {
-        bool ownsClient = httpClient == null;
-        var client = httpClient ?? new HttpClient { Timeout = TimeSpan.FromSeconds(2) };
-        try
-        {
-            var candidates = new[]
-            {
-                (Backend: BackendType.Ollama, BaseUrl: "http://localhost:11434/v1"),
-                (Backend: BackendType.LmStudio, BaseUrl: "http://localhost:1234/v1")
-            };
-
-            foreach (var candidate in candidates)
-            {
-                try
-                {
-                    var probeSettings = new AppSettings
-                    {
-                        Backend = candidate.Backend,
-                        BaseUrl = candidate.BaseUrl
-                    };
-                    var probeClient = new LlmClient(probeSettings, client);
-                    var models = await probeClient.GetModelsAsync(cancellationToken);
-                    return (candidate.Backend, candidate.BaseUrl, models.Count > 0 ? models[0].Id : null);
-                }
-                catch
-                {
-                    // ลอง backend ถัดไปเมื่อเชื่อมต่อไม่ได้หรือ timeout
-                }
-            }
-
-            return (null, string.Empty, null);
-        }
-        finally
-        {
-            if (ownsClient)
-            {
-                client.Dispose();
-            }
-        }
     }
 }

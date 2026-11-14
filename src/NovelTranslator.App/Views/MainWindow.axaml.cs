@@ -94,9 +94,7 @@ public partial class MainWindow : Window
 
         ViewModel.RequestOpenGlossary = async (story) =>
         {
-            var db = new NovelDatabase();
-            var repo = new NovelRepository(db);
-            var vm = new GlossaryViewModel(repo, story);
+            var vm = new GlossaryViewModel(ViewModel.Repository, story);
             var win = new GlossaryWindow(vm);
             await win.ShowDialog(this);
         };
@@ -111,16 +109,13 @@ public partial class MainWindow : Window
             ViewModel.ProgressText = "กำลังสแกนหาศัพท์ใหม่ในตอนนี้ด้วย AI...";
 
             List<NovelTranslator.Core.Glossary.ExtractedTerm> extracted;
-            NovelRepository repo;
             try
             {
-                var db = new NovelDatabase();
-                repo = new NovelRepository(db);
                 var settings = ViewModel.Settings;
                 var llm = new NovelTranslator.Core.Llm.LlmClient(settings);
                 var extractor = new NovelTranslator.Core.Glossary.GlossaryExtractor(llm, settings);
 
-                var existingGlossary = await repo.GetGlossaryByStoryAsync(story.Id);
+                var existingGlossary = await ViewModel.Repository.GetGlossaryByStoryAsync(story.Id);
                 extracted = await extractor.ExtractNewTermsAsync(chapter.OriginalText, chapter.TranslatedText ?? "", existingGlossary);
             }
             catch (Exception ex)
@@ -143,7 +138,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var autoVm = new AutoGlossaryViewModel(repo, story, extracted);
+            var autoVm = new AutoGlossaryViewModel(ViewModel.Repository, story, extracted);
             var dialog = new AutoGlossaryDialog { DataContext = autoVm };
             autoVm.RequestClose = () => dialog.Close();
             await dialog.ShowDialog(this);
@@ -153,9 +148,7 @@ public partial class MainWindow : Window
 
         ViewModel.RequestOpenSearchReplace = async (story, chapter) =>
         {
-            var db = new NovelDatabase();
-            var repo = new NovelRepository(db);
-            var vm = new SearchReplaceViewModel(repo, story, chapter);
+            var vm = new SearchReplaceViewModel(ViewModel.Repository, story, chapter);
             var win = new SearchReplaceWindow(vm);
             await win.ShowDialog(this);
         };
@@ -992,9 +985,7 @@ public partial class MainWindow : Window
 
         if (string.IsNullOrWhiteSpace(selected)) return;
 
-        var db = new NovelDatabase();
-        var repo = new NovelRepository(db);
-        var vm = new GlossaryViewModel(repo, ViewModel.SelectedStory, initialSource: selected.Trim());
+        var vm = new GlossaryViewModel(ViewModel.Repository, ViewModel.SelectedStory, initialSource: selected.Trim());
         var win = new GlossaryWindow(vm);
         await win.ShowDialog(this);
     }

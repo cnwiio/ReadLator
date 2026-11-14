@@ -222,18 +222,7 @@ public partial class SettingsViewModel : ObservableObject
         if (!_isInitializing) SaveSettings();
     }
 
-    public ObservableCollection<string> AvailableEditorFonts { get; } = new()
-    {
-        "Leelawadee UI",
-        "Tahoma",
-        "Cordia New",
-        "Angsana New",
-        "TH Sarabun New",
-        "Segoe UI",
-        "Microsoft Sans Serif",
-        "Consolas",
-        "Arial"
-    };
+    public ObservableCollection<string> AvailableEditorFonts { get; } = new(AppSettings.DefaultEditorFonts);
 
     [ObservableProperty]
     private bool _isApiKeyVisible;
@@ -244,9 +233,6 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private string _connectionStatus = string.Empty;
-
-    [ObservableProperty]
-    private string _pullProgress = string.Empty;
 
     [ObservableProperty]
     private bool _isBusy;
@@ -392,38 +378,6 @@ public partial class SettingsViewModel : ObservableObject
         catch (Exception ex)
         {
             ConnectionStatus = $"เกิดข้อผิดพลาด: {ex.Message}";
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    [RelayCommand]
-    public async Task PullModelAsync()
-    {
-        if (string.IsNullOrWhiteSpace(ModelName))
-        {
-            PullProgress = "กรุณาระบุชื่อโมเดลที่ต้องการดาวน์โหลดก่อน";
-            return;
-        }
-
-        IsBusy = true;
-        PullProgress = "กำลังเริ่มดาวน์โหลด...";
-
-        ApplyToSettings();
-        var client = new LlmClient(_settings);
-
-        try
-        {
-            var progress = new Progress<string>(msg => PullProgress = msg);
-            await client.PullOllamaModelAsync(ModelName, progress);
-            PullProgress = "ดาวน์โหลดโมเดลสำเร็จ!";
-            await TestConnectionAsync();
-        }
-        catch (Exception ex)
-        {
-            PullProgress = $"ดาวน์โหลดล้มเหลว: {ex.Message}";
         }
         finally
         {

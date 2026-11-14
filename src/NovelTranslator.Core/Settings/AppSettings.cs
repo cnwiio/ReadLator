@@ -32,6 +32,19 @@ public class ShortkeysSettings
 
 public class AppSettings
 {
+    public static IReadOnlyList<string> DefaultEditorFonts { get; } = new[]
+    {
+        "Leelawadee UI",
+        "Tahoma",
+        "Cordia New",
+        "Angsana New",
+        "TH Sarabun New",
+        "Segoe UI",
+        "Microsoft Sans Serif",
+        "Consolas",
+        "Arial"
+    };
+
     public BackendType Backend { get; set; } = BackendType.Ollama;
     public string BaseUrl { get; set; } = "http://localhost:11434/v1";
     public string ApiKey { get; set; } = string.Empty;

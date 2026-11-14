@@ -144,14 +144,8 @@
                                               Height="32" PlaceholderText="เลือกโมเดลที่ตรวจพบในระบบ" HorizontalAlignment="Stretch" />
 
                                     <TextBlock Grid.Row="1" Text="หรือระบุชื่อโมเดล" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                    <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, Auto">
-                                        <TextBox Text="{Binding ModelName}" Height="32" VerticalContentAlignment="Center" PlaceholderText="เช่น qwen2.5:7b, llama3.2, google/gemma-4-e4b" />
-                                        <Button Grid.Column="1" Content="ดึงโมเดล Ollama" Command="{Binding PullModelCommand}"
-                                                Height="32" FontSize="12" Margin="8,0,0,0" IsEnabled="{Binding !IsBusy}" />
-                                    </Grid>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ModelName}" Height="32" VerticalContentAlignment="Center" PlaceholderText="เช่น qwen2.5:7b, llama3.2, google/gemma-4-e4b" />
                                 </Grid>
-                                <TextBlock Text="{Binding PullProgress}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap"
-                                           IsVisible="{Binding PullProgress, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                             </StackPanel>
                         </Border>
 

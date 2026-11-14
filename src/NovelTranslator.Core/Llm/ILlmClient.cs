@@ -42,9 +42,4 @@ public interface ILlmClient
     Task<List<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default);
 
     Task<(bool Success, string Message)> TestConnectionAsync(CancellationToken cancellationToken = default);
-
-    Task PullOllamaModelAsync(
-        string modelName,
-        IProgress<string> progress,
-        CancellationToken cancellationToken = default);
 }

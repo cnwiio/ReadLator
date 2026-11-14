@@ -121,6 +121,18 @@ public class TranslationPipelineTests : IDisposable
         Assert.Equal(1, llm.CallCount);
     }
 
+    [Fact]
+    public async Task LlmClient_StreamChatAsync_ThrowsFriendlyErrorWhenModelNameEmpty()
+    {
+        var client = new LlmClient(new AppSettings { ModelName = "" });
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+        {
+            await foreach (var _ in client.StreamChatAsync(new[] { new ChatMessage { Role = "user", Content = "hi" } }, 0.3f))
+            {
+            }
+        });
+    }
+
     private sealed class QueueLlmClient : ILlmClient
     {
         private readonly Queue<string> _responses;
@@ -144,8 +156,5 @@ public class TranslationPipelineTests : IDisposable
 
         public Task<(bool Success, string Message)> TestConnectionAsync(CancellationToken cancellationToken = default)
             => Task.FromResult((true, "OK"));
-
-        public Task PullOllamaModelAsync(string modelName, IProgress<string> progress, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
     }
 }

@@ -23,6 +23,7 @@ public partial class MainViewModel : ObservableObject
     private readonly NovelRepository _repository;
     private readonly AppSettings _settings;
     public AppSettings Settings => _settings;
+    public NovelRepository Repository => _repository;
     private CancellationTokenSource? _translationCts;
     private readonly DispatcherTimer _autoSaveTimer;
     private DispatcherTimer? _fakeProgressTimer;
@@ -171,18 +172,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public ObservableCollection<string> AvailableEditorFonts { get; } = new()
-    {
-        "Leelawadee UI",
-        "Tahoma",
-        "Cordia New",
-        "Angsana New",
-        "TH Sarabun New",
-        "Segoe UI",
-        "Microsoft Sans Serif",
-        "Consolas",
-        "Arial"
-    };
+    public ObservableCollection<string> AvailableEditorFonts { get; } = new(AppSettings.DefaultEditorFonts);
 
     [ObservableProperty]
     private string _editorFontFamily = "Tahoma";

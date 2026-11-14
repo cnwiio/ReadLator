@@ -105,9 +105,6 @@ public class NewFeaturesTests : IDisposable
         public Task<List<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
             => Task.FromResult(new List<ModelInfo>());
 
-        public Task PullOllamaModelAsync(string modelName, IProgress<string>? progress = null, CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
-
         public async IAsyncEnumerable<string> StreamChatAsync(
             IEnumerable<ChatMessage> messages,
             float temperature = 0.3f,

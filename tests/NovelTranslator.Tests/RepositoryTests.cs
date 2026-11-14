@@ -345,8 +345,5 @@ public class RepositoryTests : IDisposable
 
         public Task<(bool Success, string Message)> TestConnectionAsync(System.Threading.CancellationToken cancellationToken = default)
             => Task.FromResult((true, "OK"));
-
-        public Task PullOllamaModelAsync(string modelName, IProgress<string> progress, System.Threading.CancellationToken cancellationToken = default)
-            => Task.CompletedTask;
     }
 }

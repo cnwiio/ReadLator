@@ -40,7 +40,7 @@ public class ResourceBenchmarkTests : IDisposable
     }
 
     [Fact]
-    public void Benchmark_AllComponents_ResourceUsageComparison()
+    public async Task Benchmark_AllComponents_ResourceUsageComparison()
     {
         _output.WriteLine("==========================================================================================");
         _output.WriteLine("                     NOVEL TRANSLATOR COMPONENT RESOURCE PROFILING                       ");
@@ -169,7 +169,7 @@ public class ResourceBenchmarkTests : IDisposable
 
         // 6. Database Operations: 50 Chapter Insertions
         var benchStory = new Story { Title = "Bench Story", SourceLang = "en", TargetLang = "th" };
-        long benchStoryId = _repository.InsertStoryAsync(benchStory).GetAwaiter().GetResult();
+        long benchStoryId = await _repository.InsertStoryAsync(benchStory);
 
         Profile("6a. DB: 50 Chapter Inserts (Individual)", () =>
         {

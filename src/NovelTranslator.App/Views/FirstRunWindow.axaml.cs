@@ -1,10 +1,6 @@
-using System;
-using System.Diagnostics;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Media;
-using NovelTranslator.Core.Llm;
 using NovelTranslator.Core.Settings;
 
 namespace NovelTranslator.App.Views;
@@ -23,6 +19,16 @@ public partial class FirstRunWindow : Window
     {
         _settings = settings;
         InitializeComponent();
+
+        BackendComboBox.SelectedIndex = settings.Backend switch
+        {
+            BackendType.LmStudio => 1,
+            BackendType.Custom => 2,
+            _ => 0
+        };
+        if (!string.IsNullOrWhiteSpace(settings.BaseUrl)) BaseUrlBox.Text = settings.BaseUrl;
+        if (!string.IsNullOrWhiteSpace(settings.ApiKey)) ApiKeyBox.Text = settings.ApiKey;
+        if (!string.IsNullOrWhiteSpace(settings.ModelName)) ModelBox.Text = settings.ModelName;
     }
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -33,71 +39,44 @@ public partial class FirstRunWindow : Window
         }
     }
 
-    private void OnOpenOllamaClicked(object? sender, RoutedEventArgs e) => OpenUrl("https://ollama.com/download");
-
-    private void OnOpenLmStudioClicked(object? sender, RoutedEventArgs e) => OpenUrl("https://lmstudio.ai");
-
-    private static void OpenUrl(string url)
+    private void OnBackendSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        try
+        if (BaseUrlBox == null) return;
+        BaseUrlBox.Text = BackendComboBox.SelectedIndex switch
         {
-            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
-        }
-        catch
-        {
-            // ข้ามหากระบบไม่มีเบราว์เซอร์เริ่มต้น
-        }
+            1 => "http://localhost:1234/v1",
+            2 => "https://api.openai.com/v1",
+            _ => "http://localhost:11434/v1"
+        };
     }
 
-    private async void OnRecheckClicked(object? sender, RoutedEventArgs e)
+    private void OnSaveClicked(object? sender, RoutedEventArgs e)
     {
-        RecheckButton.IsEnabled = false;
-        ProbeStatusText.IsVisible = true;
-        ProbeStatusText.Foreground = Brush.Parse("#6B7280");
-        ProbeStatusText.Text = "กำลังตรวจสอบ Ollama และ LM Studio...";
-
-        try
+        string baseUrl = BaseUrlBox.Text?.Trim() ?? string.Empty;
+        string apiKey = ApiKeyBox.Text?.Trim() ?? string.Empty;
+        string model = ModelBox.Text?.Trim() ?? string.Empty;
+        var backend = BackendComboBox.SelectedIndex switch
         {
-            var (backend, baseUrl, firstModel) = await LlmClient.ProbeLocalBackendsAsync();
-            if (backend.HasValue)
-            {
-                _settings.Backend = backend.Value;
-                _settings.BaseUrl = baseUrl;
-                if (!string.IsNullOrWhiteSpace(firstModel))
-                {
-                    _settings.ModelName = firstModel;
-                }
-                _settings.HasCompletedFirstRun = true;
-                _settings.Save();
-                SettingsUpdated = true;
-                Close();
-                return;
-            }
+            1 => BackendType.LmStudio,
+            2 => BackendType.Custom,
+            _ => BackendType.Ollama
+        };
 
-            ProbeStatusText.Foreground = Brush.Parse("#EF4444");
-            ProbeStatusText.Text = "ยังไม่พบ Ollama (localhost:11434) หรือ LM Studio (localhost:1234) กรุณาเปิดโปรแกรมก่อนแล้วลองอีกครั้ง";
-        }
-        finally
+        if (string.IsNullOrWhiteSpace(baseUrl))
         {
-            RecheckButton.IsEnabled = true;
-        }
-    }
-
-    private void OnSaveCloudClicked(object? sender, RoutedEventArgs e)
-    {
-        string baseUrl = CloudBaseUrlBox.Text?.Trim() ?? string.Empty;
-        string apiKey = CloudApiKeyBox.Text?.Trim() ?? string.Empty;
-        string model = CloudModelBox.Text?.Trim() ?? string.Empty;
-
-        if (string.IsNullOrWhiteSpace(baseUrl) || string.IsNullOrWhiteSpace(apiKey))
-        {
-            ProbeStatusText.IsVisible = true;
-            ProbeStatusText.Foreground = Brush.Parse("#EF4444");
-            ProbeStatusText.Text = "กรุณากรอก Base URL และ API Key สำหรับ Cloud AI";
+            StatusText.IsVisible = true;
+            StatusText.Text = "กรุณากรอก Base URL";
             return;
         }
 
-        _settings.Backend = BackendType.Custom;
+        if (backend == BackendType.Custom && string.IsNullOrWhiteSpace(apiKey))
+        {
+            StatusText.IsVisible = true;
+            StatusText.Text = "กรุณากรอก API Key สำหรับ Cloud AI";
+            return;
+        }
+
+        _settings.Backend = backend;
         _settings.BaseUrl = baseUrl;
         _settings.ApiKey = apiKey;
         if (!string.IsNullOrWhiteSpace(model))
