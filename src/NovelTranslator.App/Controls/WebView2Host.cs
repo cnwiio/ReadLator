@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Platform;
 using Microsoft.Web.WebView2.Core;
+using NovelTranslator.Core.Export;
 
 namespace NovelTranslator.App.Controls;
 
@@ -52,6 +53,7 @@ public sealed class WebView2Host : NativeControlHost
 
         try
         {
+            IntPtr handle = _hostHandle.Handle;
             _tempUserDataDir = Path.Combine(
                 Path.GetTempPath(),
                 "NovelTranslator_WebView2_" + Guid.NewGuid().ToString("N"));
@@ -60,10 +62,24 @@ public sealed class WebView2Host : NativeControlHost
                 browserExecutableFolder: null,
                 userDataFolder: _tempUserDataDir);
 
+            if (_hostHandle == null)
+            {
+                CleanupTempUserData();
+                return;
+            }
+
             var options = env.CreateCoreWebView2ControllerOptions();
             options.IsInPrivateModeEnabled = true;
 
-            _controller = await env.CreateCoreWebView2ControllerAsync(_hostHandle.Handle, options);
+            var controller = await env.CreateCoreWebView2ControllerAsync(handle, options);
+            if (_hostHandle == null)
+            {
+                controller.Close();
+                CleanupTempUserData();
+                return;
+            }
+
+            _controller = controller;
             UpdateBounds(Bounds.Size);
             _controller.IsVisible = true;
 
@@ -91,7 +107,9 @@ public sealed class WebView2Host : NativeControlHost
             target = "https://" + target;
         }
 
-        if (Uri.TryCreate(target, UriKind.Absolute, out var uri))
+        if (Uri.TryCreate(target, UriKind.Absolute, out var uri) &&
+            (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps) &&
+            !WebChapterImportService.IsBlockedUri(uri))
         {
             _controller.CoreWebView2.Navigate(uri.ToString());
         }

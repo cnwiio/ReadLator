@@ -57,17 +57,23 @@ public static class WebChapterImportService
                     $"เว็บไซต์ตอบกลับรหัส {(int)response.StatusCode} ({response.ReasonPhrase}) — เว็บอาจมีระบบป้องกันบอท กรุณาคัดลอกข้อความมาวางเอง");
             }
 
+            string? finalUriCheck = response.RequestMessage?.RequestUri?.ToString();
+            if (response.RequestMessage?.RequestUri is { } finalUri && IsBlockedUri(finalUri))
+            {
+                throw new ArgumentException("ไม่อนุญาตให้ดึงข้อมูลจากเครือข่ายภายในหรือ localhost", nameof(url));
+            }
+
             string? mediaType = response.Content.Headers.ContentType?.MediaType;
             if (!string.IsNullOrWhiteSpace(mediaType) &&
                 !mediaType.StartsWith("text/", StringComparison.OrdinalIgnoreCase) &&
                 !mediaType.Equals("application/xhtml+xml", StringComparison.OrdinalIgnoreCase))
             {
-                throw new InvalidOperationException($"URL ไม่ใช่หน้าเว็บ HTML หรือข้อความ ({mediaType})");
+                throw new NotSupportedException($"URL ไม่ใช่หน้าเว็บ HTML หรือข้อความ ({mediaType})");
             }
 
             if (response.Content.Headers.ContentLength > MaxResponseBytes)
             {
-                throw new InvalidOperationException("หน้าเว็บมีขนาดใหญ่เกิน 5 MB");
+                throw new NotSupportedException("หน้าเว็บมีขนาดใหญ่เกิน 5 MB");
             }
 
             html = await ReadContentWithLimitAsync(response.Content, MaxResponseBytes, cancellationToken);
@@ -123,7 +129,7 @@ public static class WebChapterImportService
         return Regex.Replace(joined, @"\n{3,}", "\n\n").Trim();
     }
 
-    private static bool IsBlockedUri(Uri uri)
+    public static bool IsBlockedUri(Uri uri)
     {
         if (uri.IsLoopback || uri.Host.Equals("localhost", StringComparison.OrdinalIgnoreCase))
         {
@@ -171,7 +177,7 @@ public static class WebChapterImportService
             totalRead += read;
             if (totalRead > maxBytes)
             {
-                throw new InvalidOperationException("หน้าเว็บมีขนาดใหญ่เกิน 5 MB");
+                throw new NotSupportedException("หน้าเว็บมีขนาดใหญ่เกิน 5 MB");
             }
 
             ms.Write(buffer, 0, read);

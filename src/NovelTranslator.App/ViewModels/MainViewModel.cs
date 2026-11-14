@@ -1151,6 +1151,7 @@ public partial class MainViewModel : ObservableObject
         bool ok = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบเรื่อง \"{SelectedStory.Title}\" รวมทั้งทุกตอนในเรื่องนี้?");
         if (!ok) return;
 
+        _autoSaveTimer.Stop();
         await _repository.DeleteStoryAsync(SelectedStory.Id);
         Stories.Remove(SelectedStory);
         SelectedStory = Stories.FirstOrDefault();
@@ -1396,6 +1397,7 @@ public partial class MainViewModel : ObservableObject
             bool ok = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอนที่เลือกทั้งหมด {checkedChapters.Count} ตอน?");
             if (!ok) return;
 
+            _autoSaveTimer.Stop();
             var snapshots = new List<DeletedChapterSnapshot>();
             foreach (var ch in checkedChapters)
             {
@@ -1424,6 +1426,7 @@ public partial class MainViewModel : ObservableObject
         bool singleOk = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอน \"{target.Title}\"?");
         if (!singleOk) return;
 
+        _autoSaveTimer.Stop();
         var targetChunks = await _repository.GetChunksByChapterAsync(target.Id);
         _lastDeletedChapters = new List<DeletedChapterSnapshot>
         {
@@ -1809,6 +1812,12 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedStory != null && RequestOpenSearchReplace != null)
         {
+            if (SelectedChapter != null && _autoSaveTimer.IsEnabled)
+            {
+                _autoSaveTimer.Stop();
+                await SaveCurrentChapterInternalAsync(isAutoSave: true);
+            }
+
             await RequestOpenSearchReplace(SelectedStory, SelectedChapter);
             // โหลดเนื้อหาใหม่หากมีการแทนที่
             if (SelectedChapter != null)
@@ -1816,7 +1825,21 @@ public partial class MainViewModel : ObservableObject
                 var refreshed = await _repository.GetChapterByIdAsync(SelectedChapter.Id);
                 if (refreshed != null)
                 {
-                    TranslatedText = refreshed.TranslatedText;
+                    SelectedChapter.TranslatedText = refreshed.TranslatedText;
+                    SelectedChapter.Status = refreshed.Status;
+                    _isLoadingChapter = true;
+                    try
+                    {
+                        TranslatedText = refreshed.TranslatedText;
+                        if (Editor.IsParagraphMode)
+                        {
+                            Editor.SyncParagraphPairs(OriginalText, TranslatedText);
+                        }
+                    }
+                    finally
+                    {
+                        _isLoadingChapter = false;
+                    }
                 }
             }
         }
@@ -1843,6 +1866,7 @@ public partial class MainViewModel : ObservableObject
         bool ok = await RequestConfirmDialog("การกู้คืนจะเขียนทับข้อมูลปัจจุบันทั้งหมด คุณต้องการดำเนินการต่อหรือไม่?");
         if (!ok) return;
 
+        _autoSaveTimer.Stop();
         _database.RestoreFrom(files[0]);
         await LoadInitialDataAsync();
         SaveStatusText = "กู้คืนฐานข้อมูลแล้ว";

@@ -80,7 +80,7 @@ public class WebChapterImportServiceTests
             return resp;
         }));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
             WebChapterImportService.FetchReadableChapterAsync("https://example.com/file.bin", client));
     }
 
@@ -98,7 +98,7 @@ public class WebChapterImportServiceTests
             return resp;
         }));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
             WebChapterImportService.FetchReadableChapterAsync("https://example.com/huge", client));
     }
 
@@ -118,8 +118,25 @@ public class WebChapterImportServiceTests
             return resp;
         }));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
             WebChapterImportService.FetchReadableChapterAsync("https://example.com/stream", client));
+    }
+
+    [Fact]
+    public async Task FetchReadableChapterAsync_RejectsRedirectToLoopback()
+    {
+        using var client = new HttpClient(new StubHttpMessageHandler(req =>
+        {
+            var resp = new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                RequestMessage = new HttpRequestMessage(HttpMethod.Get, "http://localhost:11434/api/tags"),
+                Content = new StringContent("<html><body>hi</body></html>", Encoding.UTF8, "text/html")
+            };
+            return resp;
+        }));
+
+        await Assert.ThrowsAsync<ArgumentException>(() =>
+            WebChapterImportService.FetchReadableChapterAsync("https://example.com/redirect", client));
     }
 
     private sealed class StubHttpMessageHandler : HttpMessageHandler

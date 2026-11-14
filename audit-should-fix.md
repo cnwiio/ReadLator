@@ -1,71 +1,57 @@
-# Ponytail Audit — Should Fix (v4.6)
+# Ponytail Audit — Should Fix (v5.2)
 
 ## What this repo does
-**NovelTranslator (ReadLator)** is a Windows desktop app (.NET 10, Avalonia UI 11, SQLite with FTS5, OpenAI-compatible SSE streaming) for translating foreign web novels into Thai using local or cloud LLMs, with smart chunking, glossary injection, paragraph alignment, and EPUB/TXT/URL import & export.
-- **Assumed load**: Single desktop user, 1–50 stories, 100–3,000 chapters per story (~5,000–20,000 chars per chapter), glossaries of 100–2,000 entries, and streaming LLM responses over slow or unstable connections.
-- **Graphify state**: 889 nodes, 2,044 edges, 42 communities (`graphify-out/graph.json`, updated at `f73d1f4` v4.6).
+**NovelTranslator (ReadLator)** is a Windows desktop app (.NET 10, Avalonia UI, SQLite with FTS5, WebView2, OpenAI-compatible SSE streaming) that translates foreign web novels into Thai using local or cloud AI models. It supports smart chunking, glossary injection, paragraph-by-paragraph editing, and importing chapters from `.txt` files, URLs (Reader Mode), or an incognito WebView2 browser.
+- **Assumed load**: Single desktop user, 1–50 stories, 100–3,000 chapters per story (~5,000–20,000 characters per chapter), glossaries of 100–2,000 terms, and streaming AI responses over slow or unstable connections.
+- **Graphify state**: 1,039 nodes, 2,494 edges, 60 communities (`graphify-out/graph.json`, updated at `8b4e793` v5.2).
 
 ---
 
-## Should fix (missing tests on risky code, slowness, dead code)
+## Should fix (risky code without a test, real slowness, duplication, dead code)
 
-### 1. `src/NovelTranslator.Core/Translation/TranslationPipeline.cs:26-235` — Core `TranslationPipeline` has zero unit tests
-- **What this is**: The central translation orchestrator handling chunk splitting, glossary filtering, streaming token callbacks, 2-attempt validation retry, cross-chapter context carry-over, and partial resume.
-- **Problem**: `tests/NovelTranslator.Tests/` tests `SmartChunker`, `OutputValidator`, `GlossaryService`, and `NovelRepository`, but has zero tests for `TranslationPipeline`.
-- **Fix**: Add `TranslationPipelineTests.cs` using a fake `ILlmClient` to cover: (a) multi-chunk translation assembly, (b) retry when attempt 1 fails `OutputValidator`, and (c) resuming a partially completed chapter.
-- **If we skip it**: Regressions in chunk assembly or retry handling are only caught manually in the GUI.
+5. **Importing a URL into a brand-new story leaves the English placeholder in Chapter 1 and creates Chapter 2** (`src/NovelTranslator.App/ViewModels/MainViewModel.cs:L614-625`, `L1714-1747`)
+   - **What this is:** When a new story has no chapters, `OnSelectedStoryChanged` creates `"ตอนที่ 1"` with placeholder text `"Paste your English story here...\n\nThen click the 'แปล' button!"`.
+   - **Problem:** `ImportWebChapterAsync` only reuses the current chapter when `string.IsNullOrWhiteSpace(OriginalText)` is true (`L1718`), and there is no unit test for `ImportWebChapterAsync`. Because Chapter 1 contains the starter placeholder text, importing a chapter from a URL into a new story leaves dummy Chapter 1 untouched and inserts the imported chapter as Chapter 2.
+   - **Fix:** Extract a constant `DefaultPlaceholderText = "Paste your English story here...\n\nThen click the 'แปล' button!"` and treat `OriginalText.Trim() == DefaultPlaceholderText` the same as empty in `ImportWebChapterAsync`, plus add a test in `NewFeaturesTests.cs`.
+   - **If we skip it:** Every new story that imports its first chapter from a URL ends up with a junk `"ตอนที่ 1"` ahead of the real first chapter.
 
-### 2. `src/NovelTranslator.App/ViewModels/SearchReplaceViewModel.cs:62-84` — Search preview loads all chapters before checking FTS5 scope and undercounts matches
-- **What this is**: Searches for text across the current chapter (`ScopeIndex == 0`) or entire story (`ScopeIndex == 1`).
-- **Problem**:
-  1. Line 64 calls `await _repository.GetChaptersByStoryAsync(_storyId)` unconditionally, loading every chapter's full text into memory before line 66 checks `if (ScopeIndex == 1 && !UseRegex && !MatchCase)` and returns early from `SearchFtsAsync`.
-  2. `Chapters_Fts` stores one row per chapter, so `ftsResults.Count` reports the number of *chapters* containing the term rather than the total number of occurrences (`พบทั้งหมด {ftsResults.Count} จุด`), whereas `ApplyReplaceAsync` replaces every occurrence inside each matched chapter.
-- **Fix**: Move `GetChaptersByStoryAsync` below the FTS5 check, or use FTS5 to filter matching `ChapterId`s and then scan those matched chapters with `BuildRegex()` so every individual match and accurate count is shown.
-- **If we skip it**: Whole-story search still loads the entire story table into RAM on every preview and tells the user "1 match found" when a chapter actually has 20 matches that will be replaced.
+6. **Whole-story Search Preview caps FTS5 at 100 chapters and loads all chapters into RAM when 0 matches are found** (`src/NovelTranslator.App/ViewModels/SearchReplaceViewModel.cs:L68-84`, `L118-120`)
+   - **What this is:** Searches all chapters in a story (`ScopeIndex == 1`) before running Search & Replace.
+   - **Problem:** Line 70 calls `_repository.SearchFtsAsync(_story.Id, SearchText, searchTranslated: true, limit: 100)`, which caps preview results at 100 chapters even though `ApplyReplaceAsync` (`L120`) modifies all chapters in the story. Worse, when `ftsResults.Count == 0` (the search word does not exist anywhere), lines 80–83 fall back to `GetChaptersByStoryAsync(_story.Id)` and load every chapter in the novel into memory anyway, even though `SearchFtsAsync` already ran a `LIKE` fallback query internally.
+   - **Fix:** Remove the `else { chapters = await _repository.GetChaptersByStoryAsync(_story.Id); }` branch (use an empty list when `ftsResults.Count == 0`) and increase `limit` in `SearchFtsAsync` to `10000`.
+   - **If we skip it:** Searching for a word with 0 matches needlessly reads the entire novel from SQLite into memory, and novels with >100 matching chapters preview fewer chapters than `ApplyReplaceAsync` actually overwrites.
 
-### 3. `src/NovelTranslator.App/ViewModels/MainViewModel.cs:811-820` — Fake progress timer clamps total progress to 45%, jumping backwards on chunk 2+
-- **What this is**: Smoothly increments `ProgressPercentage` while waiting for the first tokens of a chunk.
-- **Problem**: Line 817 computes `Math.Min(45.0, basePercent + (spanPercent * (currentSubProgress / 100.0)))`. Because `45.0` caps the **total** percentage instead of the per-chunk sub-progress, as soon as chunk 2 of 2 starts (`basePercent = 50.0`), the progress bar jumps backwards from `50%` to `45%`.
-- **Fix**: Cap only the sub-progress fraction: `ProgressPercentage = Math.Min(99.0, basePercent + (spanPercent * (Math.Min(45.0, currentSubProgress) / 100.0)));`.
-- **If we skip it**: The progress bar visibly jumps backwards to 45% on every chunk after the halfway mark.
+7. **Dead class: `TranslationQueueViewModel` is instantiated on `MainViewModel` but never used** (`src/NovelTranslator.App/ViewModels/TranslationQueueViewModel.cs:L1-34`, `src/NovelTranslator.App/ViewModels/MainViewModel.cs:L35`)
+   - **What this is:** A sub-ViewModel holding duplicate translation progress and error properties (`IsTranslating`, `ProgressText`, `HasError`).
+   - **Problem:** `MainViewModel` creates `public TranslationQueueViewModel Queue { get; } = new();` at line 35, but neither `MainViewModel.cs` nor any `.axaml` file ever reads or writes `Queue`.
+   - **Fix:** Delete `src/NovelTranslator.App/ViewModels/TranslationQueueViewModel.cs` and remove `public TranslationQueueViewModel Queue { get; } = new();` from `MainViewModel.cs`.
+   - **If we skip it:** 35 lines of dead code duplicate state that actually lives on `MainViewModel`.
 
-### 4. `src/NovelTranslator.App/ViewModels/MainViewModel.cs:1519` — Batch `.txt` import sorts filenames asciibetically instead of naturally
-- **What this is**: Imports multiple `.txt` files at once (`ImportMultipleTextAsync`).
-- **Problem**: `files.OrderBy(f => f)` uses standard string sorting, so `Chapter 10.txt` is imported before `Chapter 2.txt`.
-- **Fix**: Sort with natural numeric padding: `files.OrderBy(f => Regex.Replace(Path.GetFileName(f), @"\d+", m => m.Value.PadLeft(10, '0')))`.
-- **If we skip it**: Importing a folder of unpadded chapter files (`1.txt`..`20.txt`) inserts chapters in the wrong sequence.
+8. **Dead members on `EditorViewModel`: `SelectedParagraphPair` and `QuickUpdateGlossaryEntryAsync`** (`src/NovelTranslator.App/ViewModels/EditorViewModel.cs:L25-26`, `L141-146`)
+   - **What this is:** Unused property and method on `EditorViewModel`.
+   - **Problem:** Grep across the entire repository shows zero callers or XAML bindings for `SelectedParagraphPair` or `QuickUpdateGlossaryEntryAsync`.
+   - **Fix:** Delete lines 25–26 and 141–146 from `EditorViewModel.cs`.
+   - **If we skip it:** Dead code stays in `EditorViewModel` with no callers or tests.
 
-### 5. `src/NovelTranslator.App/ViewModels/MainViewModel.cs:956-972,1011-1038` — Single-paragraph retranslation cannot be cancelled
-- **What this is**: `RetranslateParagraphAsync` and `RetranslateParagraphInPlaceAsync`.
-- **Problem**: Both pass `cancellationToken: default` to `pipeline.RetranslateParagraphAsync(...)` instead of creating and wiring `_translationCts`.
-- **Fix**: Initialize `_translationCts = new CancellationTokenSource()`, pass `_translationCts.Token`, and handle `OperationCanceledException` just like `StartTranslationAsync`.
-- **If we skip it**: If a local or cloud LLM hangs during single-paragraph retranslation, the Stop button cannot cancel it.
+9. **`Microsoft.Web.WebView2` transitive WPF reference causes 22 lines of `MSB3277` `WindowsBase` warnings on every build, and `Models\` folder is empty** (`src/NovelTranslator.App/NovelTranslator.App.csproj:L11`, `L26`)
+   - **What this is:** NuGet package references and folder items in `NovelTranslator.App.csproj`.
+   - **Problem:** `Microsoft.Web.WebView2` injects `Microsoft.Web.WebView2.Wpf.dll` and `Microsoft.Web.WebView2.WinForms.dll` via its `.targets` file, causing MSBuild warning `MSB3277: Found conflicts between different versions of "WindowsBase"` on both `NovelTranslator.App` and `NovelTranslator.Tests`, even though the app only uses `Microsoft.Web.WebView2.Core`. Also, `<Folder Include="Models\" />` at line 11 points to an empty folder.
+   - **Fix:** Remove `<Folder Include="Models\" />` (and the empty `src/NovelTranslator.App/Models` directory), and exclude the unused `Microsoft.Web.WebView2.Wpf` and `Microsoft.Web.WebView2.WinForms` references in `NovelTranslator.App.csproj`.
+   - **If we skip it:** Every build prints 22 lines of `MSB3277` assembly conflict warnings and copies unused WPF/WinForms wrapper DLLs into the output folder.
 
-### 6. `src/NovelTranslator.Core/Glossary/GlossaryExtractor.cs:100` — Greedy bracket regex fails when AI appends bracketed notes
-- **What this is**: Extracts the JSON array `[...]` from the LLM response during Auto-Glossary scanning.
-- **Problem**: `Regex.Match(jsonText, @"\[.*\]", RegexOptions.Singleline)` greedily matches from the first `[` to the very last `]` in the response. If the LLM adds a trailing note such as `[หมายเหตุ: ...]`, `match.Value` spans across invalid trailing text and `JsonDocument.Parse` throws `JsonException`, which is caught and silently returns an empty list.
-- **Fix**: Strip markdown fences first, then find the matching closing `]` for the first `[` by tracking bracket depth outside quotes.
-- **If we skip it**: Auto-Glossary scanning silently returns 0 terms whenever the model adds bracketed commentary after the JSON array.
-
-### 7. `src/NovelTranslator.Core/Glossary/GlossaryService.cs:27-37` — `else if (IndexOf)` defeats `\b` word-boundary check in `FilterForChunk`
-- **What this is**: Filters story glossary entries to only those appearing in the current source chunk.
-- **Problem**: Line 31 checks `Regex.IsMatch(chunkText, pattern, RegexOptions.IgnoreCase)` with `\b...\b`, but when that returns `false` (for example, glossary term `"cat"` tested against `"caterpillar"`), the `else if (chunkText.IndexOf(entry.SourceTerm, StringComparison.OrdinalIgnoreCase) >= 0)` branch at line 35 immediately runs and adds `"cat"` anyway. It also compiles a new `Regex` per glossary term per chunk for nothing.
-- **Fix**: Only use `\b` regex when `entry.SourceTerm` starts and ends with ASCII word characters (without falling back to `IndexOf`), and use `IndexOf` directly for CJK/non-ASCII or symbol-bounded terms.
-- **If we skip it**: Short English glossary terms match inside unrelated longer words and bloat the LLM system prompt with irrelevant glossary rules.
-
-### 8. `src/NovelTranslator.Core/Data/NovelRepository.cs:330-366`, `src/NovelTranslator.Core/Export/TextExportImportService.cs:49-64`, `src/NovelTranslator.App/ViewLocator.cs:1-38`, `src/NovelTranslator.App/ViewModels/ViewModelBase.cs:1-7` — Dead methods and unused template classes
-- **What this is**: Unreferenced methods and scaffold files identified by Graphify and call-graph search.
-- **Problem**:
-  - `NovelRepository.FindSimilarTranslationAsync` has no production callers (only called in a test).
-  - `TextExportImportService.ExportStoryMultipleFilesAsync` has zero callers anywhere.
-  - `ViewModelBase` has zero subclasses (all ViewModels inherit `ObservableObject` directly), so `ViewLocator.Match(object? data) => data is ViewModelBase` always returns `false`.
-- **Fix**: Delete `ExportStoryMultipleFilesAsync`, `ViewLocator.cs`, `ViewModelBase.cs` (and `<local:ViewLocator />` in `App.axaml`), and remove `FindSimilarTranslationAsync` unless translation-memory reuse is actively planned.
-- **If we skip it**: ~100 lines of dead code and reflection trimmer warnings stay in the build.
+10. **Installer scripts hardcode version `5.0.0` instead of `5.2.0`** (`installer/build-velopack.ps1:L2`, `installer/build-velopack.sh:L4`, `installer/setup-inno.iss:L6`)
+    - **What this is:** Build and packaging scripts for Velopack and Inno Setup installers.
+    - **Problem:** `NovelTranslator.App.csproj` is at version `5.2.0`, but all three installer scripts hardcode `5.0.0` as their default version. Running `./installer/build-velopack.ps1` without arguments packages the `5.2.0` binary as `5.0.0`.
+    - **Fix:** Read `<Version>` directly from `src/NovelTranslator.App/NovelTranslator.App.csproj` in `build-velopack.ps1` and `build-velopack.sh` when no version argument is supplied, and update `MyAppVersion` in `setup-inno.iss` to `"5.2.0"`.
+    - **If we skip it:** Default installer builds produce packages stamped with the wrong version number (`5.0.0`), breaking Velopack update comparisons.
 
 ---
 
 ## Verdict
-- **8 should-fix items** covering test gaps, search/progress/import edge cases, and dead code cleanup. See [audit-must-fix.md](file:///d:/Work/Other/ReadLator/audit-must-fix.md) and [audit-nice-to-have.md](file:///d:/Work/Other/ReadLator/audit-nice-to-have.md) for the other priority tiers.
+- **6 should-fix items** covering starter-chapter URL import, FTS5 0-match fallback, dead ViewModel code, WebView2 `MSB3277` build warnings, and installer version drift. See [audit-must-fix.md](file:///d:/Work/Other/ReadLator/audit-must-fix.md) (items 1–4) and [audit-nice-to-have.md](file:///d:/Work/Other/ReadLator/audit-nice-to-have.md) (items 11–14).
+
+## Lean
+- `Lean: -350 lines, -0 dependencies possible` across all three files.
 
 ## Not checked
 - Real-world latency differences across external LLM API providers.
