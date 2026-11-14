@@ -153,6 +153,13 @@ public partial class MainWindow : Window
             await win.ShowDialog(this);
         };
 
+        ViewModel.RequestOpenBrowserImport = (initialUrl) =>
+        {
+            var win = new BrowserImportWindow(initialUrl, result => ViewModel.ImportWebChapterAsync(result));
+            win.Show(this);
+            return Task.CompletedTask;
+        };
+
         ViewModel.RequestSaveFileDialog = async (suggestedFileName) =>
         {
             var topLevel = GetTopLevel(this);

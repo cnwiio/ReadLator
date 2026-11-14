@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -316,6 +317,7 @@ public partial class MainViewModel : ObservableObject
     public Func<string, Task<bool>>? RequestConfirmDialog { get; set; }
     public Func<string, Task>? RequestCopyToClipboard { get; set; }
     public Action<string>? RequestShowErrorDialog { get; set; }
+    public Func<string?, Task>? RequestOpenBrowserImport { get; set; }
     public Action? RequestSelectAllChapters { get; set; }
     public Action? RequestClearChapterSelection { get; set; }
     public Action? RequestToggleFullScreen { get; set; }
@@ -1686,41 +1688,61 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var result = await WebChapterImportService.FetchReadableChapterAsync(url);
-
-            if (SelectedChapter != null && string.IsNullOrWhiteSpace(OriginalText))
-            {
-                if (string.IsNullOrWhiteSpace(SelectedChapter.Title) || SelectedChapter.Title.StartsWith("ตอนที่ "))
-                {
-                    SelectedChapter.Title = result.Title;
-                    ChapterTitleEdit = result.Title;
-                }
-                OriginalText = result.Content;
-                await SaveCurrentChapterInternalAsync(isAutoSave: false);
-                SaveStatusText = $"ดึงเนื้อหา \"{SelectedChapter.Title}\" เรียบร้อย";
-            }
-            else
-            {
-                int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
-                var chap = new Chapter
-                {
-                    StoryId = SelectedStory.Id,
-                    Ordinal = nextOrdinal,
-                    Title = result.Title,
-                    OriginalText = result.Content,
-                    TranslatedText = string.Empty,
-                    Status = ChapterStatus.NotTranslated
-                };
-                chap.Id = await _repository.InsertChapterAsync(chap);
-                Chapters.Add(chap);
-                RefreshFilteredChapters();
-                SelectedChapter = chap;
-                SaveStatusText = $"นำเข้า \"{chap.Title}\" จาก URL แล้ว";
-            }
+            await ImportWebChapterAsync(result);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TimeoutException or InvalidOperationException
+                                   && RequestOpenBrowserImport != null)
+        {
+            // เว็บบล็อก HttpClient หรือโหลดด้วย JS — สลับไปเปิดเบราว์เซอร์ WebView ให้อัตโนมัติ
+            SaveStatusText = "เว็บอาจป้องกันบอท กำลังเปิดเบราว์เซอร์...";
+            await RequestOpenBrowserImport(url);
         }
         catch (Exception ex)
         {
             SaveStatusText = "นำเข้าจาก URL ไม่สำเร็จ";
             RequestShowErrorDialog?.Invoke(ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    public async Task OpenBrowserImportAsync()
+    {
+        if (SelectedStory == null || RequestOpenBrowserImport == null) return;
+        await RequestOpenBrowserImport(null);
+    }
+
+    public async Task ImportWebChapterAsync(WebChapterResult result)
+    {
+        if (SelectedStory == null) return;
+
+        if (SelectedChapter != null && string.IsNullOrWhiteSpace(OriginalText))
+        {
+            if (string.IsNullOrWhiteSpace(SelectedChapter.Title) || SelectedChapter.Title.StartsWith("ตอนที่ "))
+            {
+                SelectedChapter.Title = result.Title;
+                ChapterTitleEdit = result.Title;
+            }
+            OriginalText = result.Content;
+            await SaveCurrentChapterInternalAsync(isAutoSave: false);
+            SaveStatusText = $"ดึงเนื้อหา \"{SelectedChapter.Title}\" เรียบร้อย";
+        }
+        else
+        {
+            int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
+            var chap = new Chapter
+            {
+                StoryId = SelectedStory.Id,
+                Ordinal = nextOrdinal,
+                Title = result.Title,
+                OriginalText = result.Content,
+                TranslatedText = string.Empty,
+                Status = ChapterStatus.NotTranslated
+            };
+            chap.Id = await _repository.InsertChapterAsync(chap);
+            Chapters.Add(chap);
+            RefreshFilteredChapters();
+            SelectedChapter = chap;
+            SaveStatusText = $"นำเข้า \"{chap.Title}\" จากเว็บแล้ว";
         }
     }
 
