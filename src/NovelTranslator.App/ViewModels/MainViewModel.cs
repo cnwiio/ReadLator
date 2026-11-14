@@ -1110,11 +1110,15 @@ public partial class MainViewModel : ObservableObject
         var llmClient = new LlmClient(_settings);
         var pipeline = new TranslationPipeline(_repository, llmClient, _settings);
 
+        string? surroundingContext = pair.Index > 1 && pair.Index - 2 < Editor.ParagraphPairs.Count
+            ? Editor.ParagraphPairs[pair.Index - 2].SourceText
+            : null;
+
         try
         {
             string newTranslation = await Task.Run(async () =>
             {
-                return await pipeline.RetranslateParagraphAsync(SelectedStory, pair.SourceText, null, ct);
+                return await pipeline.RetranslateParagraphAsync(SelectedStory, pair.SourceText, surroundingContext, ct);
             }, ct);
 
             if (!string.IsNullOrWhiteSpace(newTranslation))

@@ -102,19 +102,34 @@ public partial class GlossaryViewModel : ObservableObject
 
         if (SelectedEntry == null)
         {
-            // เพิ่มใหม่
-            var entry = new GlossaryEntry
+            string trimmedSource = SourceTerm.Trim();
+            var existing = _allEntries.FirstOrDefault(e => e.SourceTerm.Equals(trimmedSource, StringComparison.OrdinalIgnoreCase));
+            if (existing != null)
             {
-                StoryId = _story.Id,
-                SourceTerm = SourceTerm.Trim(),
-                TargetTerm = TargetTerm.Trim(),
-                Category = cat,
-                Notes = Notes.Trim()
-            };
-            entry.Id = await _repository.InsertGlossaryEntryAsync(entry);
-            _allEntries.Add(entry);
-            ApplyFilter();
-            StatusMessage = $"เพิ่มคำว่า \"{entry.SourceTerm}\" สำเร็จ";
+                existing.SourceTerm = trimmedSource;
+                existing.TargetTerm = TargetTerm.Trim();
+                existing.Category = cat;
+                existing.Notes = Notes.Trim();
+                await _repository.UpdateGlossaryEntryAsync(existing);
+                ApplyFilter();
+                StatusMessage = $"อัปเดตคำว่า \"{existing.SourceTerm}\" สำเร็จ";
+            }
+            else
+            {
+                // เพิ่มใหม่
+                var entry = new GlossaryEntry
+                {
+                    StoryId = _story.Id,
+                    SourceTerm = trimmedSource,
+                    TargetTerm = TargetTerm.Trim(),
+                    Category = cat,
+                    Notes = Notes.Trim()
+                };
+                entry.Id = await _repository.InsertGlossaryEntryAsync(entry);
+                _allEntries.Add(entry);
+                ApplyFilter();
+                StatusMessage = $"เพิ่มคำว่า \"{entry.SourceTerm}\" สำเร็จ";
+            }
         }
         else
         {

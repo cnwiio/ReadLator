@@ -40,6 +40,19 @@ public class GlossaryServiceTests
     }
 
     [Fact]
+    public void ExtractedTerm_IsSelected_RaisesPropertyChanged()
+    {
+        var term = new ExtractedTerm { SourceTerm = "Mana", TargetTerm = "มานา" };
+        string? changedProp = null;
+        term.PropertyChanged += (_, e) => changedProp = e.PropertyName;
+
+        term.IsSelected = false;
+
+        Assert.Equal(nameof(ExtractedTerm.IsSelected), changedProp);
+        Assert.False(term.IsSelected);
+    }
+
+    [Fact]
     public void ExportAndImportCsv_RoundTrip_PreservesData()
     {
         string tempFile = Path.Combine(Path.GetTempPath(), $"test_glossary_{Path.GetRandomFileName()}.csv");

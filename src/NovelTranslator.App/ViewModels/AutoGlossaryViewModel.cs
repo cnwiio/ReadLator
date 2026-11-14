@@ -31,6 +31,13 @@ public partial class AutoGlossaryViewModel : ObservableObject
 
         foreach (var term in terms)
         {
+            term.PropertyChanged += (_, e) =>
+            {
+                if (e.PropertyName == nameof(ExtractedTerm.IsSelected))
+                {
+                    UpdateStatus();
+                }
+            };
             ExtractedTerms.Add(term);
         }
 

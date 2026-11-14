@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -11,13 +12,29 @@ using NovelTranslator.Core.Settings;
 
 namespace NovelTranslator.Core.Glossary;
 
-public class ExtractedTerm
+public class ExtractedTerm : INotifyPropertyChanged
 {
+    private bool _isSelected = true;
+
     public string SourceTerm { get; set; } = string.Empty;
     public string TargetTerm { get; set; } = string.Empty;
     public GlossaryCategory Category { get; set; } = GlossaryCategory.Term;
     public string Notes { get; set; } = string.Empty;
-    public bool IsSelected { get; set; } = true;
+
+    public bool IsSelected
+    {
+        get => _isSelected;
+        set
+        {
+            if (_isSelected != value)
+            {
+                _isSelected = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsSelected)));
+            }
+        }
+    }
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 }
 
 public class GlossaryExtractor

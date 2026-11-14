@@ -154,11 +154,21 @@ public partial class MainWindow : Window
             }
 
             var autoVm = new AutoGlossaryViewModel(ViewModel.Repository, story, extracted);
+            bool added = false;
+            autoVm.OnTermsAdded = () => added = true;
             var dialog = new AutoGlossaryDialog { DataContext = autoVm };
             autoVm.RequestClose = () => dialog.Close();
             await dialog.ShowDialog(this);
-            ViewModel.ProgressText = "สแกนศัพท์เสร็จสิ้น";
-            ViewModel.SaveStatusText = "อัปเดตคำศัพท์เข้า Glossary เรียบร้อยแล้ว";
+            if (added)
+            {
+                ViewModel.ProgressText = "สแกนศัพท์เสร็จสิ้น";
+                ViewModel.SaveStatusText = "อัปเดตคำศัพท์เข้า Glossary เรียบร้อยแล้ว";
+                await ViewModel.Editor.RefreshActiveGlossaryAsync(story.Id, ViewModel.OriginalText);
+            }
+            else
+            {
+                ViewModel.ProgressText = "ยกเลิกการเพิ่มคำศัพท์";
+            }
         };
 
         ViewModel.RequestOpenSearchReplace = async (story, chapter) =>
