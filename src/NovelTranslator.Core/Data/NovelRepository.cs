@@ -81,10 +81,10 @@ public class NovelRepository
         const string sql = @"
             SELECT * FROM Chapters
             WHERE StoryId = @StoryId 
-              AND Ordinal < @CurrentOrdinal 
+              AND Ordinal = @CurrentOrdinal - 1 
+              AND Status IN (2, 3)
               AND TranslatedText IS NOT NULL 
               AND TRIM(TranslatedText) != ''
-            ORDER BY Ordinal DESC
             LIMIT 1";
         return await conn.QueryFirstOrDefaultAsync<Chapter>(sql, new { StoryId = storyId, CurrentOrdinal = currentOrdinal });
     }

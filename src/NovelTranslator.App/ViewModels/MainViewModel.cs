@@ -832,7 +832,9 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedStory == null || IsTranslating) return;
 
-        var pending = Chapters.Where(c => c.Status == ChapterStatus.NotTranslated && !string.IsNullOrWhiteSpace(c.OriginalText)).ToList();
+        var pending = Chapters.Where(c => c.Status == ChapterStatus.NotTranslated
+                                       && !string.IsNullOrWhiteSpace(c.OriginalText)
+                                       && c.OriginalText.Trim() != DefaultPlaceholderText).ToList();
         if (pending.Count == 0)
         {
             ProgressText = "แปลครบทุกตอนแล้ว";
@@ -1683,16 +1685,55 @@ public partial class MainViewModel : ObservableObject
         var files = await RequestOpenFilesDialog("เลือกไฟล์ .txt ต้นฉบับ");
         if (files == null || files.Length == 0) return;
 
-        int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
-        foreach (var path in files.OrderBy(f => System.Text.RegularExpressions.Regex.Replace(System.IO.Path.GetFileName(f), @"\d+", m => m.Value.PadLeft(10, '0'))))
+        var sortedFiles = files
+            .OrderBy(f => System.Text.RegularExpressions.Regex.Replace(System.IO.Path.GetFileName(f), @"\d+", m => m.Value.PadLeft(10, '0')))
+            .ToList();
+
+        Chapter? firstImported = null;
+        int startIndex = 0;
+
+        if (Chapters.Count == 1 &&
+            (string.IsNullOrWhiteSpace(Chapters[0].OriginalText) || Chapters[0].OriginalText.Trim() == DefaultPlaceholderText) &&
+            string.IsNullOrWhiteSpace(Chapters[0].TranslatedText))
         {
-            var chap = await TextExportImportService.ImportChapterFromFileAsync(path, SelectedStory.Id, nextOrdinal++);
+            var starter = Chapters[0];
+            var importedFirst = await TextExportImportService.ImportChapterFromFileAsync(sortedFiles[0], SelectedStory.Id, starter.Ordinal);
+            starter.Title = importedFirst.Title;
+            starter.OriginalText = importedFirst.OriginalText;
+            starter.Status = ChapterStatus.NotTranslated;
+            await _repository.UpdateChapterAsync(starter);
+            if (ReferenceEquals(SelectedChapter, starter))
+            {
+                _isLoadingChapter = true;
+                try
+                {
+                    ChapterTitleEdit = starter.Title;
+                    OriginalText = starter.OriginalText;
+                }
+                finally
+                {
+                    _isLoadingChapter = false;
+                }
+            }
+            firstImported = starter;
+            startIndex = 1;
+        }
+
+        int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
+        for (int i = startIndex; i < sortedFiles.Count; i++)
+        {
+            var chap = await TextExportImportService.ImportChapterFromFileAsync(sortedFiles[i], SelectedStory.Id, nextOrdinal++);
             chap.Id = await _repository.InsertChapterAsync(chap);
             Chapters.Add(chap);
+            firstImported ??= chap;
         }
 
         RefreshFilteredChapters();
-        SaveStatusText = $"นำเข้าแล้ว {files.Length} ตอน";
+        if (firstImported != null)
+        {
+            SelectedChapter = firstImported;
+        }
+        SaveStatusText = $"นำเข้าแล้ว {sortedFiles.Count} ตอน";
     }
 
     [RelayCommand]
@@ -1867,6 +1908,12 @@ public partial class MainViewModel : ObservableObject
         if (RequestSaveFileDialog == null) return;
         string? path = await RequestSaveFileDialog($"novels_backup_{DateTime.Now:yyyyMMdd_HHmm}.db");
         if (string.IsNullOrEmpty(path)) return;
+
+        if (SelectedChapter != null)
+        {
+            _autoSaveTimer.Stop();
+            await SaveCurrentChapterInternalAsync(isAutoSave: true);
+        }
 
         _database.BackupTo(path);
         SaveStatusText = "สำรองฐานข้อมูลแล้ว";

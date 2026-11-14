@@ -150,9 +150,9 @@ public class RepositoryTests : IDisposable
         var story = new Story { Title = "Cross Chapter Test" };
         long storyId = await _repository.InsertStoryAsync(story);
 
-        var ch1 = new Chapter { StoryId = storyId, Ordinal = 1, Title = "ตอนที่ 1", OriginalText = "P1", TranslatedText = "บทแปล 1" };
+        var ch1 = new Chapter { StoryId = storyId, Ordinal = 1, Title = "ตอนที่ 1", OriginalText = "P1", TranslatedText = "บทแปล 1", Status = ChapterStatus.Translated };
         var ch2 = new Chapter { StoryId = storyId, Ordinal = 2, Title = "ตอนที่ 2", OriginalText = "P2", TranslatedText = "" }; // ยังไม่แปล
-        var ch3 = new Chapter { StoryId = storyId, Ordinal = 3, Title = "ตอนที่ 3", OriginalText = "P3", TranslatedText = "บทแปล 3" };
+        var ch3 = new Chapter { StoryId = storyId, Ordinal = 3, Title = "ตอนที่ 3", OriginalText = "P3", TranslatedText = "บทแปล 3", Status = ChapterStatus.Translated };
         var ch4 = new Chapter { StoryId = storyId, Ordinal = 4, Title = "ตอนที่ 4", OriginalText = "P4", TranslatedText = "" }; // ตอนปัจจุบัน
 
         ch1.Id = await _repository.InsertChapterAsync(ch1);
@@ -324,6 +324,29 @@ public class RepositoryTests : IDisposable
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
             if (File.Exists(backupPath)) File.Delete(backupPath);
         }
+    }
+
+    [Fact]
+    public async Task GetPreviousTranslatedChapterAsync_OnlyReturnsImmediatelyPrecedingCompletedChapter()
+    {
+        var story = new Story { Title = "Context Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var ch1 = new Chapter { StoryId = story.Id, Ordinal = 1, Title = "Ch 1", OriginalText = "A", TranslatedText = "ก", Status = ChapterStatus.Translated };
+        var ch2 = new Chapter { StoryId = story.Id, Ordinal = 2, Title = "Ch 2", OriginalText = "B", TranslatedText = "ข (ยังไม่จบ)", Status = ChapterStatus.Translating };
+        await _repository.InsertChapterAsync(ch1);
+        await _repository.InsertChapterAsync(ch2);
+
+        // Ch 2 is Translating (incomplete) and Ch 1 is non-adjacent to Ch 3 -> must return null
+        var prevForCh3 = await _repository.GetPreviousTranslatedChapterAsync(story.Id, 3);
+        Assert.Null(prevForCh3);
+
+        // Once Ch 2 is Translated, Ch 3 gets Ch 2
+        ch2.Status = ChapterStatus.Translated;
+        await _repository.UpdateChapterAsync(ch2);
+        prevForCh3 = await _repository.GetPreviousTranslatedChapterAsync(story.Id, 3);
+        Assert.NotNull(prevForCh3);
+        Assert.Equal(2, prevForCh3.Ordinal);
     }
 
     private sealed class FakeLlmClient : NovelTranslator.Core.Llm.ILlmClient

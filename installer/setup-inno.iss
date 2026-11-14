@@ -3,7 +3,7 @@
 ; 2. เปิดไฟล์นี้ด้วยโปรแกรม Inno Setup Compiler แล้วกด Compile (หรือรัน iscc installer\setup-inno.iss)
 
 #define MyAppName "NovelTranslator"
-#define MyAppVersion "5.6.0"
+#define MyAppVersion "5.7.0"
 #define MyAppExeName "NovelTranslator.App.exe"
 
 [Setup]
