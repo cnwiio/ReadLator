@@ -8,6 +8,7 @@ namespace NovelTranslator.App.Views;
 public partial class FirstRunWindow : Window
 {
     private readonly AppSettings _settings;
+    private readonly bool _isInitializing;
 
     public bool SettingsUpdated { get; private set; }
 
@@ -18,6 +19,7 @@ public partial class FirstRunWindow : Window
     public FirstRunWindow(AppSettings settings)
     {
         _settings = settings;
+        _isInitializing = true;
         InitializeComponent();
 
         BackendComboBox.SelectedIndex = settings.Backend switch
@@ -29,6 +31,7 @@ public partial class FirstRunWindow : Window
         if (!string.IsNullOrWhiteSpace(settings.BaseUrl)) BaseUrlBox.Text = settings.BaseUrl;
         if (!string.IsNullOrWhiteSpace(settings.ApiKey)) ApiKeyBox.Text = settings.ApiKey;
         if (!string.IsNullOrWhiteSpace(settings.ModelName)) ModelBox.Text = settings.ModelName;
+        _isInitializing = false;
     }
 
     private void OnTitleBarPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -41,7 +44,16 @@ public partial class FirstRunWindow : Window
 
     private void OnBackendSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (BaseUrlBox == null) return;
+        if (_isInitializing || BaseUrlBox == null) return;
+
+        string current = BaseUrlBox.Text?.Trim() ?? string.Empty;
+        bool isDefaultUrl = string.IsNullOrEmpty(current)
+            || current == "http://localhost:11434/v1"
+            || current == "http://localhost:1234/v1"
+            || current == "https://api.openai.com/v1";
+
+        if (!isDefaultUrl) return;
+
         BaseUrlBox.Text = BackendComboBox.SelectedIndex switch
         {
             1 => "http://localhost:1234/v1",

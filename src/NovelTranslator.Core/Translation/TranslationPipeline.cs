@@ -152,27 +152,29 @@ public class TranslationPipeline
                     StatusMessage = $"กำลังแปลส่วนที่ {i + 1}/{chunks.Count} (รอบที่ {attempt})..."
                 });
 
-                int tokenCount = 0;
+                long lastReportTick = Environment.TickCount64 - 80;
                 await foreach (var delta in _llmClient.StreamChatAsync(messages, _settings.Temperature, cancellationToken))
                 {
                     chunkSb.Append(delta);
-                    tokenCount++;
-                    if (tokenCount % 3 == 0 || delta.Contains('\n'))
+                    long now = Environment.TickCount64;
+                    if (now - lastReportTick >= 80 || delta.Contains('\n'))
                     {
-                        int wordCount = chunkSb.ToString().Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
+                        lastReportTick = now;
+                        string currentText = chunkSb.ToString();
+                        int wordCount = Chunker.EstimateWordCount(currentText);
                         string liveCombined = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord
                             ? (preserveExistingTranslation
-                                ? (chunkSb.Length == 0
+                                ? (currentText.Length == 0
                                     ? chapter.TranslatedText
-                                    : string.Join("\n\n", appendedParts.Concat(new[] { OutputValidator.CleanPreamble(chunkSb.ToString()) })))
-                                : BuildCombinedTextSoFar(chunks, i, chunkSb.ToString()))
+                                    : string.Join("\n\n", appendedParts.Concat(new[] { OutputValidator.CleanPreamble(currentText) })))
+                                : BuildCombinedTextSoFar(chunks, i, currentText))
                             : string.Empty;
                         progress.Report(new TranslationProgressInfo
                         {
                             CurrentChunkIndex = i + 1,
                             TotalChunks = chunks.Count,
                             StreamingDelta = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord ? delta : string.Empty,
-                            FullCurrentChunkText = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord ? chunkSb.ToString() : string.Empty,
+                            FullCurrentChunkText = _settings.TranslationAppearance == TranslationAppearanceMode.WordByWord ? currentText : string.Empty,
                             CombinedTranslatedTextSoFar = liveCombined,
                             StreamedWordCount = wordCount,
                             StatusMessage = $"กำลังแปลส่วนที่ {i + 1}/{chunks.Count} (สตรีมสด {wordCount} คำ)..."

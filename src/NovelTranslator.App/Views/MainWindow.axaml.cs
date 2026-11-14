@@ -196,18 +196,6 @@ public partial class MainWindow : Window
         ViewModel.RequestPromptDialog = async (title, message) =>
         {
             string? result = null;
-            var dialog = new Window
-            {
-                Title = title,
-                Width = 440,
-                SizeToContent = SizeToContent.Height,
-                CanResize = false,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                WindowDecorations = Avalonia.Controls.WindowDecorations.None,
-                Background = Brushes.Transparent,
-                TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent }
-            };
-
             var inputTextBox = new TextBox
             {
                 Text = "",
@@ -216,37 +204,11 @@ public partial class MainWindow : Window
                 Margin = new Thickness(0, 0, 0, 16),
                 CornerRadius = new CornerRadius(6)
             };
+            var okBtn = new Button { Content = "ตกลง", Classes = { "primary" }, Height = 32, Padding = new Thickness(18, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            var cancelBtn = new Button { Content = "ยกเลิก", Classes = { "ghost" }, Height = 32, Padding = new Thickness(14, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            var messageBlock = new TextBlock { Text = message, FontSize = 13, Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) };
 
-            var okBtn = new Button
-            {
-                Content = "ตกลง",
-                Classes = { "primary" },
-                Height = 32,
-                Padding = new Thickness(18, 0),
-                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
-
-            var cancelBtn = new Button
-            {
-                Content = "ยกเลิก",
-                Classes = { "ghost" },
-                Height = 32,
-                Padding = new Thickness(14, 0),
-                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
-
-            var closeBtn = new Button
-            {
-                Content = "✕",
-                Classes = { "ghost" },
-                Width = 28,
-                Height = 28,
-                Padding = new Thickness(0),
-                FontSize = 12,
-                Foreground = GetThemeBrush("TextMutedBrush", "#85858B"),
-                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
+            var dialog = CreateModalDialog(title, 440, null, false, new Control[] { messageBlock, inputTextBox }, cancelBtn, okBtn);
 
             void Submit()
             {
@@ -259,72 +221,11 @@ public partial class MainWindow : Window
 
             okBtn.Click += (_, _) => Submit();
             cancelBtn.Click += (_, _) => dialog.Close();
-            closeBtn.Click += (_, _) => dialog.Close();
-
             inputTextBox.KeyDown += (_, ke) =>
             {
                 if (ke.Key == Key.Enter) { ke.Handled = true; Submit(); }
                 else if (ke.Key == Key.Escape) { ke.Handled = true; dialog.Close(); }
             };
-            dialog.KeyDown += (_, ke) =>
-            {
-                if (ke.Key == Key.Escape) { ke.Handled = true; dialog.Close(); }
-            };
-
-            var headerGrid = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("*, Auto"),
-                Margin = new Thickness(0, 0, 0, 10)
-            };
-            var titleBlock = new TextBlock
-            {
-                Text = title,
-                FontSize = 15,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = GetThemeBrush("TextPrimaryBrush", "#EDEDED"),
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
-            Grid.SetColumn(titleBlock, 0);
-            Grid.SetColumn(closeBtn, 1);
-            headerGrid.Children.Add(titleBlock);
-            headerGrid.Children.Add(closeBtn);
-            headerGrid.PointerPressed += (_, pe) => dialog.BeginMoveDrag(pe);
-
-            var messageBlock = new TextBlock
-            {
-                Text = message,
-                FontSize = 13,
-                Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 0, 0, 10)
-            };
-
-            var actionsPanel = new StackPanel
-            {
-                Orientation = Avalonia.Layout.Orientation.Horizontal,
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-                Spacing = 8,
-                Children = { cancelBtn, okBtn }
-            };
-
-            var contentStack = new StackPanel
-            {
-                Children = { headerGrid, messageBlock, inputTextBox, actionsPanel }
-            };
-
-            var card = new Border
-            {
-                Background = GetThemeBrush("CardBgBrush", "#19191B"),
-                BorderBrush = GetThemeBrush("BorderSubtleBrush", "#27272A"),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
-                BoxShadow = new BoxShadows(new BoxShadow { OffsetX = 0, OffsetY = 8, Blur = 24, Spread = 0, Color = Color.Parse("#60000000") }),
-                Margin = new Thickness(12),
-                Padding = new Thickness(20),
-                Child = contentStack
-            };
-
-            dialog.Content = card;
             dialog.Loaded += (_, _) => { inputTextBox.Focus(); };
             await dialog.ShowDialog(this);
             return result;
@@ -333,113 +234,18 @@ public partial class MainWindow : Window
         ViewModel.RequestConfirmDialog = async (message) =>
         {
             bool result = false;
-            var dialog = new Window
-            {
-                Title = "ยืนยันการดำเนินการ",
-                Width = 420,
-                SizeToContent = SizeToContent.Height,
-                CanResize = false,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                WindowDecorations = Avalonia.Controls.WindowDecorations.None,
-                Background = Brushes.Transparent,
-                TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent }
-            };
+            var okBtn = new Button { Content = "ยืนยัน", Classes = { "primary" }, Height = 32, Padding = new Thickness(18, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            var cancelBtn = new Button { Content = "ยกเลิก", Classes = { "ghost" }, Height = 32, Padding = new Thickness(14, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            var messageBlock = new TextBlock { Text = message, FontSize = 13, Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 20) };
 
-            var okBtn = new Button
-            {
-                Content = "ยืนยัน",
-                Classes = { "primary" },
-                Height = 32,
-                Padding = new Thickness(18, 0),
-                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
-
-            var cancelBtn = new Button
-            {
-                Content = "ยกเลิก",
-                Classes = { "ghost" },
-                Height = 32,
-                Padding = new Thickness(14, 0),
-                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
-
-            var closeBtn = new Button
-            {
-                Content = "✕",
-                Classes = { "ghost" },
-                Width = 28,
-                Height = 28,
-                Padding = new Thickness(0),
-                FontSize = 12,
-                Foreground = GetThemeBrush("TextMutedBrush", "#85858B"),
-                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
+            var dialog = CreateModalDialog("ยืนยันการดำเนินการ", 420, null, false, new Control[] { messageBlock }, cancelBtn, okBtn);
 
             okBtn.Click += (_, _) => { result = true; dialog.Close(); };
-            cancelBtn.Click += (_, _) => { result = false; dialog.Close(); };
-            closeBtn.Click += (_, _) => { result = false; dialog.Close(); };
-
+            cancelBtn.Click += (_, _) => dialog.Close();
             dialog.KeyDown += (_, ke) =>
             {
                 if (ke.Key == Key.Enter) { ke.Handled = true; result = true; dialog.Close(); }
-                else if (ke.Key == Key.Escape) { ke.Handled = true; result = false; dialog.Close(); }
             };
-
-            var headerGrid = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("*, Auto"),
-                Margin = new Thickness(0, 0, 0, 10)
-            };
-            var titleBlock = new TextBlock
-            {
-                Text = "ยืนยันการดำเนินการ",
-                FontSize = 15,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = GetThemeBrush("TextPrimaryBrush", "#EDEDED"),
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
-            Grid.SetColumn(titleBlock, 0);
-            Grid.SetColumn(closeBtn, 1);
-            headerGrid.Children.Add(titleBlock);
-            headerGrid.Children.Add(closeBtn);
-            headerGrid.PointerPressed += (_, pe) => dialog.BeginMoveDrag(pe);
-
-            var messageBlock = new TextBlock
-            {
-                Text = message,
-                FontSize = 13,
-                Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"),
-                TextWrapping = TextWrapping.Wrap,
-                Margin = new Thickness(0, 0, 0, 20)
-            };
-
-            var actionsPanel = new StackPanel
-            {
-                Orientation = Avalonia.Layout.Orientation.Horizontal,
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-                Spacing = 8,
-                Children = { cancelBtn, okBtn }
-            };
-
-            var contentStack = new StackPanel
-            {
-                Children = { headerGrid, messageBlock, actionsPanel }
-            };
-
-            var card = new Border
-            {
-                Background = GetThemeBrush("CardBgBrush", "#19191B"),
-                BorderBrush = GetThemeBrush("BorderSubtleBrush", "#27272A"),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
-                BoxShadow = new BoxShadows(new BoxShadow { OffsetX = 0, OffsetY = 8, Blur = 24, Spread = 0, Color = Color.Parse("#60000000") }),
-                Margin = new Thickness(12),
-                Padding = new Thickness(20),
-                Child = contentStack
-            };
-
-            dialog.Content = card;
             await dialog.ShowDialog(this);
             return result;
         };
@@ -455,46 +261,9 @@ public partial class MainWindow : Window
 
         ViewModel.RequestShowErrorDialog = (errorDetails) =>
         {
-            var dialog = new Window
-            {
-                Title = "รายละเอียดข้อผิดพลาด",
-                Width = 640,
-                Height = 440,
-                CanResize = true,
-                WindowStartupLocation = WindowStartupLocation.CenterOwner,
-                WindowDecorations = Avalonia.Controls.WindowDecorations.None,
-                Background = Brushes.Transparent,
-                TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent }
-            };
-
-            var closeBtn = new Button
-            {
-                Content = "ปิด",
-                Classes = { "primary" },
-                Height = 32,
-                Padding = new Thickness(20, 0),
-                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
-            var copyBtn = new Button
-            {
-                Content = "คัดลอกข้อผิดพลาด",
-                Height = 32,
-                Padding = new Thickness(14, 0),
-                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
-            var topCloseBtn = new Button
-            {
-                Content = "✕",
-                Classes = { "ghost" },
-                Width = 28,
-                Height = 28,
-                Padding = new Thickness(0),
-                FontSize = 12,
-                Foreground = GetThemeBrush("TextMutedBrush", "#85858B"),
-                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
-                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
-
+            var closeBtn = new Button { Content = "ปิด", Classes = { "primary" }, Height = 32, Padding = new Thickness(20, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            var copyBtn = new Button { Content = "คัดลอกข้อผิดพลาด", Height = 32, Padding = new Thickness(14, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            var subheadBlock = new TextBlock { Text = "เกิดข้อผิดพลาดในการแปลหรือเชื่อมต่อ AI กรุณาตรวจสอบรายละเอียดด้านล่าง", FontSize = 12, Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"), Margin = new Thickness(0, 0, 0, 12) };
             var tb = new TextBox
             {
                 Text = errorDetails,
@@ -510,57 +279,7 @@ public partial class MainWindow : Window
                 Background = GetThemeBrush("EditorBgBrush", "#19191B")
             };
 
-            var headerGrid = new Grid
-            {
-                ColumnDefinitions = new ColumnDefinitions("*, Auto"),
-                Margin = new Thickness(0, 0, 0, 6)
-            };
-            var titleBlock = new TextBlock
-            {
-                Text = "รายละเอียดข้อผิดพลาด",
-                FontSize = 15,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = GetThemeBrush("TextPrimaryBrush", "#EDEDED"),
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
-            Grid.SetColumn(titleBlock, 0);
-            Grid.SetColumn(topCloseBtn, 1);
-            headerGrid.Children.Add(titleBlock);
-            headerGrid.Children.Add(topCloseBtn);
-            headerGrid.PointerPressed += (_, pe) => dialog.BeginMoveDrag(pe);
-
-            var subheadBlock = new TextBlock
-            {
-                Text = "เกิดข้อผิดพลาดในการแปลหรือเชื่อมต่อ AI กรุณาตรวจสอบรายละเอียดด้านล่าง",
-                FontSize = 12,
-                Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"),
-                Margin = new Thickness(0, 0, 0, 12)
-            };
-
-            var actionsPanel = new StackPanel
-            {
-                Orientation = Avalonia.Layout.Orientation.Horizontal,
-                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-                Spacing = 8,
-                Children = { copyBtn, closeBtn }
-            };
-
-            var contentStack = new StackPanel
-            {
-                Children = { headerGrid, subheadBlock, tb, actionsPanel }
-            };
-
-            var card = new Border
-            {
-                Background = GetThemeBrush("CardBgBrush", "#19191B"),
-                BorderBrush = GetThemeBrush("BorderSubtleBrush", "#27272A"),
-                BorderThickness = new Thickness(1),
-                CornerRadius = new CornerRadius(12),
-                BoxShadow = new BoxShadows(new BoxShadow { OffsetX = 0, OffsetY = 8, Blur = 24, Spread = 0, Color = Color.Parse("#60000000") }),
-                Margin = new Thickness(12),
-                Padding = new Thickness(20),
-                Child = contentStack
-            };
+            var dialog = CreateModalDialog("รายละเอียดข้อผิดพลาด", 640, 440, true, new Control[] { subheadBlock, tb }, copyBtn, closeBtn);
 
             copyBtn.Click += async (_, _) =>
             {
@@ -572,13 +291,6 @@ public partial class MainWindow : Window
                 }
             };
             closeBtn.Click += (_, _) => dialog.Close();
-            topCloseBtn.Click += (_, _) => dialog.Close();
-            dialog.KeyDown += (_, ke) =>
-            {
-                if (ke.Key == Key.Escape) { ke.Handled = true; dialog.Close(); }
-            };
-
-            dialog.Content = card;
             dialog.ShowDialog(this);
         };
 
@@ -1375,6 +1087,86 @@ public partial class MainWindow : Window
         _draggedChapter = null;
         _targetChapter = null;
         _movingChapters.Clear();
+    }
+
+    private static Window CreateModalDialog(string title, double width, double? height, bool canResize, Control[] bodyControls, params Button[] buttons)
+    {
+        var dialog = new Window
+        {
+            Title = title,
+            Width = width,
+            SizeToContent = height.HasValue ? SizeToContent.Manual : SizeToContent.Height,
+            CanResize = canResize,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            WindowDecorations = Avalonia.Controls.WindowDecorations.None,
+            Background = Brushes.Transparent,
+            TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent }
+        };
+        if (height.HasValue) dialog.Height = height.Value;
+
+        var closeBtn = new Button
+        {
+            Content = "✕",
+            Classes = { "ghost" },
+            Width = 28,
+            Height = 28,
+            Padding = new Thickness(0),
+            FontSize = 12,
+            Foreground = GetThemeBrush("TextMutedBrush", "#85858B"),
+            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
+        closeBtn.Click += (_, _) => dialog.Close();
+        dialog.KeyDown += (_, ke) =>
+        {
+            if (ke.Key == Key.Escape) { ke.Handled = true; dialog.Close(); }
+        };
+
+        var headerGrid = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*, Auto"),
+            Margin = new Thickness(0, 0, 0, 10)
+        };
+        var titleBlock = new TextBlock
+        {
+            Text = title,
+            FontSize = 15,
+            FontWeight = FontWeight.SemiBold,
+            Foreground = GetThemeBrush("TextPrimaryBrush", "#EDEDED"),
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
+        Grid.SetColumn(titleBlock, 0);
+        Grid.SetColumn(closeBtn, 1);
+        headerGrid.Children.Add(titleBlock);
+        headerGrid.Children.Add(closeBtn);
+        headerGrid.PointerPressed += (_, pe) => dialog.BeginMoveDrag(pe);
+
+        var actionsPanel = new StackPanel
+        {
+            Orientation = Avalonia.Layout.Orientation.Horizontal,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            Spacing = 8
+        };
+        foreach (var btn in buttons) actionsPanel.Children.Add(btn);
+
+        var contentStack = new StackPanel();
+        contentStack.Children.Add(headerGrid);
+        foreach (var ctrl in bodyControls) contentStack.Children.Add(ctrl);
+        contentStack.Children.Add(actionsPanel);
+
+        dialog.Content = new Border
+        {
+            Background = GetThemeBrush("CardBgBrush", "#19191B"),
+            BorderBrush = GetThemeBrush("BorderSubtleBrush", "#27272A"),
+            BorderThickness = new Thickness(1),
+            CornerRadius = new CornerRadius(12),
+            BoxShadow = new BoxShadows(new BoxShadow { OffsetX = 0, OffsetY = 8, Blur = 24, Spread = 0, Color = Color.Parse("#60000000") }),
+            Margin = new Thickness(12),
+            Padding = new Thickness(20),
+            Child = contentStack
+        };
+
+        return dialog;
     }
 
     private static IBrush GetThemeBrush(string resourceKey, string fallbackHex)

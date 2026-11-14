@@ -162,7 +162,7 @@ public partial class GlossaryViewModel : ObservableObject
 
     public void ExportCsv(string filePath)
     {
-        GlossaryService.ExportToCsv(filePath, Entries);
+        GlossaryService.ExportToCsv(filePath, _allEntries);
         StatusMessage = "ส่งออกไฟล์ CSV สำเร็จ";
     }
 }
