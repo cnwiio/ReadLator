@@ -198,6 +198,11 @@ public partial class MainViewModel : ObservableObject
         _ => "โหมดสว่าง"
     };
 
+    public bool IsLightTheme => ThemeMode != "Dark" && ThemeMode != "Sepia";
+    public bool IsDarkTheme => ThemeMode == "Dark";
+    public bool IsSepiaTheme => ThemeMode == "Sepia";
+    public string ThemeButtonTooltip => $"สลับโหมดสี: สว่าง / มืด / ถนอมสายตา (ปัจจุบัน: {ThemeButtonText})";
+
     public int ThemeModeIndex
     {
         get => ThemeMode switch
@@ -227,7 +232,11 @@ public partial class MainViewModel : ObservableObject
     partial void OnThemeModeChanged(string value)
     {
         OnPropertyChanged(nameof(ThemeButtonText));
+        OnPropertyChanged(nameof(ThemeButtonTooltip));
         OnPropertyChanged(nameof(ThemeModeIndex));
+        OnPropertyChanged(nameof(IsLightTheme));
+        OnPropertyChanged(nameof(IsDarkTheme));
+        OnPropertyChanged(nameof(IsSepiaTheme));
     }
 
     [ObservableProperty]

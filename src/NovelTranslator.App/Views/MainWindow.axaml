@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v6.1"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v6.2"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -49,13 +49,15 @@
                     </Button>
 
                     <!-- ปุ่มเมนูเครื่องมือ (3 ขีด ☰) -->
-                    <Button Height="32" Padding="10,0" ToolTip.Tip="เมนูเครื่องมือและไฟล์">
-                        <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
-                            <Path Data="M3,6 L17,6 M3,10 L17,10 M3,14 L17,14"
-                                  Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.5" StrokeLineCap="Round"
-                                  Width="14" Height="12" Stretch="Uniform" VerticalAlignment="Center" />
-                            <TextBlock Text="เครื่องมือ" FontSize="13" VerticalAlignment="Center" />
-                        </StackPanel>
+                    <Button Width="32" Height="32" Padding="0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                            ToolTip.Tip="เมนูเครื่องมือและไฟล์">
+                        <Viewbox Width="16" Height="16">
+                            <Canvas Width="24" Height="24">
+                                <Path Data="M4,6 L20,6 M4,12 L20,12 M4,18 L20,18"
+                                      Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" />
+                            </Canvas>
+                        </Viewbox>
                         <Button.Flyout>
                             <MenuFlyout Placement="BottomEdgeAlignedRight">
                                 <MenuItem Header="บันทึกตอนนี้" Command="{Binding SaveCurrentChapterCommand}" InputGesture="{Binding Settings.Shortkeys.SaveKey}" />
@@ -76,16 +78,42 @@
                         </Button.Flyout>
                     </Button>
 
-                    <!-- ปุ่มสลับโหมดสี -->
-                    <Button Content="{Binding ThemeButtonText}" Command="{Binding CycleThemeCommand}" Height="32" FontSize="13"
-                            ToolTip.Tip="สลับโหมดสี: สว่าง / มืด / ถนอมสายตา" />
+                    <!-- ปุ่มสลับโหมดสี (เปลี่ยนไอคอนตามโหมดปัจจุบัน) -->
+                    <Button Command="{Binding CycleThemeCommand}" Width="32" Height="32" Padding="0"
+                            HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                            ToolTip.Tip="{Binding ThemeButtonTooltip}">
+                        <Viewbox Width="16" Height="16">
+                            <Canvas Width="24" Height="24">
+                                <!-- โหมดสว่าง: พระอาทิตย์ (Sun) -->
+                                <Canvas Width="24" Height="24" IsVisible="{Binding IsLightTheme}">
+                                    <Ellipse Canvas.Left="8" Canvas.Top="8" Width="8" Height="8"
+                                             Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.75" />
+                                    <Path Data="M12,2 L12,4 M12,20 L12,22 M4.93,4.93 L6.34,6.34 M17.66,17.66 L19.07,19.07 M2,12 L4,12 M20,12 L22,12 M4.93,19.07 L6.34,17.66 M17.66,6.34 L19.07,4.93"
+                                          Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" />
+                                </Canvas>
+                                <!-- โหมดมืด: พระจันทร์เสี้ยว (Moon) -->
+                                <Path Data="M21,12.79 A9,9 0 1,1 11.21,3 A7,7 0 0,0 21,12.79 Z"
+                                      IsVisible="{Binding IsDarkTheme}"
+                                      Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.75"
+                                      StrokeLineCap="Round" StrokeJoin="Round" />
+                                <!-- โหมดถนอมสายตา: ดวงตา (Eye-care / Sepia) -->
+                                <Canvas Width="24" Height="24" IsVisible="{Binding IsSepiaTheme}">
+                                    <Path Data="M2,12 C4.5,7 8,4.5 12,4.5 C16,4.5 19.5,7 22,12 C19.5,17 16,19.5 12,19.5 C8,19.5 4.5,17 2,12 Z"
+                                          Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.75"
+                                          StrokeLineCap="Round" StrokeJoin="Round" />
+                                    <Ellipse Canvas.Left="9" Canvas.Top="9" Width="6" Height="6"
+                                             Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.75" />
+                                </Canvas>
+                            </Canvas>
+                        </Viewbox>
+                    </Button>
 
                     <!-- ปุ่มตั้งค่ารวมรูปฟันเฟือง ⚙ -->
-                    <Button Command="{Binding OpenSettingsCommand}" Width="34" Height="32" Padding="0"
+                    <Button Command="{Binding OpenSettingsCommand}" Width="32" Height="32" Padding="0"
                             HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                             ToolTip.Tip="การตั้งค่าทั้งหมด (AI, ปุ่มลัด, ระบบ)">
                         <Path Data="M12,15.5 A3.5,3.5 0 1,0 12,8.5 A3.5,3.5 0 0,0 12,15.5 Z M19.4,13 A7.8,7.8 0 0,0 19.5,12 A7.8,7.8 0 0,0 19.4,11 L21.5,9.4 A0.5,0.5 0 0,0 21.6,8.7 L19.6,5.3 A0.5,0.5 0 0,0 19,5.1 L16.5,6.1 A7.9,7.9 0 0,0 14.8,5.1 L14.4,2.5 A0.5,0.5 0 0,0 13.9,2 L9.9,2 A0.5,0.5 0 0,0 9.4,2.5 L9.1,5.1 A7.9,7.9 0 0,0 7.3,6.1 L4.8,5.1 A0.5,0.5 0 0,0 4.2,5.3 L2.2,8.7 A0.5,0.5 0 0,0 2.3,9.4 L4.4,11 A7.8,7.8 0 0,0 4.3,12 A7.8,7.8 0 0,0 4.4,13 L2.3,14.6 A0.5,0.5 0 0,0 2.2,15.3 L4.2,18.7 A0.5,0.5 0 0,0 4.8,18.9 L7.3,17.9 A7.9,7.9 0 0,0 9.1,18.9 L9.4,21.5 A0.5,0.5 0 0,0 9.9,22 L13.9,22 A0.5,0.5 0 0,0 14.4,21.5 L14.8,18.9 A7.9,7.9 0 0,0 16.5,17.9 L19,18.9 A0.5,0.5 0 0,0 19.6,18.7 L21.6,15.3 A0.5,0.5 0 0,0 21.5,14.6 Z"
-                              Fill="{DynamicResource TextSecondaryBrush}" Width="15" Height="15" Stretch="Uniform" />
+                              Fill="{DynamicResource TextSecondaryBrush}" Width="16" Height="16" Stretch="Uniform" />
                     </Button>
                 </StackPanel>
             </Grid>
@@ -305,7 +333,7 @@
                                         IsEnabled="{Binding !IsTranslating}" Height="32" Padding="12,0"
                                         ToolTip.Tip="{Binding TranslateTooltipText}">
                                     <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                        <TextBlock Text="แปลตอนนี้" FontWeight="Medium" VerticalAlignment="Center" />
+                                        <TextBlock Text="แปลตอนนี้" FontWeight="Medium" Padding="0,2,0,0" Margin="0,-1,0,0" VerticalAlignment="Center" />
                                         <Border Background="#1D4ED8" CornerRadius="4" Padding="4,1" VerticalAlignment="Center">
                                             <TextBlock Text="{Binding TranslateKeyText}" FontSize="11" Foreground="#DBEAFE" />
                                         </Border>
@@ -313,23 +341,39 @@
                                 </Button>
 
                                 <!-- ปุ่มตัวเลือกการแปลเพิ่มเติม ▾ -->
-                                <Button Width="28" Height="32" Padding="0"
+                                <Button Width="32" Height="32" Padding="0"
                                         IsEnabled="{Binding !IsTranslating}"
                                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
                                         ToolTip.Tip="ตัวเลือกการแปลเพิ่มเติม">
-                                    <Path Data="M7,10 L12,15 L17,10" Fill="{DynamicResource TextSecondaryBrush}" Width="10" Height="8" Stretch="Uniform" />
+                                    <Viewbox Width="14" Height="14">
+                                        <Canvas Width="24" Height="24">
+                                            <Path Data="M6,9 L12,15 L18,9" Stroke="{DynamicResource TextSecondaryBrush}"
+                                                  StrokeThickness="1.75" StrokeLineCap="Round" StrokeJoin="Round" />
+                                        </Canvas>
+                                    </Viewbox>
                                     <Button.Flyout>
                                         <MenuFlyout Placement="BottomEdgeAlignedRight">
                                             <MenuItem Header="แปลทุกตอนที่เหลือ" Command="{Binding TranslateAllChaptersCommand}"
                                                       ToolTip.Tip="{Binding TranslateAllTooltipText}">
                                                 <MenuItem.Icon>
-                                                    <Path Data="M5,4 L19,4 M5,12 L19,12 M5,20 L19,20" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" />
+                                                    <Viewbox Width="16" Height="16">
+                                                        <Canvas Width="24" Height="24">
+                                                            <Path Data="M4,6 L20,6 M4,12 L20,12 M4,18 L20,18"
+                                                                  Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.75" StrokeLineCap="Round" />
+                                                        </Canvas>
+                                                    </Viewbox>
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                             <MenuItem Header="แปลใหม่ (ล้างคำแปลเดิม)" Command="{Binding RetranslateAllCommand}"
                                                       ToolTip.Tip="ล้างคำแปลเดิมของตอนนี้แล้วแปลใหม่ตั้งแต่ต้น">
                                                 <MenuItem.Icon>
-                                                    <Path Data="M12,4 A8,8 0 1,0 20,12 M20,4 L20,9 L15,9" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" />
+                                                    <Viewbox Width="16" Height="16">
+                                                        <Canvas Width="24" Height="24">
+                                                            <Path Data="M20,12 A8,8 0 1,1 18.93,8 M19,3.5 L18.93,8 L14.4,8"
+                                                                  Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.75"
+                                                                  StrokeLineCap="Round" StrokeJoin="Round" />
+                                                        </Canvas>
+                                                    </Viewbox>
                                                 </MenuItem.Icon>
                                             </MenuItem>
                                         </MenuFlyout>
@@ -572,7 +616,13 @@
                                                         <ContextMenu>
                                                             <MenuItem Header="แปลย่อหน้านี้ใหม่" Command="{Binding RetranslateCommand}">
                                                                 <MenuItem.Icon>
-                                                                    <Path Data="M12,4 A8,8 0 1,0 20,12 M20,4 L20,9 L15,9" Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="14" Height="14" Stretch="Uniform" />
+                                                                    <Viewbox Width="16" Height="16">
+                                                                        <Canvas Width="24" Height="24">
+                                                                            <Path Data="M20,12 A8,8 0 1,1 18.93,8 M19,3.5 L18.93,8 L14.4,8"
+                                                                                  Stroke="{DynamicResource TextSecondaryBrush}" StrokeThickness="1.75"
+                                                                                  StrokeLineCap="Round" StrokeJoin="Round" />
+                                                                        </Canvas>
+                                                                    </Viewbox>
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                         </ContextMenu>
@@ -660,9 +710,13 @@
                             Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                             BorderThickness="1" CornerRadius="12" Padding="32,48" Margin="0,0,0,56" HorizontalAlignment="Stretch">
                         <StackPanel Spacing="16" HorizontalAlignment="Center">
-                            <Path Data="M12,4 A8,8 0 1,0 20,12 M20,4 L20,9 L15,9"
-                                  Stroke="{DynamicResource TextMutedBrush}" StrokeThickness="1.5"
-                                  Width="32" Height="32" Stretch="Uniform" HorizontalAlignment="Center" />
+                            <Viewbox Width="32" Height="32" HorizontalAlignment="Center">
+                                <Canvas Width="24" Height="24">
+                                    <Path Data="M20,12 A8,8 0 1,1 18.93,8 M19,3.5 L18.93,8 L14.4,8"
+                                          Stroke="{DynamicResource TextMutedBrush}" StrokeThickness="1.5"
+                                          StrokeLineCap="Round" StrokeJoin="Round" />
+                                </Canvas>
+                            </Viewbox>
                             <TextBlock Text="ยังไม่มีคำแปลสำหรับตอนนี้" FontSize="15" FontWeight="Medium"
                                        Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
                             <TextBlock Text="คุณสามารถกลับสู่หน้าจอแก้ไขเพื่อแปลเนื้อหาตอนนี้ด้วย AI ได้ทันที"
