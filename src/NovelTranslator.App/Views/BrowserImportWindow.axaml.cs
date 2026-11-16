@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -13,21 +15,61 @@ public partial class BrowserImportWindow : Window
     private readonly string? _initialUrl;
     private readonly Func<WebChapterResult, Task> _onImported;
     private bool _isBusy;
+    private CancellationTokenSource? _importCts;
+    private TaskCompletionSource<bool>? _pendingNavTcs;
 
-    public BrowserImportWindow() : this(null, _ => Task.CompletedTask) { }
+    public BrowserImportWindow() : this((WebMultiImportOptions?)null, _ => Task.CompletedTask) { }
 
     public BrowserImportWindow(string? initialUrl, Func<WebChapterResult, Task> onImported)
+        : this(string.IsNullOrWhiteSpace(initialUrl) ? null : new WebMultiImportOptions(initialUrl), onImported)
     {
-        _initialUrl = initialUrl;
+    }
+
+    public BrowserImportWindow(WebMultiImportOptions? initialOptions, Func<WebChapterResult, Task> onImported)
+    {
         _onImported = onImported;
         InitializeComponent();
 
-        if (!string.IsNullOrWhiteSpace(initialUrl))
+        if (initialOptions != null)
         {
-            UrlTextBox.Text = initialUrl;
+            string url = initialOptions.Url?.Trim() ?? string.Empty;
+            if (WebChapterImportService.IsTemplateUrl(url))
+            {
+                int firstNum = initialOptions.Mode == WebImportRangeMode.ByRange
+                    ? Math.Max(1, initialOptions.StartChapter)
+                    : 1;
+                url = WebChapterImportService.TryReplaceUrlChapterNumber(url, firstNum) ?? url;
+            }
+
+            _initialUrl = url;
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                UrlTextBox.Text = url;
+            }
+
+            if (initialOptions.Mode == WebImportRangeMode.ByRange)
+            {
+                ImportModeCombo.SelectedIndex = 1;
+                RangeStartBox.Text = Math.Max(1, initialOptions.StartChapter).ToString();
+                RangeEndBox.Text = Math.Max(1, initialOptions.EndChapter).ToString();
+            }
+            else
+            {
+                ImportModeCombo.SelectedIndex = 0;
+                ChapterCountBox.Text = Math.Clamp(initialOptions.Count, 1, 200).ToString();
+            }
+            UpdateImportModePanels();
         }
 
         Loaded += OnLoaded;
+    }
+
+    protected override void OnClosing(WindowClosingEventArgs e)
+    {
+        _importCts?.Cancel();
+        var pending = Interlocked.Exchange(ref _pendingNavTcs, null);
+        pending?.TrySetCanceled();
+        base.OnClosing(e);
     }
 
     private async void OnLoaded(object? sender, RoutedEventArgs e)
@@ -63,7 +105,7 @@ public partial class BrowserImportWindow : Window
             if (args.Uri != "about:blank" &&
                 (!Uri.TryCreate(args.Uri, UriKind.Absolute, out var uri) ||
                  (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps) ||
-                 NovelTranslator.Core.Export.WebChapterImportService.IsBlockedUri(uri)))
+                 WebChapterImportService.IsBlockedUri(uri)))
             {
                 args.Cancel = true;
                 Dispatcher.UIThread.Post(() =>
@@ -76,18 +118,30 @@ public partial class BrowserImportWindow : Window
 
             Dispatcher.UIThread.Post(() =>
             {
-                StatusText.Text = "กำลังโหลดหน้าเว็บ...";
+                if (!_isBusy)
+                {
+                    StatusText.Text = "กำลังโหลดหน้าเว็บ...";
+                }
                 UpdateNavButtons();
             });
         };
 
-        core.NavigationCompleted += (_, args) => Dispatcher.UIThread.Post(() =>
+        core.NavigationCompleted += (_, args) =>
         {
-            UpdateNavButtons();
-            StatusText.Text = args.IsSuccess
-                ? $"โหลดเสร็จแล้ว: {core.DocumentTitle}"
-                : $"โหลดหน้าเว็บมีปัญหา (รหัส {args.WebErrorStatus})";
-        });
+            var tcs = Interlocked.Exchange(ref _pendingNavTcs, null);
+            tcs?.TrySetResult(args.IsSuccess);
+
+            Dispatcher.UIThread.Post(() =>
+            {
+                UpdateNavButtons();
+                if (!_isBusy)
+                {
+                    StatusText.Text = args.IsSuccess
+                        ? $"โหลดเสร็จแล้ว: {core.DocumentTitle}"
+                        : $"โหลดหน้าเว็บมีปัญหา (รหัส {args.WebErrorStatus})";
+                }
+            });
+        };
     }
 
     private void UpdateNavButtons()
@@ -95,6 +149,17 @@ public partial class BrowserImportWindow : Window
         var core = WebView.CoreWebView2;
         BackButton.IsEnabled = core?.CanGoBack == true;
         ForwardButton.IsEnabled = core?.CanGoForward == true;
+    }
+
+    private void OnImportModeChanged(object? sender, SelectionChangedEventArgs e)
+        => UpdateImportModePanels();
+
+    private void UpdateImportModePanels()
+    {
+        if (CountPanel == null || RangePanel == null || ImportModeCombo == null) return;
+        bool isRange = ImportModeCombo.SelectedIndex == 1;
+        CountPanel.IsVisible = !isRange;
+        RangePanel.IsVisible = isRange;
     }
 
     private void OnBackClicked(object? sender, RoutedEventArgs e) => WebView.CoreWebView2?.GoBack();
@@ -116,39 +181,236 @@ public partial class BrowserImportWindow : Window
     private async void OnImportAndCloseClicked(object? sender, RoutedEventArgs e)
         => await ImportCurrentPageAsync(closeAfterImport: true);
 
+    private void OnStopImportClicked(object? sender, RoutedEventArgs e)
+    {
+        _importCts?.Cancel();
+        StatusText.Text = "กำลังหยุดการดึงเนื้อหา...";
+    }
+
+    private bool TryBuildImportOptions(out WebMultiImportOptions? options, out string error)
+    {
+        options = null;
+        error = string.Empty;
+        string url = WebView.CoreWebView2?.Source ?? UrlTextBox.Text ?? string.Empty;
+
+        if (ImportModeCombo.SelectedIndex == 1)
+        {
+            if (!int.TryParse(RangeStartBox.Text?.Trim(), out int start) ||
+                !int.TryParse(RangeEndBox.Text?.Trim(), out int end) ||
+                start < 1 || end < start)
+            {
+                error = "กรุณาระบุช่วงเลขตอนให้ถูกต้อง (เริ่มต้น >= 1 และไม่เกินเลขสิ้นสุด)";
+                return false;
+            }
+            if (end - start + 1 > 200)
+            {
+                error = "ดึงต่อเนื่องได้สูงสุดครั้งละ 200 ตอน";
+                return false;
+            }
+            options = new WebMultiImportOptions(url, WebImportRangeMode.ByRange, end - start + 1, start, end);
+            return true;
+        }
+
+        if (!int.TryParse(ChapterCountBox.Text?.Trim(), out int count) || count < 1 || count > 200)
+        {
+            error = "กรุณาระบุจำนวนตอนระหว่าง 1 ถึง 200";
+            return false;
+        }
+        options = new WebMultiImportOptions(url, WebImportRangeMode.ByCount, count, 1, count);
+        return true;
+    }
+
+    private void SetBusyState(bool busy)
+    {
+        _isBusy = busy;
+        KeepOpenButton.IsEnabled = !busy;
+        ImportCloseButton.IsEnabled = !busy;
+        ImportModeCombo.IsEnabled = !busy;
+        ChapterCountBox.IsEnabled = !busy;
+        RangeStartBox.IsEnabled = !busy;
+        RangeEndBox.IsEnabled = !busy;
+        StopImportButton.IsVisible = busy;
+    }
+
+    private async Task NavigateAndWaitAsync(string targetUrl, CancellationToken ct)
+    {
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var prev = Interlocked.Exchange(ref _pendingNavTcs, tcs);
+        prev?.TrySetCanceled();
+
+        using var reg = ct.Register(() => tcs.TrySetCanceled(ct));
+        WebView.Navigate(targetUrl);
+
+        bool success = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(25), ct);
+        if (!success)
+        {
+            throw new InvalidOperationException($"ไม่สามารถโหลดหน้าเว็บ: {targetUrl}");
+        }
+
+        // เผื่อเวลาให้สคริปต์บนหน้าเว็บเรนเดอร์เนื้อหา
+        await Task.Delay(500, ct);
+    }
+
     private async Task ImportCurrentPageAsync(bool closeAfterImport)
     {
         if (_isBusy) return;
-        _isBusy = true;
-        KeepOpenButton.IsEnabled = false;
-        ImportCloseButton.IsEnabled = false;
+        if (!TryBuildImportOptions(out var options, out string err) || options == null)
+        {
+            StatusText.Text = err;
+            return;
+        }
+
+        SetBusyState(true);
+        _importCts?.Cancel();
+        _importCts?.Dispose();
+        _importCts = new CancellationTokenSource();
+        var ct = _importCts.Token;
+
+        int importedCount = 0;
 
         try
         {
-            StatusText.Text = "กำลังดึงเนื้อหาจากหน้าเว็บ (Reader Mode)...";
             string currentUrl = WebView.CoreWebView2?.Source ?? UrlTextBox.Text ?? "https://localhost/";
-            string html = await WebView.GetPageHtmlAsync();
-            var result = WebChapterImportService.ExtractFromHtml(currentUrl, html);
+            StatusText.Text = "กำลังดึงเนื้อหาจากหน้าเว็บ (Reader Mode)...";
+            string initialHtml = await WebView.GetPageHtmlAsync();
 
-            await _onImported(result);
+            if (options.Mode == WebImportRangeMode.ByCount && options.EffectiveCount == 1)
+            {
+                var result = WebChapterImportService.ExtractFromHtml(currentUrl, initialHtml);
+                await _onImported(result);
+                importedCount = 1;
 
-            if (closeAfterImport)
+                if (closeAfterImport)
+                {
+                    Close();
+                    return;
+                }
+
+                StatusText.Text = $"นำเข้า \"{result.Title}\" แล้ว — กดตอนถัดไปบนหน้าเว็บเพื่อดึงต่อได้";
+                return;
+            }
+
+            bool isTocPage = WebChapterImportService.TryAnalyzePageForBatchImport(
+                currentUrl, initialHtml, options.Mode, out var tocLinks, out var firstArticle);
+
+            if (isTocPage)
+            {
+                int start = Math.Max(1, Math.Min(options.StartChapter, options.EndChapter));
+                int end = Math.Max(start, options.EndChapter);
+                var selected = WebChapterImportService.SelectTocLinksForImport(
+                    tocLinks, options.Mode, options.EffectiveCount, start, end);
+
+                if (selected.Count == 0)
+                {
+                    throw new InvalidOperationException("ไม่พบตอนที่ตรงกับช่วงที่ระบุในหน้าสารบัญนี้");
+                }
+
+                for (int i = 0; i < selected.Count; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    StatusText.Text = $"กำลังโหลดและนำเข้าตอนที่ {i + 1}/{selected.Count}...";
+                    await NavigateAndWaitAsync(selected[i].Url, ct);
+                    string pageHtml = await WebView.GetPageHtmlAsync();
+                    string pageUrl = WebView.CoreWebView2?.Source ?? selected[i].Url;
+                    var chapter = WebChapterImportService.ExtractFromHtml(pageUrl, pageHtml);
+                    await _onImported(chapter);
+                    importedCount++;
+                    StatusText.Text = $"นำเข้าแล้ว ({importedCount}/{selected.Count}): {chapter.Title}";
+
+                    if (i + 1 < selected.Count)
+                    {
+                        await Task.Delay(900, ct);
+                    }
+                }
+            }
+            else
+            {
+                int total = options.EffectiveCount;
+                int start = Math.Max(1, Math.Min(options.StartChapter, options.EndChapter));
+                bool useRangePattern = false;
+                string? startPatternUrl = null;
+                if (options.Mode == WebImportRangeMode.ByRange)
+                {
+                    int? detectedNum = WebChapterImportService.ExtractUrlChapterNumber(currentUrl);
+                    if (detectedNum.HasValue && detectedNum.Value != start)
+                    {
+                        startPatternUrl = WebChapterImportService.TryReplaceUrlChapterNumber(currentUrl, start);
+                        useRangePattern = !string.IsNullOrWhiteSpace(startPatternUrl);
+                    }
+                }
+
+                var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                string basePatternUrl = currentUrl;
+                string? targetUrl = useRangePattern ? startPatternUrl : currentUrl;
+                WebChapterResult? currentChapter = useRangePattern ? null : firstArticle;
+
+                for (int i = 0; i < total; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+
+                    if (currentChapter == null)
+                    {
+                        if (string.IsNullOrWhiteSpace(targetUrl) || !visited.Add(targetUrl))
+                        {
+                            break;
+                        }
+
+                        StatusText.Text = $"กำลังโหลดตอนที่ {i + 1}/{total}...";
+                        await NavigateAndWaitAsync(targetUrl, ct);
+                        string pageHtml = await WebView.GetPageHtmlAsync();
+                        string actualUrl = WebView.CoreWebView2?.Source ?? targetUrl;
+                        visited.Add(actualUrl);
+                        currentChapter = WebChapterImportService.ExtractFromHtml(actualUrl, pageHtml);
+                    }
+                    else
+                    {
+                        visited.Add(targetUrl!);
+                    }
+
+                    await _onImported(currentChapter);
+                    importedCount++;
+                    StatusText.Text = $"นำเข้าแล้ว ({importedCount}/{total}): {currentChapter.Title}";
+
+                    if (i + 1 >= total) break;
+
+                    string? nextUrl = useRangePattern
+                        ? WebChapterImportService.TryReplaceUrlChapterNumber(basePatternUrl, start + i + 1) ?? currentChapter.NextChapterUrl
+                        : currentChapter.NextChapterUrl;
+
+                    if (string.IsNullOrWhiteSpace(nextUrl) || visited.Contains(nextUrl))
+                    {
+                        break;
+                    }
+
+                    targetUrl = nextUrl;
+                    currentChapter = null;
+                    await Task.Delay(900, ct);
+                }
+            }
+
+            if (closeAfterImport && importedCount > 0)
             {
                 Close();
                 return;
             }
 
-            StatusText.Text = $"นำเข้า \"{result.Title}\" แล้ว — กดตอนถัดไปบนหน้าเว็บเพื่อดึงต่อได้";
+            StatusText.Text = $"นำเข้าเสร็จสิ้น {importedCount} ตอน";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText.Text = $"หยุดการดึงเนื้อหาแล้ว (นำเข้าสำเร็จ {importedCount} ตอน)";
         }
         catch (Exception ex)
         {
-            StatusText.Text = $"ดึงเนื้อหาไม่สำเร็จ: {ex.Message}";
+            StatusText.Text = importedCount > 0
+                ? $"นำเข้าได้ {importedCount} ตอน (หยุดกลางคัน: {ex.Message})"
+                : $"ดึงเนื้อหาไม่สำเร็จ: {ex.Message}";
         }
         finally
         {
-            _isBusy = false;
-            KeepOpenButton.IsEnabled = true;
-            ImportCloseButton.IsEnabled = true;
+            _importCts?.Dispose();
+            _importCts = null;
+            SetBusyState(false);
         }
     }
 }

@@ -26,6 +26,7 @@ public partial class MainViewModel : ObservableObject
     public AppSettings Settings => _settings;
     public NovelRepository Repository => _repository;
     private CancellationTokenSource? _translationCts;
+    private CancellationTokenSource? _webImportCts;
     private readonly DispatcherTimer _autoSaveTimer;
     private DispatcherTimer? _fakeProgressTimer;
 
@@ -329,6 +330,8 @@ public partial class MainViewModel : ObservableObject
     public Func<string, Task>? RequestCopyToClipboard { get; set; }
     public Action<string>? RequestShowErrorDialog { get; set; }
     public Func<string?, Task>? RequestOpenBrowserImport { get; set; }
+    public Func<Task<WebMultiImportOptions?>>? RequestWebImportDialog { get; set; }
+    public Func<WebMultiImportOptions?, Task>? RequestOpenBrowserMultiImport { get; set; }
     public Action? RequestSelectAllChapters { get; set; }
     public Action? RequestClearChapterSelection { get; set; }
     public Action? RequestToggleFullScreen { get; set; }
@@ -1041,6 +1044,7 @@ public partial class MainViewModel : ObservableObject
     public void StopTranslation()
     {
         _translationCts?.Cancel();
+        _webImportCts?.Cancel();
     }
 
     [RelayCommand]
@@ -1761,28 +1765,97 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task ImportFromUrlAsync()
     {
-        if (SelectedStory == null || RequestPromptDialog == null) return;
+        if (SelectedStory == null || IsTranslating) return;
+        if (RequestWebImportDialog == null && RequestPromptDialog == null) return;
 
-        string? url = await RequestPromptDialog("นำเข้าจาก URL (Reader Mode)", "วางลิงก์หน้าเว็บนิยาย (http:// หรือ https://):");
-        if (string.IsNullOrWhiteSpace(url)) return;
+        WebMultiImportOptions? options = null;
+        if (RequestWebImportDialog != null)
+        {
+            options = await RequestWebImportDialog();
+        }
+        else if (RequestPromptDialog != null)
+        {
+            string? url = await RequestPromptDialog("นำเข้าจาก URL (Reader Mode)", "วางลิงก์หน้าเว็บนิยาย (http:// หรือ https://):");
+            if (!string.IsNullOrWhiteSpace(url))
+            {
+                options = new WebMultiImportOptions(url, WebImportRangeMode.ByCount, 1);
+            }
+        }
 
+        if (options == null || string.IsNullOrWhiteSpace(options.Url)) return;
+
+        _webImportCts?.Cancel();
+        _webImportCts?.Dispose();
+        _webImportCts = new CancellationTokenSource();
+        var ct = _webImportCts.Token;
+
+        int importedCount = 0;
+        IsTranslating = true;
+        IsTranslatingIndeterminate = options.EffectiveCount <= 1;
+        TranslationProgressPercentage = 0;
+        HasError = false;
+        LastErrorDetails = string.Empty;
+        ProgressText = "กำลังเตรียมดึงเนื้อหาจากเว็บ...";
         SaveStatusText = "กำลังดึงเนื้อหาจากเว็บ...";
+
         try
         {
-            var result = await WebChapterImportService.FetchReadableChapterAsync(url);
-            await ImportWebChapterAsync(result);
+            await WebChapterImportService.FetchChaptersBatchAsync(
+                options,
+                async (result, current, total) =>
+                {
+                    importedCount = current;
+                    await ImportWebChapterInternalAsync(result, selectChapter: current == 1);
+                    TranslationProgressPercentage = total > 0 ? Math.Round(current * 100.0 / total) : 0;
+                    ProgressText = $"กำลังนำเข้าจากเว็บ ({current}/{total}): {result.Title}";
+                },
+                ct);
+
+            ProgressText = string.Empty;
+            SaveStatusText = importedCount <= 1
+                ? $"นำเข้า \"{SelectedChapter?.Title ?? "ตอนจากเว็บ"}\" เรียบร้อย"
+                : $"นำเข้าจากเว็บแล้ว {importedCount} ตอน";
         }
-        catch (Exception ex) when (ex is HttpRequestException or TimeoutException or InvalidOperationException
-                                   && RequestOpenBrowserImport != null)
+        catch (OperationCanceledException)
+        {
+            ProgressText = string.Empty;
+            SaveStatusText = $"หยุดการนำเข้าแล้ว (บันทึกไว้ {importedCount} ตอน)";
+        }
+        catch (Exception ex) when (importedCount == 0
+                                   && ex is HttpRequestException or TimeoutException or InvalidOperationException
+                                   && (RequestOpenBrowserMultiImport != null || RequestOpenBrowserImport != null))
         {
             // เว็บบล็อก HttpClient หรือโหลดด้วย JS — สลับไปเปิดเบราว์เซอร์ WebView ให้อัตโนมัติ
+            ProgressText = string.Empty;
             SaveStatusText = "เว็บอาจป้องกันบอท กำลังเปิดเบราว์เซอร์...";
-            await RequestOpenBrowserImport(url);
+            if (RequestOpenBrowserMultiImport != null)
+            {
+                await RequestOpenBrowserMultiImport(options);
+            }
+            else if (RequestOpenBrowserImport != null)
+            {
+                await RequestOpenBrowserImport(options.Url);
+            }
         }
         catch (Exception ex)
         {
-            SaveStatusText = "นำเข้าจาก URL ไม่สำเร็จ";
-            RequestShowErrorDialog?.Invoke(ex.Message);
+            ProgressText = string.Empty;
+            if (importedCount > 0)
+            {
+                SaveStatusText = $"นำเข้าได้ {importedCount}/{options.EffectiveCount} ตอน (หยุดที่: {ex.Message})";
+            }
+            else
+            {
+                SaveStatusText = "นำเข้าจาก URL ไม่สำเร็จ";
+                RequestShowErrorDialog?.Invoke(ex.Message);
+            }
+        }
+        finally
+        {
+            IsTranslating = false;
+            IsTranslatingIndeterminate = false;
+            _webImportCts?.Dispose();
+            _webImportCts = null;
         }
     }
 
@@ -1793,7 +1866,10 @@ public partial class MainViewModel : ObservableObject
         await RequestOpenBrowserImport(null);
     }
 
-    public async Task ImportWebChapterAsync(WebChapterResult result)
+    public Task ImportWebChapterAsync(WebChapterResult result)
+        => ImportWebChapterInternalAsync(result, selectChapter: true);
+
+    private async Task ImportWebChapterInternalAsync(WebChapterResult result, bool selectChapter)
     {
         if (SelectedStory == null) return;
 
@@ -1823,7 +1899,10 @@ public partial class MainViewModel : ObservableObject
             chap.Id = await _repository.InsertChapterAsync(chap);
             Chapters.Add(chap);
             RefreshFilteredChapters();
-            SelectedChapter = chap;
+            if (selectChapter)
+            {
+                SelectedChapter = chap;
+            }
             SaveStatusText = $"นำเข้า \"{chap.Title}\" จากเว็บแล้ว";
         }
     }

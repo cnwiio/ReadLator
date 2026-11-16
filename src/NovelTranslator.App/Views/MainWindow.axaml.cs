@@ -17,6 +17,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using NovelTranslator.App.ViewModels;
 using NovelTranslator.Core.Data;
+using NovelTranslator.Core.Export;
 using NovelTranslator.Core.Models;
 using NovelTranslator.Core.Settings;
 
@@ -183,6 +184,217 @@ public partial class MainWindow : Window
             var win = new BrowserImportWindow(initialUrl, result => ViewModel.ImportWebChapterAsync(result));
             win.Show(this);
             return Task.CompletedTask;
+        };
+
+        ViewModel.RequestOpenBrowserMultiImport = (options) =>
+        {
+            var win = new BrowserImportWindow(options, result => ViewModel.ImportWebChapterAsync(result));
+            win.Show(this);
+            return Task.CompletedTask;
+        };
+
+        ViewModel.RequestWebImportDialog = async () =>
+        {
+            WebMultiImportOptions? result = null;
+
+            var urlLabel = new TextBlock
+            {
+                Text = "ลิงก์หน้าเว็บนิยาย หรือหน้าสารบัญ",
+                FontSize = 12,
+                Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"),
+                Margin = new Thickness(0, 0, 0, 4)
+            };
+            var urlBox = new TextBox
+            {
+                PlaceholderText = "วางลิงก์หน้าเนื้อหาตอน หรือหน้าสารบัญนิยาย (http:// หรือ https://)",
+                Height = 32,
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+
+            var modeLabel = new TextBlock
+            {
+                Text = "รูปแบบการนำเข้า",
+                FontSize = 12,
+                Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"),
+                Margin = new Thickness(0, 12, 0, 4)
+            };
+            var modeCombo = new ComboBox
+            {
+                SelectedIndex = 0,
+                Height = 32,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                ItemsSource = new[]
+                {
+                    "ดึงตามจำนวนตอน (ไล่ตามปุ่ม Next / สารบัญ)",
+                    "ดึงตามช่วงตอน (เช่น ตอนที่ 1 ถึง 20)"
+                }
+            };
+
+            var countBox = new TextBox
+            {
+                Text = "1",
+                Width = 80,
+                Height = 32,
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            var countPanel = new StackPanel
+            {
+                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                Spacing = 8,
+                Margin = new Thickness(0, 12, 0, 0),
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "จำนวนตอนที่ต้องการ (1–200):",
+                        FontSize = 13,
+                        Foreground = GetThemeBrush("TextPrimaryBrush", "#EDEDED"),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                    },
+                    countBox
+                }
+            };
+
+            var startBox = new TextBox
+            {
+                Text = "1",
+                Width = 80,
+                Height = 32,
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            var endBox = new TextBox
+            {
+                Text = "10",
+                Width = 80,
+                Height = 32,
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            var rangePanel = new StackPanel
+            {
+                Orientation = Avalonia.Layout.Orientation.Horizontal,
+                Spacing = 8,
+                Margin = new Thickness(0, 12, 0, 0),
+                IsVisible = false,
+                Children =
+                {
+                    new TextBlock
+                    {
+                        Text = "ตั้งแต่ตอนที่",
+                        FontSize = 13,
+                        Foreground = GetThemeBrush("TextPrimaryBrush", "#EDEDED"),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                    },
+                    startBox,
+                    new TextBlock
+                    {
+                        Text = "ถึงตอนที่",
+                        FontSize = 13,
+                        Foreground = GetThemeBrush("TextPrimaryBrush", "#EDEDED"),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                    },
+                    endBox
+                }
+            };
+
+            modeCombo.SelectionChanged += (_, _) =>
+            {
+                bool isRange = modeCombo.SelectedIndex == 1;
+                countPanel.IsVisible = !isRange;
+                rangePanel.IsVisible = isRange;
+            };
+
+            var hintBlock = new TextBlock
+            {
+                Text = "รองรับทั้งหน้าตอนเดียว (ไล่ตามปุ่มตอนถัดไปอัตโนมัติ), หน้าสารบัญนิยาย และลิงก์แม่แบบ เช่น .../chapter-{n}",
+                FontSize = 12,
+                Foreground = GetThemeBrush("TextMutedBrush", "#85858B"),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 12, 0, 12)
+            };
+
+            var errorBlock = new TextBlock
+            {
+                FontSize = 12,
+                Foreground = new SolidColorBrush(Color.Parse("#E5484D")),
+                TextWrapping = TextWrapping.Wrap,
+                IsVisible = false,
+                Margin = new Thickness(0, 0, 0, 12)
+            };
+
+            var okBtn = new Button { Content = "นำเข้า", Classes = { "primary" }, Height = 32, Padding = new Thickness(18, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
+            var cancelBtn = new Button { Content = "ยกเลิก", Classes = { "ghost" }, Height = 32, Padding = new Thickness(14, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
+
+            var dialog = CreateModalDialog(
+                "นำเข้าจาก URL (Reader Mode)",
+                480,
+                null,
+                false,
+                new Control[] { urlLabel, urlBox, modeLabel, modeCombo, countPanel, rangePanel, hintBlock, errorBlock },
+                cancelBtn,
+                okBtn);
+
+            void Submit()
+            {
+                string rawUrl = urlBox.Text?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(rawUrl))
+                {
+                    errorBlock.Text = "กรุณาวาง URL หน้าเว็บนิยาย";
+                    errorBlock.IsVisible = true;
+                    return;
+                }
+
+                if (modeCombo.SelectedIndex == 1)
+                {
+                    if (!int.TryParse(startBox.Text?.Trim(), out int start) ||
+                        !int.TryParse(endBox.Text?.Trim(), out int end) ||
+                        start < 1 || end < start)
+                    {
+                        errorBlock.Text = "กรุณาระบุช่วงเลขตอนให้ถูกต้อง (เลขเริ่มต้น >= 1 และไม่มากกว่าเลขสิ้นสุด)";
+                        errorBlock.IsVisible = true;
+                        return;
+                    }
+
+                    if (end - start + 1 > 200)
+                    {
+                        errorBlock.Text = "ดึงต่อเนื่องได้สูงสุดครั้งละ 200 ตอน";
+                        errorBlock.IsVisible = true;
+                        return;
+                    }
+
+                    result = new WebMultiImportOptions(rawUrl, WebImportRangeMode.ByRange, end - start + 1, start, end);
+                }
+                else
+                {
+                    if (!int.TryParse(countBox.Text?.Trim(), out int count) || count < 1 || count > 200)
+                    {
+                        errorBlock.Text = "กรุณาระบุจำนวนตอนระหว่าง 1 ถึง 200";
+                        errorBlock.IsVisible = true;
+                        return;
+                    }
+
+                    result = new WebMultiImportOptions(rawUrl, WebImportRangeMode.ByCount, count, 1, count);
+                }
+
+                dialog.Close();
+            }
+
+            okBtn.Click += (_, _) => Submit();
+            cancelBtn.Click += (_, _) => dialog.Close();
+
+            void OnInputKeyDown(object? _, KeyEventArgs ke)
+            {
+                if (ke.Key == Key.Enter) { ke.Handled = true; Submit(); }
+                else if (ke.Key == Key.Escape) { ke.Handled = true; dialog.Close(); }
+            }
+
+            urlBox.KeyDown += OnInputKeyDown;
+            countBox.KeyDown += OnInputKeyDown;
+            startBox.KeyDown += OnInputKeyDown;
+            endBox.KeyDown += OnInputKeyDown;
+
+            dialog.Loaded += (_, _) => urlBox.Focus();
+            await dialog.ShowDialog(this);
+            return result;
         };
 
         ViewModel.RequestSaveFileDialog = async (suggestedFileName) =>
