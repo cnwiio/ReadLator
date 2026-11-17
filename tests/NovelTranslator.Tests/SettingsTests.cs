@@ -254,4 +254,34 @@ public class SettingsTests
         Assert.Equal(1, vm.MaxRetryAttempts);
         Assert.Equal(string.Empty, vm.CustomStripPrefixes);
     }
+
+    [Fact]
+    public void SettingsViewModel_PopulateModelsAndApplyToSettings_SkipsEmbeddingAndClampsBounds()
+    {
+        var settings = new AppSettings
+        {
+            BaseUrl = "  http://127.0.0.1:1234/v1/  ",
+            ModelName = "",
+            PolishModelName = "custom-polish",
+            GlossaryModelName = "custom-glossary",
+            MaxChunkWords = 0,
+            ContextParagraphCount = -3
+        };
+        var vm = new SettingsViewModel(settings);
+
+        vm.PopulateAvailableModels(new System.Collections.Generic.List<NovelTranslator.Core.Llm.ModelInfo>
+        {
+            new() { Id = "text-embedding-nomic-embed-text-v1.5" },
+            new() { Id = "typhoon2.1-gemma3-4b" }
+        });
+
+        Assert.Equal("typhoon2.1-gemma3-4b", vm.ModelName);
+        Assert.Equal("custom-polish", vm.PolishModelName);
+        Assert.Equal("custom-glossary", vm.GlossaryModelName);
+
+        vm.ApplyToSettings();
+        Assert.Equal("http://127.0.0.1:1234/v1/", settings.BaseUrl);
+        Assert.Equal(600, settings.MaxChunkWords);
+        Assert.Equal(0, settings.ContextParagraphCount);
+    }
 }

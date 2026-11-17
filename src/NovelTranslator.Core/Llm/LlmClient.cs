@@ -31,25 +31,23 @@ public class LlmClient : ILlmClient
         }
     }
 
-    private string GetCompletionsUrl()
+    internal string BuildEndpointUrl(string suffix)
     {
-        string baseUrl = _settings.BaseUrl.TrimEnd('/');
+        string baseUrl = (_settings.BaseUrl ?? string.Empty).Trim().TrimEnd('/');
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            throw new InvalidOperationException("กรุณาระบุ Base URL ของผู้ให้บริการ AI ในหน้าตั้งค่าก่อนใช้งาน");
+        }
         if (baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
         {
-            return $"{baseUrl}/chat/completions";
+            return $"{baseUrl}{suffix}";
         }
-        return $"{baseUrl}/v1/chat/completions";
+        return $"{baseUrl}/v1{suffix}";
     }
 
-    private string GetModelsUrl()
-    {
-        string baseUrl = _settings.BaseUrl.TrimEnd('/');
-        if (baseUrl.EndsWith("/v1", StringComparison.OrdinalIgnoreCase))
-        {
-            return $"{baseUrl}/models";
-        }
-        return $"{baseUrl}/v1/models";
-    }
+    private string GetCompletionsUrl() => BuildEndpointUrl("/chat/completions");
+
+    private string GetModelsUrl() => BuildEndpointUrl("/models");
 
     private void ApplyHeaders(HttpRequestMessage request)
     {
@@ -100,7 +98,9 @@ public class LlmClient : ILlmClient
         string? modelOverride,
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        string targetModel = !string.IsNullOrWhiteSpace(modelOverride) ? modelOverride.Trim() : _settings.ModelName;
+        string targetModel = !string.IsNullOrWhiteSpace(modelOverride)
+            ? modelOverride.Trim()
+            : (_settings.ModelName ?? string.Empty).Trim();
         if (string.IsNullOrWhiteSpace(targetModel))
         {
             throw new InvalidOperationException("กรุณาเลือกโมเดล AI ในหน้าตั้งค่าก่อนเริ่มแปล");
@@ -116,19 +116,7 @@ public class LlmClient : ILlmClient
         };
         ApplyHeaders(request);
 
-        HttpResponseMessage response;
-        try
-        {
-            response = await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new Exception($"{FormatConnectionError(ex)}\n\n[Debug Info]\nEndpoint: {url}\nPayload:\n{json}", ex);
-        }
-        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
-        {
-            throw new Exception($"การเชื่อมต่อไปยัง AI หมดเวลา (Timeout)\n\n[Debug Info]\nEndpoint: {url}\nPayload:\n{json}", ex);
-        }
+        using HttpResponseMessage response = await SendChatRequestAsync(request, url, json, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -178,21 +166,33 @@ public class LlmClient : ILlmClient
         }
     }
 
+    private async Task<HttpResponseMessage> SendChatRequestAsync(
+        HttpRequestMessage request,
+        string url,
+        string json,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new Exception($"{FormatConnectionError(ex)}\n\n[Debug Info]\nEndpoint: {url}\nPayload:\n{json}", ex);
+        }
+        catch (TaskCanceledException ex) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new Exception($"การเชื่อมต่อไปยัง AI หมดเวลา (Timeout)\n\n[Debug Info]\nEndpoint: {url}\nPayload:\n{json}", ex);
+        }
+    }
+
     public async Task<List<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
     {
         string url = GetModelsUrl();
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         ApplyHeaders(request);
 
-        HttpResponseMessage response;
-        try
-        {
-            response = await _httpClient.SendAsync(request, cancellationToken);
-        }
-        catch (HttpRequestException ex)
-        {
-            throw new Exception(FormatConnectionError(ex), ex);
-        }
+        using HttpResponseMessage response = await SendModelsRequestAsync(request, cancellationToken);
 
         if (!response.IsSuccessStatusCode)
         {
@@ -216,6 +216,18 @@ public class LlmClient : ILlmClient
         }
 
         return models;
+    }
+
+    private async Task<HttpResponseMessage> SendModelsRequestAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _httpClient.SendAsync(request, cancellationToken);
+        }
+        catch (HttpRequestException ex)
+        {
+            throw new Exception(FormatConnectionError(ex), ex);
+        }
     }
 
     public async Task<(bool Success, string Message)> TestConnectionAsync(CancellationToken cancellationToken = default)

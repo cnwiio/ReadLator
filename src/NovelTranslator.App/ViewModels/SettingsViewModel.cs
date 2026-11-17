@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media;
@@ -490,30 +491,43 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
-    private void PopulateAvailableModels(System.Collections.Generic.List<ModelInfo> models)
+    internal void PopulateAvailableModels(System.Collections.Generic.List<ModelInfo> models)
     {
-        string currentModel = ModelName;
-        string currentPolishModel = PolishModelName;
-        string currentGlossaryModel = GlossaryModelName;
+        string currentModel = ModelName ?? string.Empty;
+        string currentPolishModel = PolishModelName ?? string.Empty;
+        string currentGlossaryModel = GlossaryModelName ?? string.Empty;
         AvailableModels.Clear();
         foreach (var m in models)
         {
-            AvailableModels.Add(m.Id);
+            if (!string.IsNullOrWhiteSpace(m.Id) && !AvailableModels.Contains(m.Id))
+            {
+                AvailableModels.Add(m.Id);
+            }
         }
+
+        string? defaultServerModel = models
+            .Select(m => m.Id)
+            .FirstOrDefault(id => !string.IsNullOrWhiteSpace(id)
+                && !id.Contains("embed", StringComparison.OrdinalIgnoreCase)
+                && !id.Contains("rerank", StringComparison.OrdinalIgnoreCase)
+                && !id.Contains("whisper", StringComparison.OrdinalIgnoreCase))
+            ?? AvailableModels.FirstOrDefault();
+
         if (!string.IsNullOrEmpty(currentModel) && !AvailableModels.Contains(currentModel))
         {
             AvailableModels.Insert(0, currentModel);
         }
         if (!string.IsNullOrEmpty(currentPolishModel) && !AvailableModels.Contains(currentPolishModel))
         {
-            AvailableModels.Insert(0, currentPolishModel);
+            AvailableModels.Add(currentPolishModel);
         }
         if (!string.IsNullOrEmpty(currentGlossaryModel) && !AvailableModels.Contains(currentGlossaryModel))
         {
-            AvailableModels.Insert(0, currentGlossaryModel);
+            AvailableModels.Add(currentGlossaryModel);
         }
-        ModelName = string.IsNullOrEmpty(currentModel) && AvailableModels.Count > 0
-            ? AvailableModels[0]
+
+        ModelName = string.IsNullOrEmpty(currentModel)
+            ? (defaultServerModel ?? string.Empty)
             : currentModel;
         PolishModelName = currentPolishModel;
         GlossaryModelName = currentGlossaryModel;
@@ -541,19 +555,19 @@ public partial class SettingsViewModel : ObservableObject
             : trimmed;
     }
 
-    private void ApplyToSettings()
+    internal void ApplyToSettings()
     {
         _settings.Backend = (BackendType)BackendIndex;
-        _settings.BaseUrl = BaseUrl;
+        _settings.BaseUrl = BaseUrl?.Trim() ?? string.Empty;
         _settings.ApiKey = ApiKey;
-        _settings.ModelName = ModelName;
+        _settings.ModelName = ModelName?.Trim() ?? string.Empty;
         _settings.Temperature = (float)Math.Round(Temperature, 2);
         _settings.TopP = (float)Math.Round(Math.Clamp(TopP, 0.05f, 1.0f), 2);
         _settings.MaxTokens = Math.Max(0, MaxTokens);
         _settings.FrequencyPenalty = (float)Math.Round(Math.Clamp(FrequencyPenalty, -2.0f, 2.0f), 2);
         _settings.RequestTimeoutSeconds = Math.Clamp(RequestTimeoutSeconds > 0 ? RequestTimeoutSeconds : 300, 10, 3600);
-        _settings.MaxChunkWords = MaxChunkWords;
-        _settings.ContextParagraphCount = ContextParagraphCount;
+        _settings.MaxChunkWords = Math.Clamp(MaxChunkWords > 0 ? MaxChunkWords : 600, 50, 10000);
+        _settings.ContextParagraphCount = Math.Clamp(ContextParagraphCount, 0, 20);
         _settings.CustomSystemPrompt = NormalizeCustomPrompt(CustomSystemPrompt, PromptBuilder.DefaultSystemPromptTemplate);
         _settings.CustomPolishSystemPrompt = NormalizeCustomPrompt(CustomPolishSystemPrompt, PromptBuilder.DefaultPolishSystemPromptTemplate);
         _settings.CustomGlossaryPrompt = NormalizeCustomPrompt(CustomGlossaryPrompt, GlossaryExtractor.DefaultGlossaryPromptTemplate);

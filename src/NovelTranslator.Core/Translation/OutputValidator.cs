@@ -53,6 +53,11 @@ public class OutputValidator
             {
                 text = text.Substring(closeThinkIdx + "</think>".Length).Trim();
             }
+            int openThinkIdx = text.IndexOf("<think>", StringComparison.OrdinalIgnoreCase);
+            if (openThinkIdx >= 0)
+            {
+                text = text.Substring(0, openThinkIdx).Trim();
+            }
         }
 
         string[] customPrefixes = string.IsNullOrWhiteSpace(customStripPrefixes)

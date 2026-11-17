@@ -23,6 +23,7 @@ public class Chunker
     {
         var result = new List<string>();
         if (string.IsNullOrWhiteSpace(text)) return result;
+        if (maxWords <= 0) maxWords = 600;
 
         // แยกข้อความเป็นย่อหน้า (รองรับทั้ง \r\n\r\n และ \n\n รวมถึงบรรทัดเดี่ยว)
         string normalized = text.Replace("\r\n", "\n").Replace("\r", "\n");

@@ -95,6 +95,10 @@ public class OutputValidatorTests
 
         string unclosedThink = "internal reasoning\n</think>\nเนื้อหาที่แปลแล้ว";
         Assert.Equal("เนื้อหาที่แปลแล้ว", OutputValidator.CleanPreamble(unclosedThink, stripThinkTags: true));
+
+        // Unclosed opening <think> while streaming in WordByWord mode or truncated output
+        Assert.Equal(string.Empty, OutputValidator.CleanPreamble("<think>thinking during stream...", stripThinkTags: true));
+        Assert.Equal("เนื้อหาแรก", OutputValidator.CleanPreamble("เนื้อหาแรก\n<think>truncated", stripThinkTags: true));
     }
 
     [Fact]

@@ -66,4 +66,13 @@ public class ChunkerTests
         Assert.Contains("ใช้ภาษายุคโบราณ", prompt);
         Assert.Contains("คำสั่งพิเศษจากผู้ใช้: ห้ามทับศัพท์", prompt);
     }
+
+    [Fact]
+    public void SplitIntoChunks_ZeroOrNegativeMaxWords_FallsBackSafelyWithoutExplodingSentences()
+    {
+        string text = "First sentence. Second sentence. Third sentence.";
+        var chunks = Chunker.SplitIntoChunks(text, maxWords: 0);
+        Assert.Single(chunks);
+        Assert.Equal(text, chunks[0]);
+    }
 }

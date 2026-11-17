@@ -383,6 +383,20 @@ public class TranslationPipelineTests : IDisposable
         Assert.Contains("POLISH_TEMPLATE English->Thai", llm.RecordedMessages[1][0].Content);
     }
 
+    [Fact]
+    public void LlmClient_BuildEndpointUrl_TrimsWhitespaceAndRejectsEmptyBaseUrl()
+    {
+        var clientWithSpaces = new LlmClient(new AppSettings { BaseUrl = "  http://127.0.0.1:1234/v1/  " });
+        Assert.Equal("http://127.0.0.1:1234/v1/models", clientWithSpaces.BuildEndpointUrl("/models"));
+        Assert.Equal("http://127.0.0.1:1234/v1/chat/completions", clientWithSpaces.BuildEndpointUrl("/chat/completions"));
+
+        var clientNoV1 = new LlmClient(new AppSettings { BaseUrl = " http://127.0.0.1:1234/ " });
+        Assert.Equal("http://127.0.0.1:1234/v1/models", clientNoV1.BuildEndpointUrl("/models"));
+
+        var emptyClient = new LlmClient(new AppSettings { BaseUrl = "   " });
+        Assert.Throws<InvalidOperationException>(() => emptyClient.BuildEndpointUrl("/models"));
+    }
+
     private sealed class QueueLlmClient : ILlmClient
     {
         private readonly Queue<string> _responses;
