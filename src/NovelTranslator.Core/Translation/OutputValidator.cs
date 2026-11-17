@@ -37,13 +37,30 @@ public class OutputValidator
     };
 
     /// <summary>
-    /// ตัดคำเกริ่นและ Markdown โค้ดบล็อกที่ AI แอบใส่มา
+    /// ตัดคำเกริ่น แท็กคิดวิเคราะห์ (<think>) และ Markdown โค้ดบล็อกที่ AI แอบใส่มา
     /// </summary>
-    public static string CleanPreamble(string rawText)
+    public static string CleanPreamble(string rawText, bool stripThinkTags = true, string? customStripPrefixes = null)
     {
         if (string.IsNullOrWhiteSpace(rawText)) return string.Empty;
 
         string text = rawText.Trim();
+
+        if (stripThinkTags)
+        {
+            text = Regex.Replace(text, @"<think>[\s\S]*?</think>", string.Empty, RegexOptions.IgnoreCase).Trim();
+            int closeThinkIdx = text.LastIndexOf("</think>", StringComparison.OrdinalIgnoreCase);
+            if (closeThinkIdx >= 0)
+            {
+                text = text.Substring(closeThinkIdx + "</think>".Length).Trim();
+            }
+        }
+
+        string[] customPrefixes = string.IsNullOrWhiteSpace(customStripPrefixes)
+            ? Array.Empty<string>()
+            : customStripPrefixes.Split(new[] { '\r', '\n', ',', ';' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(p => p.Trim())
+                .Where(p => !string.IsNullOrEmpty(p))
+                .ToArray();
 
         while (true)
         {
@@ -68,7 +85,8 @@ public class OutputValidator
             while (lines.Count > 0)
             {
                 string firstLine = lines[0].Trim();
-                bool isPreamble = PreamblePrefixes.Any(p => firstLine.StartsWith(p, StringComparison.OrdinalIgnoreCase));
+                bool isPreamble = PreamblePrefixes.Any(p => firstLine.StartsWith(p, StringComparison.OrdinalIgnoreCase))
+                    || customPrefixes.Any(p => firstLine.StartsWith(p, StringComparison.OrdinalIgnoreCase));
                 if (isPreamble)
                 {
                     lines.RemoveAt(0);
@@ -97,9 +115,12 @@ public class OutputValidator
     public static ValidationResult Validate(
         string sourceChunk,
         string rawTranslation,
-        IReadOnlyList<GlossaryEntry>? activeGlossary = null)
+        IReadOnlyList<GlossaryEntry>? activeGlossary = null,
+        bool stripThinkTags = true,
+        int maxEnglishRatioPercent = 25,
+        string? customStripPrefixes = null)
     {
-        string cleaned = CleanPreamble(rawTranslation);
+        string cleaned = CleanPreamble(rawTranslation, stripThinkTags, customStripPrefixes);
 
         // 1. ตรวจว่าว่างเปล่าหรือไม่
         if (string.IsNullOrWhiteSpace(cleaned))
@@ -159,8 +180,9 @@ public class OutputValidator
         if (nonWhitespaceCount > 40)
         {
             double latinRatio = (double)latinCount / nonWhitespaceCount;
-            // ถ้ายังมีตัวอักษรละตินค้างเกิน 25% แสดงว่าลืมแปลเป็นภาษาไทย
-            if (latinRatio > 0.25)
+            int effectiveMaxEnglish = Math.Clamp(maxEnglishRatioPercent, 5, 100);
+            // ถ้ายังมีตัวอักษรละตินค้างเกินเกณฑ์ที่กำหนด (100% = ปิดการตรวจ) แสดงว่าลืมแปลเป็นภาษาไทย
+            if (effectiveMaxEnglish < 100 && latinRatio > (effectiveMaxEnglish / 100.0))
             {
                 return new ValidationResult
                 {

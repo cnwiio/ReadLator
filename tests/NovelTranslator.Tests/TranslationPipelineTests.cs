@@ -269,6 +269,120 @@ public class TranslationPipelineTests : IDisposable
         Assert.Equal(new string?[] { null, "editor-llm" }, llm.RecordedModelOverrides);
     }
 
+    [Fact]
+    public void LlmClient_BuildRequestPayload_IncludesOptionalFieldsOnlyWhenAdjusted()
+    {
+        var defaultClient = new LlmClient(new AppSettings());
+        var defaultPayload = defaultClient.BuildRequestPayload("qwen2.5:7b", new[] { new ChatMessage("user", "hi") }, 0.3f);
+
+        Assert.False(defaultPayload.ContainsKey("top_p"));
+        Assert.False(defaultPayload.ContainsKey("max_tokens"));
+        Assert.False(defaultPayload.ContainsKey("frequency_penalty"));
+
+        var customClient = new LlmClient(new AppSettings
+        {
+            TopP = 0.85f,
+            MaxTokens = 1500,
+            FrequencyPenalty = 0.25f
+        });
+        var customPayload = customClient.BuildRequestPayload("qwen2.5:7b", new[] { new ChatMessage("user", "hi") }, 0.4f);
+
+        Assert.True(customPayload.ContainsKey("top_p"));
+        Assert.Equal(1500, customPayload["max_tokens"]);
+        Assert.True(customPayload.ContainsKey("frequency_penalty"));
+    }
+
+    [Fact]
+    public async Task TranslateChapterAsync_RespectsMaxRetryAttemptsAndContextToggles()
+    {
+        var story = new Story { Title = "Toggle Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var prevChapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "Ch 1",
+            OriginalText = "Previous chapter source paragraph.",
+            TranslatedText = "ย่อหน้าก่อนหน้าจากตอนที่หนึ่ง",
+            Status = ChapterStatus.Translated
+        };
+        await _repository.InsertChapterAsync(prevChapter);
+
+        var currentChapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 2,
+            Title = "Ch 2",
+            OriginalText = "First chunk paragraph.\n\nSecond chunk paragraph."
+        };
+        currentChapter.Id = await _repository.InsertChapterAsync(currentChapter);
+
+        // MaxRetryAttempts = 0 -> tries once even on empty response; Context toggles disabled -> no prev chapter or look-ahead
+        var noRetrySettings = new AppSettings
+        {
+            MaxChunkWords = 3,
+            MaxRetryAttempts = 0,
+            EnableCrossChapterContext = false,
+            EnableLookAheadContext = false,
+            PovMode = PovDetectionMode.FirstPerson
+        };
+        var llm = new QueueLlmClient("", "ส่วนที่สอง");
+        var pipeline = new TranslationPipeline(_repository, llm, noRetrySettings);
+
+        await pipeline.TranslateChapterAsync(story, currentChapter, new Progress<TranslationProgressInfo>());
+
+        Assert.Equal(2, llm.CallCount);
+        string firstUserMsg = llm.RecordedMessages[0][1].Content;
+        Assert.DoesNotContain("ย่อหน้าก่อนหน้าจากตอนที่หนึ่ง", firstUserMsg);
+        Assert.DoesNotContain("บริบทย่อหน้าถัดไป", firstUserMsg);
+        Assert.Contains("บุรุษที่ 1", firstUserMsg);
+
+        // MaxRetryAttempts = 2 -> up to 3 total attempts on failing validation
+        currentChapter.OriginalText = "Single chunk text.";
+        currentChapter.TranslatedText = string.Empty;
+        await _repository.UpdateChapterAsync(currentChapter);
+
+        var twoRetrySettings = new AppSettings { MaxChunkWords = 50, MaxRetryAttempts = 2 };
+        var retryLlm = new QueueLlmClient("", "", "คำแปลรอบที่สาม");
+        var retryPipeline = new TranslationPipeline(_repository, retryLlm, twoRetrySettings);
+
+        await retryPipeline.TranslateChapterAsync(story, currentChapter, new Progress<TranslationProgressInfo>(), forceRetranslate: true);
+
+        Assert.Equal(3, retryLlm.CallCount);
+        Assert.Equal("คำแปลรอบที่สาม", currentChapter.TranslatedText);
+    }
+
+    [Fact]
+    public async Task TranslateChapterAsync_UsesCustomPolishSystemPromptIndependently()
+    {
+        var story = new Story { Title = "Custom Polish Prompt Story", SourceLang = "English", TargetLang = "Thai" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var chapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "Ch 1",
+            OriginalText = "He stood quietly by the river."
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        var settings = new AppSettings
+        {
+            EnablePolishMode = true,
+            CustomSystemPrompt = "MAIN_TEMPLATE {SourceLang}->{TargetLang}",
+            CustomPolishSystemPrompt = "POLISH_TEMPLATE {SourceLang}->{TargetLang}"
+        };
+        var llm = new QueueLlmClient("เขายืนเงียบๆ ริมแม่น้ำ", "เขายืนสงบนิ่งอยู่ริมสายน้ำ");
+        var pipeline = new TranslationPipeline(_repository, llm, settings);
+
+        await pipeline.TranslateChapterAsync(story, chapter, new Progress<TranslationProgressInfo>());
+
+        Assert.Contains("MAIN_TEMPLATE English->Thai", llm.RecordedMessages[0][0].Content);
+        Assert.Contains("POLISH_TEMPLATE English->Thai", llm.RecordedMessages[1][0].Content);
+    }
+
     private sealed class QueueLlmClient : ILlmClient
     {
         private readonly Queue<string> _responses;

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using NovelTranslator.Core.Models;
+using NovelTranslator.Core.Settings;
 using NovelTranslator.Core.Translation;
 using Xunit;
 
@@ -51,5 +52,44 @@ He drew his sword, refusing to let the enemy intimidate him. He stepped forward.
         Assert.Contains("บริบทย่อหน้าถัดไป", messages[1].Content);
         Assert.Contains("The beast roared in pain.", messages[1].Content);
         Assert.Contains("บริบทย่อหน้าก่อนหน้า", messages[1].Content);
+    }
+
+    [Fact]
+    public void BuildSystemPrompt_FullTemplateReplacesPlaceholdersAndAutoAppendsStyleNotesWhenOmitted()
+    {
+        var story = new Story
+        {
+            Title = "Template Story",
+            SourceLang = "Japanese",
+            TargetLang = "Thai",
+            StyleNotes = "สำนวนไลท์โนเวล"
+        };
+
+        string withPlaceholders = PromptBuilder.BuildSystemPrompt(
+            story,
+            "Translate from {SourceLang} to {TargetLang}.\nKeep tone faithful.\n{StyleNotes}");
+
+        Assert.Contains("Translate from Japanese to Thai.", withPlaceholders);
+        Assert.Contains("คำแนะนำสไตล์และโทนเรื่อง: สำนวนไลท์โนเวล", withPlaceholders);
+        Assert.DoesNotContain("{SourceLang}", withPlaceholders);
+        Assert.DoesNotContain("{StyleNotes}", withPlaceholders);
+
+        string omittedStyle = PromptBuilder.BuildSystemPrompt(
+            story,
+            "Translate {SourceLang} -> {TargetLang}.\nFollow glossary strictly.");
+
+        Assert.Contains("Translate Japanese -> Thai.", omittedStyle);
+        Assert.EndsWith("คำแนะนำสไตล์และโทนเรื่อง: สำนวนไลท์โนเวล", omittedStyle);
+    }
+
+    [Fact]
+    public void ResolvePovHint_RespectsConfiguredPovMode()
+    {
+        string thirdPersonText = "He walked down the road. He drew his sword. He looked ahead.";
+
+        Assert.Empty(PromptBuilder.ResolvePovHint(thirdPersonText, PovDetectionMode.Off));
+        Assert.Contains("บุรุษที่ 1", PromptBuilder.ResolvePovHint(thirdPersonText, PovDetectionMode.FirstPerson));
+        Assert.Contains("บุรุษที่ 3", PromptBuilder.ResolvePovHint("Short dialogue only.", PovDetectionMode.ThirdPerson));
+        Assert.Contains("บุรุษที่ 3", PromptBuilder.ResolvePovHint(thirdPersonText, PovDetectionMode.Auto));
     }
 }

@@ -5,8 +5,10 @@ using System.Threading.Tasks;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using NovelTranslator.Core.Glossary;
 using NovelTranslator.Core.Llm;
 using NovelTranslator.Core.Settings;
+using NovelTranslator.Core.Translation;
 
 namespace NovelTranslator.App.ViewModels;
 
@@ -31,6 +33,18 @@ public partial class SettingsViewModel : ObservableObject
     private float _temperature = 0.3f;
 
     [ObservableProperty]
+    private float _topP = 1.0f;
+
+    [ObservableProperty]
+    private int _maxTokens = 0;
+
+    [ObservableProperty]
+    private float _frequencyPenalty = 0.0f;
+
+    [ObservableProperty]
+    private int _requestTimeoutSeconds = 300;
+
+    [ObservableProperty]
     private int _maxChunkWords = 600;
 
     [ObservableProperty]
@@ -40,22 +54,57 @@ public partial class SettingsViewModel : ObservableObject
     private string _customSystemPrompt = string.Empty;
 
     [ObservableProperty]
+    private string _customPolishSystemPrompt = string.Empty;
+
+    [ObservableProperty]
+    private string _customGlossaryPrompt = string.Empty;
+
+    [ObservableProperty]
+    private bool _enableCrossChapterContext = true;
+
+    [ObservableProperty]
+    private bool _enableLookAheadContext = true;
+
+    [ObservableProperty]
+    private int _povModeIndex;
+
+    [ObservableProperty]
+    private bool _stripThinkTags = true;
+
+    [ObservableProperty]
+    private int _maxEnglishRatioPercent = 25;
+
+    [ObservableProperty]
+    private int _maxRetryAttempts = 1;
+
+    [ObservableProperty]
+    private string _customStripPrefixes = string.Empty;
+
+    [ObservableProperty]
+    private int _glossaryScanMaxWords = 1500;
+
+    [ObservableProperty]
+    private string _glossaryModelName = string.Empty;
+
+    [ObservableProperty]
     private bool _enablePolishMode;
 
     [ObservableProperty]
     private string _polishModelName = string.Empty;
 
-    // หมวดการตั้งค่าหลัก (0: AI, 1: Shortkeys, 2: System)
+    // หมวดการตั้งค่าหลัก (0: AI, 1: Prompts & Pipeline, 2: Shortkeys, 3: System)
     [ObservableProperty]
     private int _selectedCategoryIndex;
 
     public bool IsAiCategorySelected => SelectedCategoryIndex == 0;
-    public bool IsShortkeysCategorySelected => SelectedCategoryIndex == 1;
-    public bool IsSystemCategorySelected => SelectedCategoryIndex == 2;
+    public bool IsPipelineCategorySelected => SelectedCategoryIndex == 1;
+    public bool IsShortkeysCategorySelected => SelectedCategoryIndex == 2;
+    public bool IsSystemCategorySelected => SelectedCategoryIndex == 3;
 
     partial void OnSelectedCategoryIndexChanged(int value)
     {
         OnPropertyChanged(nameof(IsAiCategorySelected));
+        OnPropertyChanged(nameof(IsPipelineCategorySelected));
         OnPropertyChanged(nameof(IsShortkeysCategorySelected));
         OnPropertyChanged(nameof(IsSystemCategorySelected));
     }
@@ -294,14 +343,71 @@ public partial class SettingsViewModel : ObservableObject
         ApiKey = settings.ApiKey;
         ModelName = settings.ModelName;
         Temperature = settings.Temperature;
+        TopP = settings.TopP is > 0f and <= 1.0f ? settings.TopP : 1.0f;
+        MaxTokens = Math.Max(0, settings.MaxTokens);
+        FrequencyPenalty = Math.Clamp(settings.FrequencyPenalty, -2.0f, 2.0f);
+        RequestTimeoutSeconds = Math.Clamp(settings.RequestTimeoutSeconds > 0 ? settings.RequestTimeoutSeconds : 300, 10, 3600);
         MaxChunkWords = settings.MaxChunkWords;
         ContextParagraphCount = settings.ContextParagraphCount;
-        CustomSystemPrompt = settings.CustomSystemPrompt ?? string.Empty;
+        CustomSystemPrompt = LoadPromptOrDefault(settings.CustomSystemPrompt, PromptBuilder.DefaultSystemPromptTemplate);
+        CustomPolishSystemPrompt = LoadPromptOrDefault(settings.CustomPolishSystemPrompt, PromptBuilder.DefaultPolishSystemPromptTemplate);
+        CustomGlossaryPrompt = string.IsNullOrWhiteSpace(settings.CustomGlossaryPrompt)
+            ? GlossaryExtractor.DefaultGlossaryPromptTemplate
+            : settings.CustomGlossaryPrompt;
+        EnableCrossChapterContext = settings.EnableCrossChapterContext;
+        EnableLookAheadContext = settings.EnableLookAheadContext;
+        PovModeIndex = Enum.IsDefined(typeof(PovDetectionMode), settings.PovMode) ? (int)settings.PovMode : 0;
+        StripThinkTags = settings.StripThinkTags;
+        MaxEnglishRatioPercent = Math.Clamp(settings.MaxEnglishRatioPercent > 0 ? settings.MaxEnglishRatioPercent : 25, 5, 100);
+        MaxRetryAttempts = Math.Clamp(settings.MaxRetryAttempts, 0, 5);
+        CustomStripPrefixes = settings.CustomStripPrefixes ?? string.Empty;
+        GlossaryScanMaxWords = Math.Max(0, settings.GlossaryScanMaxWords);
+        GlossaryModelName = settings.GlossaryModelName ?? string.Empty;
         EnablePolishMode = settings.EnablePolishMode;
         PolishModelName = settings.PolishModelName ?? string.Empty;
 
         _isInitializing = false;
         _ = RefreshModelsSilentAsync();
+    }
+
+    private static string LoadPromptOrDefault(string? storedPrompt, string defaultTemplate)
+    {
+        if (string.IsNullOrWhiteSpace(storedPrompt))
+        {
+            return defaultTemplate;
+        }
+        return PromptBuilder.IsFullPromptTemplate(storedPrompt)
+            ? storedPrompt
+            : $"{defaultTemplate}\nคำสั่งพิเศษจากผู้ใช้: {storedPrompt.Trim()}";
+    }
+
+    [RelayCommand]
+    public void ResetSystemPrompt() => CustomSystemPrompt = PromptBuilder.DefaultSystemPromptTemplate;
+
+    [RelayCommand]
+    public void ResetPolishPrompt() => CustomPolishSystemPrompt = PromptBuilder.DefaultPolishSystemPromptTemplate;
+
+    [RelayCommand]
+    public void ResetGlossaryPrompt() => CustomGlossaryPrompt = GlossaryExtractor.DefaultGlossaryPromptTemplate;
+
+    [RelayCommand]
+    public void ResetAiParameters()
+    {
+        Temperature = 0.3f;
+        TopP = 1.0f;
+        MaxTokens = 0;
+        FrequencyPenalty = 0.0f;
+        RequestTimeoutSeconds = 300;
+        MaxChunkWords = 600;
+    }
+
+    [RelayCommand]
+    public void ResetValidatorSettings()
+    {
+        StripThinkTags = true;
+        MaxEnglishRatioPercent = 25;
+        MaxRetryAttempts = 1;
+        CustomStripPrefixes = string.Empty;
     }
 
     [RelayCommand]
@@ -388,6 +494,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         string currentModel = ModelName;
         string currentPolishModel = PolishModelName;
+        string currentGlossaryModel = GlossaryModelName;
         AvailableModels.Clear();
         foreach (var m in models)
         {
@@ -401,10 +508,15 @@ public partial class SettingsViewModel : ObservableObject
         {
             AvailableModels.Insert(0, currentPolishModel);
         }
+        if (!string.IsNullOrEmpty(currentGlossaryModel) && !AvailableModels.Contains(currentGlossaryModel))
+        {
+            AvailableModels.Insert(0, currentGlossaryModel);
+        }
         ModelName = string.IsNullOrEmpty(currentModel) && AvailableModels.Count > 0
             ? AvailableModels[0]
             : currentModel;
         PolishModelName = currentPolishModel;
+        GlossaryModelName = currentGlossaryModel;
     }
 
     [RelayCommand]
@@ -420,6 +532,15 @@ public partial class SettingsViewModel : ObservableObject
         _settings.Save();
     }
 
+    private static string NormalizeCustomPrompt(string? value, string defaultTemplate)
+    {
+        string trimmed = (value ?? string.Empty).Replace("\r\n", "\n").Trim();
+        string normalizedDefault = defaultTemplate.Replace("\r\n", "\n").Trim();
+        return string.IsNullOrEmpty(trimmed) || trimmed == normalizedDefault
+            ? string.Empty
+            : trimmed;
+    }
+
     private void ApplyToSettings()
     {
         _settings.Backend = (BackendType)BackendIndex;
@@ -427,9 +548,24 @@ public partial class SettingsViewModel : ObservableObject
         _settings.ApiKey = ApiKey;
         _settings.ModelName = ModelName;
         _settings.Temperature = (float)Math.Round(Temperature, 2);
+        _settings.TopP = (float)Math.Round(Math.Clamp(TopP, 0.05f, 1.0f), 2);
+        _settings.MaxTokens = Math.Max(0, MaxTokens);
+        _settings.FrequencyPenalty = (float)Math.Round(Math.Clamp(FrequencyPenalty, -2.0f, 2.0f), 2);
+        _settings.RequestTimeoutSeconds = Math.Clamp(RequestTimeoutSeconds > 0 ? RequestTimeoutSeconds : 300, 10, 3600);
         _settings.MaxChunkWords = MaxChunkWords;
         _settings.ContextParagraphCount = ContextParagraphCount;
-        _settings.CustomSystemPrompt = CustomSystemPrompt ?? string.Empty;
+        _settings.CustomSystemPrompt = NormalizeCustomPrompt(CustomSystemPrompt, PromptBuilder.DefaultSystemPromptTemplate);
+        _settings.CustomPolishSystemPrompt = NormalizeCustomPrompt(CustomPolishSystemPrompt, PromptBuilder.DefaultPolishSystemPromptTemplate);
+        _settings.CustomGlossaryPrompt = NormalizeCustomPrompt(CustomGlossaryPrompt, GlossaryExtractor.DefaultGlossaryPromptTemplate);
+        _settings.EnableCrossChapterContext = EnableCrossChapterContext;
+        _settings.EnableLookAheadContext = EnableLookAheadContext;
+        _settings.PovMode = Enum.IsDefined(typeof(PovDetectionMode), PovModeIndex) ? (PovDetectionMode)PovModeIndex : PovDetectionMode.Auto;
+        _settings.StripThinkTags = StripThinkTags;
+        _settings.MaxEnglishRatioPercent = Math.Clamp(MaxEnglishRatioPercent, 5, 100);
+        _settings.MaxRetryAttempts = Math.Clamp(MaxRetryAttempts, 0, 5);
+        _settings.CustomStripPrefixes = CustomStripPrefixes?.Trim() ?? string.Empty;
+        _settings.GlossaryScanMaxWords = Math.Max(0, GlossaryScanMaxWords);
+        _settings.GlossaryModelName = GlossaryModelName?.Trim() ?? string.Empty;
         _settings.EnablePolishMode = EnablePolishMode;
         _settings.PolishModelName = PolishModelName?.Trim() ?? string.Empty;
 

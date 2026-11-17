@@ -81,4 +81,32 @@ public class OutputValidatorTests
         Assert.DoesNotContain("\"Role\":", json);
         Assert.DoesNotContain("\"Content\":", json);
     }
+
+    [Fact]
+    public void CleanPreamble_StripsThinkTagsAndCustomPrefixes()
+    {
+        string raw = "<think>Analyze [1] and [2]</think>\nหมายเหตุผู้แปล: ส่วนนี้แปลยาก\n\nเขาก้าวเดินไปข้างหน้าอย่างมั่นคง";
+
+        string cleaned = OutputValidator.CleanPreamble(raw, stripThinkTags: true, customStripPrefixes: "หมายเหตุผู้แปล:, Note:");
+        Assert.Equal("เขาก้าวเดินไปข้างหน้าอย่างมั่นคง", cleaned);
+
+        string keptThink = OutputValidator.CleanPreamble(raw, stripThinkTags: false);
+        Assert.Contains("<think>", keptThink);
+
+        string unclosedThink = "internal reasoning\n</think>\nเนื้อหาที่แปลแล้ว";
+        Assert.Equal("เนื้อหาที่แปลแล้ว", OutputValidator.CleanPreamble(unclosedThink, stripThinkTags: true));
+    }
+
+    [Fact]
+    public void Validate_RespectsMaxEnglishRatioPercentAndDisablesAt100()
+    {
+        string source = "The knight opened the status window and checked his HP, MP, STR, AGI, and Quest Log.";
+        string litRpgTranslation = "อัศวินเปิดหน้าต่าง Status Window และตรวจสอบค่า HP, MP, STR, AGI, และ Quest Log ของตนอย่างละเอียด";
+
+        var strictResult = OutputValidator.Validate(source, litRpgTranslation, maxEnglishRatioPercent: 25);
+        Assert.False(strictResult.IsValid);
+
+        var relaxedResult = OutputValidator.Validate(source, litRpgTranslation, maxEnglishRatioPercent: 100);
+        Assert.True(relaxedResult.IsValid);
+    }
 }

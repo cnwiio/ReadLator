@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using NovelTranslator.Core.Llm;
 using NovelTranslator.Core.Models;
 using NovelTranslator.Core.Settings;
+using NovelTranslator.Core.Translation;
 
 namespace NovelTranslator.Core.Glossary;
 
@@ -39,6 +40,28 @@ public class ExtractedTerm : INotifyPropertyChanged
 
 public class GlossaryExtractor
 {
+    public const string DefaultGlossaryPromptTemplate = @"คุณคือผู้เชี่ยวชาญการทำพจนานุกรมศัพท์นิยาย (Glossary)
+จากเนื้อหานิยายต้นฉบับและคำแปลด้านล่างนี้ ให้สกัดคำศัพท์เฉพาะที่เป็น:
+1. ชื่อตัวละคร (Person)
+2. ชื่อสถานที่ (Location)
+3. สกิล, ไอเทม, ตำแหน่ง, องค์กร หรือศัพท์เทคนิคเฉพาะเรื่อง (Term)
+
+โดยตอบกลับเป็น JSON Array เท่านั้น ไม่มีข้อความอื่นปน ในรูปแบบ:
+[
+  {
+    ""source"": ""คำภาษาอังกฤษ"",
+    ""target"": ""คำแปลภาษาไทยที่ปรากฏในเนื้อเรื่อง"",
+    ""category"": ""Person"" | ""Location"" | ""Term"",
+    ""notes"": ""คำอธิบายสั้นๆ เช่น ตัวเอก, เมืองหลวง, วิชาดาบ""
+  }
+]
+
+[ต้นฉบับ]
+{SourceText}
+
+[คำแปล]
+{TranslatedText}";
+
     private readonly ILlmClient _llmClient;
     private readonly AppSettings _settings;
 
@@ -46,6 +69,27 @@ public class GlossaryExtractor
     {
         _llmClient = llmClient;
         _settings = settings;
+    }
+
+    public static string BuildExtractionPrompt(string? customPrompt, string sourceText, string translatedText)
+    {
+        string template = string.IsNullOrWhiteSpace(customPrompt)
+            ? DefaultGlossaryPromptTemplate
+            : customPrompt.Trim();
+
+        bool hasSource = template.Contains("{SourceText}", StringComparison.OrdinalIgnoreCase);
+        bool hasTrans = template.Contains("{TranslatedText}", StringComparison.OrdinalIgnoreCase);
+
+        string prompt = template
+            .Replace("{SourceText}", sourceText, StringComparison.OrdinalIgnoreCase)
+            .Replace("{TranslatedText}", translatedText, StringComparison.OrdinalIgnoreCase);
+
+        if (!hasSource || !hasTrans)
+        {
+            prompt = $"{prompt.TrimEnd()}\n\n[ต้นฉบับ]\n{sourceText}\n\n[คำแปล]\n{translatedText}";
+        }
+
+        return prompt;
     }
 
     /// <summary>
@@ -62,35 +106,18 @@ public class GlossaryExtractor
             return new();
         }
 
-        // คัดตัดเฉพาะส่วนแรก 1500 คำ เพื่อความเร็วและประหยัด Token
-        string truncatedSource = TruncateWords(sourceText, 1200);
-        string truncatedTrans = TruncateWords(translatedText, 1200);
+        string truncatedSource = _settings.GlossaryScanMaxWords > 0
+            ? TruncateWords(sourceText, _settings.GlossaryScanMaxWords)
+            : sourceText;
+        string truncatedTrans = _settings.GlossaryScanMaxWords > 0
+            ? TruncateWords(translatedText, _settings.GlossaryScanMaxWords)
+            : translatedText;
 
         var existingSet = new HashSet<string>(
             existingGlossary.Select(g => g.SourceTerm.Trim().ToLowerInvariant())
         );
 
-        string prompt = $@"คุณคือผู้เชี่ยวชาญการทำพจนานุกรมศัพท์นิยาย (Glossary)
-จากเนื้อหานิยายต้นฉบับและคำแปลด้านล่างนี้ ให้สกัดคำศัพท์เฉพาะที่เป็น:
-1. ชื่อตัวละคร (Person)
-2. ชื่อสถานที่ (Location)
-3. สกิล, ไอเทม, ตำแหน่ง, องค์กร หรือศัพท์เทคนิคเฉพาะเรื่อง (Term)
-
-โดยตอบกลับเป็น JSON Array เท่านั้น ไม่มีข้อความอื่นปน ในรูปแบบ:
-[
-  {{
-    ""source"": ""คำภาษาอังกฤษ"",
-    ""target"": ""คำแปลภาษาไทยที่ปรากฏในเนื้อเรื่อง"",
-    ""category"": ""Person"" | ""Location"" | ""Term"",
-    ""notes"": ""คำอธิบายสั้นๆ เช่น ตัวเอก, เมืองหลวง, วิชาดาบ""
-  }}
-]
-
-[ต้นฉบับ]
-{truncatedSource}
-
-[คำแปล]
-{truncatedTrans}";
+        string prompt = BuildExtractionPrompt(_settings.CustomGlossaryPrompt, truncatedSource, truncatedTrans);
 
         var messages = new List<ChatMessage>
         {
@@ -98,8 +125,12 @@ public class GlossaryExtractor
             new ChatMessage { Role = "user", Content = prompt }
         };
 
+        string? modelOverride = string.IsNullOrWhiteSpace(_settings.GlossaryModelName)
+            ? null
+            : _settings.GlossaryModelName.Trim();
+
         var sb = new System.Text.StringBuilder();
-        await foreach (var delta in _llmClient.StreamChatAsync(messages, 0.1f, cancellationToken))
+        await foreach (var delta in _llmClient.StreamChatAsync(messages, 0.1f, modelOverride, cancellationToken))
         {
             sb.Append(delta);
         }
@@ -113,8 +144,11 @@ public class GlossaryExtractor
         var results = new List<ExtractedTerm>();
         if (string.IsNullOrWhiteSpace(jsonText)) return results;
 
+        // ตัด <think>...</think> ออกก่อนเผื่อ reasoning trace มีวงเล็บ [...]
+        string cleanedText = OutputValidator.CleanPreamble(jsonText, stripThinkTags: true);
+
         // ดึงเฉพาะส่วนที่เป็น JSON Array [...] แรกที่วงเล็บสมดุล (ป้องกันข้อความหมายเหตุ [...] ต่อท้าย)
-        string? jsonArray = ExtractFirstJsonArray(jsonText);
+        string? jsonArray = ExtractFirstJsonArray(cleanedText);
         if (jsonArray == null) return results;
 
         try

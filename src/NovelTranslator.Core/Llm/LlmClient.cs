@@ -22,7 +22,8 @@ public class LlmClient : ILlmClient
         _settings = settings;
         if (httpClient == null)
         {
-            _httpClient = new HttpClient { Timeout = TimeSpan.FromMinutes(5) }; // เผื่อโมเดลขนาดใหญ่ประมวลผลนาน
+            int timeoutSeconds = Math.Clamp(_settings.RequestTimeoutSeconds > 0 ? _settings.RequestTimeoutSeconds : 300, 10, 3600);
+            _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(timeoutSeconds) }; // เผื่อโมเดลขนาดใหญ่ประมวลผลนาน
         }
         else
         {
@@ -64,6 +65,35 @@ public class LlmClient : ILlmClient
         CancellationToken cancellationToken = default)
         => StreamChatAsync(messages, temperature, null, cancellationToken);
 
+    public Dictionary<string, object> BuildRequestPayload(
+        string targetModel,
+        IEnumerable<ChatMessage> messages,
+        float temperature)
+    {
+        var payload = new Dictionary<string, object>
+        {
+            ["model"] = targetModel,
+            ["messages"] = messages,
+            ["temperature"] = Math.Round(temperature, 2),
+            ["stream"] = true
+        };
+
+        if (_settings.TopP is > 0f and < 0.999f)
+        {
+            payload["top_p"] = Math.Round(_settings.TopP, 2);
+        }
+        if (_settings.MaxTokens > 0)
+        {
+            payload["max_tokens"] = _settings.MaxTokens;
+        }
+        if (Math.Abs(_settings.FrequencyPenalty) > 0.001f)
+        {
+            payload["frequency_penalty"] = Math.Round(_settings.FrequencyPenalty, 2);
+        }
+
+        return payload;
+    }
+
     public async IAsyncEnumerable<string> StreamChatAsync(
         IEnumerable<ChatMessage> messages,
         float temperature,
@@ -77,13 +107,7 @@ public class LlmClient : ILlmClient
         }
 
         string url = GetCompletionsUrl();
-        var requestBody = new
-        {
-            model = targetModel,
-            messages,
-            temperature,
-            stream = true
-        };
+        var requestBody = BuildRequestPayload(targetModel, messages, temperature);
 
         string json = JsonSerializer.Serialize(requestBody);
         using var request = new HttpRequestMessage(HttpMethod.Post, url)

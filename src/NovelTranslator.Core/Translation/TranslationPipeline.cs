@@ -96,11 +96,14 @@ public class TranslationPipeline
         string? previousTranslationContext = null;
 
         // เชื่อมโยงบริบทข้ามตอน (Cross-Chapter Continuity): ถ้าชิ้นแรกยังไม่มีบริบท ดึงตอนก่อนหน้าที่แปลแล้วมาต่อทันที
-        var prevChapter = await _repository.GetPreviousTranslatedChapterAsync(story.Id, chapter.Ordinal);
-        if (prevChapter != null && !string.IsNullOrWhiteSpace(prevChapter.OriginalText) && !string.IsNullOrWhiteSpace(prevChapter.TranslatedText))
+        if (_settings.EnableCrossChapterContext && _settings.ContextParagraphCount > 0)
         {
-            previousSourceContext = GetLastParagraphs(prevChapter.OriginalText, _settings.ContextParagraphCount);
-            previousTranslationContext = GetLastParagraphs(prevChapter.TranslatedText, _settings.ContextParagraphCount);
+            var prevChapter = await _repository.GetPreviousTranslatedChapterAsync(story.Id, chapter.Ordinal);
+            if (prevChapter != null && !string.IsNullOrWhiteSpace(prevChapter.OriginalText) && !string.IsNullOrWhiteSpace(prevChapter.TranslatedText))
+            {
+                previousSourceContext = GetLastParagraphs(prevChapter.OriginalText, _settings.ContextParagraphCount);
+                previousTranslationContext = GetLastParagraphs(prevChapter.TranslatedText, _settings.ContextParagraphCount);
+            }
         }
 
         for (int i = 0; i < chunks.Count; i++)
@@ -118,7 +121,7 @@ public class TranslationPipeline
 
             // Look-Ahead Context: ดึงย่อหน้าแรกของชิ้นถัดไปเพื่อช่วยคาดเดาผู้พูด/ทิศทางฉาก
             string? nextSourceContext = null;
-            if (i + 1 < chunks.Count)
+            if (_settings.EnableLookAheadContext && _settings.ContextParagraphCount > 0 && i + 1 < chunks.Count)
             {
                 nextSourceContext = GetFirstParagraphs(chunks[i + 1].SourceText, Math.Min(2, _settings.ContextParagraphCount));
             }
@@ -128,9 +131,10 @@ public class TranslationPipeline
             string translatedChunk = string.Empty;
             string? retryHint = null;
             bool validated = false;
+            int maxAttempts = 1 + Math.Clamp(_settings.MaxRetryAttempts, 0, 5);
             int attempt = 0;
 
-            while (attempt < 2 && !validated)
+            while (attempt < maxAttempts && !validated)
             {
                 attempt++;
                 var messages = PromptBuilder.BuildMessages(
@@ -141,7 +145,8 @@ public class TranslationPipeline
                     previousTranslationContext,
                     retryHint,
                     _settings.CustomSystemPrompt,
-                    nextSourceContext);
+                    nextSourceContext,
+                    _settings.PovMode);
 
                 progress.Report(new TranslationProgressInfo
                 {
@@ -162,7 +167,13 @@ public class TranslationPipeline
                     progress,
                     cancellationToken);
 
-                var validation = OutputValidator.Validate(chunk.SourceText, rawResult, matchedGlossary);
+                var validation = OutputValidator.Validate(
+                    chunk.SourceText,
+                    rawResult,
+                    matchedGlossary,
+                    _settings.StripThinkTags,
+                    _settings.MaxEnglishRatioPercent,
+                    _settings.CustomStripPrefixes);
 
                 if (validation.IsValid)
                 {
@@ -174,12 +185,12 @@ public class TranslationPipeline
                 else
                 {
                     retryHint = validation.RetryHint;
-                    if (attempt >= 2)
+                    if (attempt >= maxAttempts)
                     {
-                        // ถ้าลองครบ 2 ครั้งแล้วยังไม่ผ่าน ให้ใช้ข้อความที่ Cleaned แล้ว เพื่อไม่ให้สะดุด
+                        // ถ้าลองครบตามจำนวนครั้งแล้วยังไม่ผ่าน ให้ใช้ข้อความที่ Cleaned แล้ว เพื่อไม่ให้สะดุด
                         translatedChunk = validation.CleanedText;
                         chunk.HasWarning = true;
-                        chunk.WarningMessage = $"ตรวจพบข้อผิดพลาดหลังลองแปล 2 ครั้ง: {validation.RetryHint}";
+                        chunk.WarningMessage = $"ตรวจพบข้อผิดพลาดหลังลองแปล {maxAttempts} ครั้ง: {validation.RetryHint}";
                     }
                 }
             }
@@ -196,7 +207,8 @@ public class TranslationPipeline
                     translatedChunk,
                     matchedGlossary,
                     previousTranslationContext,
-                    _settings.CustomSystemPrompt);
+                    _settings.CustomPolishSystemPrompt,
+                    _settings.PovMode);
 
                 progress.Report(new TranslationProgressInfo
                 {
@@ -217,7 +229,13 @@ public class TranslationPipeline
                     progress,
                     cancellationToken);
 
-                var polishValidation = OutputValidator.Validate(chunk.SourceText, rawPolished, matchedGlossary);
+                var polishValidation = OutputValidator.Validate(
+                    chunk.SourceText,
+                    rawPolished,
+                    matchedGlossary,
+                    _settings.StripThinkTags,
+                    _settings.MaxEnglishRatioPercent,
+                    _settings.CustomStripPrefixes);
                 if (polishValidation.IsValid)
                 {
                     translatedChunk = polishValidation.CleanedText;
@@ -285,7 +303,9 @@ public class TranslationPipeline
             surroundingSourceContext,
             null,
             null,
-            _settings.CustomSystemPrompt);
+            _settings.CustomSystemPrompt,
+            null,
+            _settings.PovMode);
 
         var sb = new StringBuilder();
         await foreach (var delta in _llmClient.StreamChatAsync(messages, _settings.Temperature, cancellationToken))
@@ -293,7 +313,7 @@ public class TranslationPipeline
             sb.Append(delta);
         }
 
-        string draft = OutputValidator.CleanPreamble(sb.ToString());
+        string draft = OutputValidator.CleanPreamble(sb.ToString(), _settings.StripThinkTags, _settings.CustomStripPrefixes);
         if (_settings.EnablePolishMode && !string.IsNullOrWhiteSpace(draft))
         {
             string? polishModel = string.IsNullOrWhiteSpace(_settings.PolishModelName)
@@ -306,7 +326,8 @@ public class TranslationPipeline
                 draft,
                 matchedGlossary,
                 null,
-                _settings.CustomSystemPrompt);
+                _settings.CustomPolishSystemPrompt,
+                _settings.PovMode);
 
             var polishSb = new StringBuilder();
             await foreach (var delta in _llmClient.StreamChatAsync(polishMessages, _settings.Temperature, polishModel, cancellationToken))
@@ -314,7 +335,7 @@ public class TranslationPipeline
                 polishSb.Append(delta);
             }
 
-            string polished = OutputValidator.CleanPreamble(polishSb.ToString());
+            string polished = OutputValidator.CleanPreamble(polishSb.ToString(), _settings.StripThinkTags, _settings.CustomStripPrefixes);
             if (!string.IsNullOrWhiteSpace(polished))
             {
                 return polished;
@@ -352,8 +373,8 @@ public class TranslationPipeline
                     ? (preserveExistingTranslation
                         ? (currentText.Length == 0
                             ? chapter.TranslatedText
-                            : string.Join("\n\n", appendedParts.Concat(new[] { OutputValidator.CleanPreamble(currentText) })))
-                        : BuildCombinedTextSoFar(chunks, chunkIndex, currentText))
+                            : string.Join("\n\n", appendedParts.Concat(new[] { OutputValidator.CleanPreamble(currentText, _settings.StripThinkTags, _settings.CustomStripPrefixes) })))
+                        : BuildCombinedTextSoFar(chunks, chunkIndex, currentText, _settings.StripThinkTags, _settings.CustomStripPrefixes))
                     : string.Empty;
                 progress.Report(new TranslationProgressInfo
                 {
@@ -387,7 +408,12 @@ public class TranslationPipeline
         return string.Join("\n\n", take);
     }
 
-    private static string BuildCombinedTextSoFar(List<ChapterChunk> chunks, int currentIndex, string currentStreamingText)
+    private static string BuildCombinedTextSoFar(
+        List<ChapterChunk> chunks,
+        int currentIndex,
+        string currentStreamingText,
+        bool stripThinkTags,
+        string? customStripPrefixes)
     {
         var parts = new List<string>();
         for (int i = 0; i < chunks.Count; i++)
@@ -400,7 +426,7 @@ public class TranslationPipeline
             else if (i == currentIndex)
             {
                 if (!string.IsNullOrEmpty(currentStreamingText))
-                    parts.Add(OutputValidator.CleanPreamble(currentStreamingText));
+                    parts.Add(OutputValidator.CleanPreamble(currentStreamingText, stripThinkTags, customStripPrefixes));
             }
         }
         return string.Join("\n\n", parts);

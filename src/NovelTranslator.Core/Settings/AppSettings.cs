@@ -17,6 +17,14 @@ public enum TranslationAppearanceMode
     WordByWord
 }
 
+public enum PovDetectionMode
+{
+    Auto,
+    FirstPerson,
+    ThirdPerson,
+    Off
+}
+
 public class ShortkeysSettings
 {
     public string TranslateKey { get; set; } = "Ctrl+Enter";
@@ -53,6 +61,21 @@ public class AppSettings
     public int MaxChunkWords { get; set; } = 600;
     public int ContextParagraphCount { get; set; } = 2;
     public string CustomSystemPrompt { get; set; } = string.Empty;
+    public string CustomPolishSystemPrompt { get; set; } = string.Empty;
+    public string CustomGlossaryPrompt { get; set; } = string.Empty;
+    public float TopP { get; set; } = 1.0f;
+    public int MaxTokens { get; set; } = 0; // 0 = unlimited (do not send in JSON)
+    public float FrequencyPenalty { get; set; } = 0.0f;
+    public int RequestTimeoutSeconds { get; set; } = 300;
+    public bool EnableCrossChapterContext { get; set; } = true;
+    public bool EnableLookAheadContext { get; set; } = true;
+    public PovDetectionMode PovMode { get; set; } = PovDetectionMode.Auto;
+    public bool StripThinkTags { get; set; } = true;
+    public int MaxEnglishRatioPercent { get; set; } = 25; // 5..100 (100 = disable English ratio check)
+    public int MaxRetryAttempts { get; set; } = 1; // 0..5 retries
+    public string CustomStripPrefixes { get; set; } = string.Empty;
+    public int GlossaryScanMaxWords { get; set; } = 1500; // 0 = scan full chapter
+    public string GlossaryModelName { get; set; } = string.Empty;
     public bool EnablePolishMode { get; set; } = false;
     public string PolishModelName { get; set; } = string.Empty;
     public string ThemeMode { get; set; } = "Light"; // Light, Dark, Sepia

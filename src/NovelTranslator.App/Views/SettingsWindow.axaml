@@ -74,6 +74,18 @@
                                 <Border Width="3" Height="16" Background="#2563EB" CornerRadius="1.5"
                                         IsVisible="{Binding $parent[ListBoxItem].IsSelected}" VerticalAlignment="Center" />
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" VerticalAlignment="Center">
+                                    <Path Data="M4,6 L20,6 M4,12 L20,12 M4,18 L20,18 M8,4 L8,8 M15,10 L15,14 M10,16 L10,20"
+                                          Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" StrokeLineCap="Round" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" />
+                                    <TextBlock Text="พรอมต์และหลังบ้าน" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                        </ListBoxItem>
+
+                        <ListBoxItem Padding="8,8" CornerRadius="6">
+                            <Grid ColumnDefinitions="3, *">
+                                <Border Width="3" Height="16" Background="#2563EB" CornerRadius="1.5"
+                                        IsVisible="{Binding $parent[ListBoxItem].IsSelected}" VerticalAlignment="Center" />
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" Margin="8,0,0,0" VerticalAlignment="Center">
                                     <Path Data="M3,5 L21,5 A2,2 0 0,1 23,7 L23,17 A2,2 0 0,1 21,19 L3,19 A2,2 0 0,1 1,17 L1,7 A2,2 0 0,1 3,5 Z M5,8 L7,8 M9,8 L11,8 M13,8 L15,8 M17,8 L19,8 M5,11 L7,11 M9,11 L11,11 M13,11 L15,11 M17,11 L19,11 M6,15 L18,15"
                                           Stroke="{DynamicResource TextPrimaryBrush}" StrokeThickness="1.5" Width="16" Height="16" Stretch="Uniform" VerticalAlignment="Center" />
                                     <TextBlock Text="ปุ่มลัด (Shortkeys)" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
@@ -135,7 +147,7 @@
                             </StackPanel>
                         </Border>
 
-                        <!-- โมเดล AI -->
+                        <!-- โมเดล AI และโหมดเกลาคำ -->
                         <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
                                 BorderThickness="1" CornerRadius="12" Padding="20">
                             <StackPanel Spacing="12">
@@ -148,44 +160,6 @@
                                     <TextBlock Grid.Row="1" Text="หรือระบุชื่อโมเดล" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ModelName}" Height="32" VerticalContentAlignment="Center" PlaceholderText="เช่น qwen2.5:7b, llama3.2, google/gemma-4-e4b" />
                                 </Grid>
-                            </StackPanel>
-                        </Border>
-
-                        <!-- พารามิเตอร์การแปล -->
-                        <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
-                                BorderThickness="1" CornerRadius="12" Padding="20">
-                            <StackPanel Spacing="16">
-                                <TextBlock Text="พารามิเตอร์และคำสั่งการแปล" FontSize="15" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="*, Auto, 64">
-                                    <StackPanel Spacing="2" VerticalAlignment="Center">
-                                        <TextBlock Text="Temperature" FontSize="13" FontWeight="Medium" />
-                                        <TextBlock Text="0.1–0.3 แปลแม่นยำคงเส้นคงวา · 0.5–0.8 สำนวนพลิ้วไหว" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
-                                    </StackPanel>
-                                    <Slider Grid.Column="1" Minimum="0.0" Maximum="1.2" TickFrequency="0.05" IsSnapToTickEnabled="True"
-                                            Value="{Binding Temperature}" Width="144" VerticalAlignment="Center" Margin="12,0" />
-                                    <TextBox Grid.Column="2" Text="{Binding Temperature}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
-                                </Grid>
-
-                                <Grid ColumnDefinitions="*, 88" RowDefinitions="Auto, Auto" RowSpacing="12">
-                                    <StackPanel Spacing="2" VerticalAlignment="Center">
-                                        <TextBlock Text="ขนาดชิ้นข้อความต่อรอบ (คำต่อ Chunk)" FontSize="13" FontWeight="Medium" />
-                                        <TextBlock Text="แนะนำ 500–800 คำ เพื่อให้แปลละเอียดครบถ้วน" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
-                                    </StackPanel>
-                                    <TextBox Grid.Column="1" Text="{Binding MaxChunkWords}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
-
-                                    <StackPanel Grid.Row="1" Spacing="2" VerticalAlignment="Center">
-                                        <TextBlock Text="ย่อหน้าบริบทก่อนหน้า (Context Paragraphs)" FontSize="13" FontWeight="Medium" />
-                                        <TextBlock Text="ส่งย่อหน้าก่อนหน้าให้ AI อ้างอิงความต่อเนื่อง แนะนำ 2 ย่อหน้า" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
-                                    </StackPanel>
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ContextParagraphCount}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
-                                </Grid>
-
-                                <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,4" />
-                                <StackPanel Spacing="6">
-                                    <TextBlock Text="คำสั่งพิเศษเพิ่มเติม (Custom System Prompt)" FontSize="13" FontWeight="Medium" />
-                                    <TextBox Text="{Binding CustomSystemPrompt}" AcceptsReturn="True" TextWrapping="Wrap"
-                                             Height="72" Padding="12" PlaceholderText="เว้นว่างไว้หากต้องการใช้เฉพาะกฎมาตรฐานและ Style Notes" />
-                                </StackPanel>
 
                                 <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,4" />
                                 <StackPanel Spacing="12">
@@ -210,6 +184,243 @@
                                                      PlaceholderText="เว้นว่างเพื่อใช้โมเดลเดียวกับการแปลหลัก" />
                                         </Grid>
                                     </StackPanel>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- พารามิเตอร์ AI ขั้นสูง -->
+                        <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                BorderThickness="1" CornerRadius="12" Padding="20">
+                            <StackPanel Spacing="14">
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <TextBlock Text="พารามิเตอร์ AI ขั้นสูง (LLM Parameters)" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="คืนค่าพารามิเตอร์เริ่มต้น" Command="{Binding ResetAiParametersCommand}"
+                                            Height="28" FontSize="12" Padding="12,0" VerticalContentAlignment="Center" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, Auto, 64">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="Temperature" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="0.1–0.3 แปลแม่นยำคงเส้นคงวา · 0.5–0.8 สำนวนพลิ้วไหว" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                    <Slider Grid.Column="1" Minimum="0.0" Maximum="1.2" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                            Value="{Binding Temperature}" Width="144" VerticalAlignment="Center" Margin="12,0" />
+                                    <TextBox Grid.Column="2" Text="{Binding Temperature}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, Auto, 64">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="Top P" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="จำกัดขอบเขตคำที่สุ่มเลือก (1.0 = ค่าเริ่มต้น ไม่ส่งเข้า JSON)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                    <Slider Grid.Column="1" Minimum="0.1" Maximum="1.0" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                            Value="{Binding TopP}" Width="144" VerticalAlignment="Center" Margin="12,0" />
+                                    <TextBox Grid.Column="2" Text="{Binding TopP}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, Auto, 64">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="Frequency Penalty" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="ลดอาการใช้คำซ้ำซาก (0.0 = ค่าเริ่มต้น ไม่ส่งเข้า JSON)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                    <Slider Grid.Column="1" Minimum="0.0" Maximum="2.0" TickFrequency="0.05" IsSnapToTickEnabled="True"
+                                            Value="{Binding FrequencyPenalty}" Width="144" VerticalAlignment="Center" Margin="12,0" />
+                                    <TextBox Grid.Column="2" Text="{Binding FrequencyPenalty}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, 88" RowDefinitions="Auto, Auto, Auto" RowSpacing="12">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="Max Tokens ต่อคำขอ" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="0 = ไม่จำกัด (ไม่ส่งค่าเข้า JSON)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" Text="{Binding MaxTokens}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+
+                                    <StackPanel Grid.Row="1" Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="Request Timeout (วินาที)" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="เวลารอสูงสุดต่อคำขอ (10–3600 วินาที, ค่าเริ่มต้น 300)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding RequestTimeoutSeconds}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+
+                                    <StackPanel Grid.Row="2" Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="ขนาดชิ้นข้อความต่อรอบ (คำต่อ Chunk)" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="แนะนำ 500–800 คำ เพื่อให้แปลละเอียดครบถ้วน" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                    <TextBox Grid.Row="2" Grid.Column="1" Text="{Binding MaxChunkWords}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- เนื้อหาหมวด 2: Prompts & Pipeline Settings -->
+                <ScrollViewer IsVisible="{Binding IsPipelineCategorySelected}" Padding="24,20"
+                              HorizontalScrollBarVisibility="Disabled"
+                              VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
+                    <StackPanel Spacing="16">
+                        <!-- 1. System Prompts -->
+                        <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                BorderThickness="1" CornerRadius="12" Padding="20">
+                            <StackPanel Spacing="14">
+                                <StackPanel Spacing="4">
+                                    <TextBlock Text="แม่แบบคำสั่ง AI (System Prompts)" FontSize="15" FontWeight="SemiBold" />
+                                    <TextBlock Text="ตัวแปรที่รองรับ: {SourceLang}, {TargetLang}, {StyleNotes} (หากไม่ใส่ {StyleNotes} ระบบจะต่อท้ายให้อัตโนมัติ)"
+                                               FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                </StackPanel>
+
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*, Auto">
+                                        <TextBlock Text="คำสั่งหลักสำหรับแปล (System Prompt)" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
+                                        <Button Grid.Column="1" Content="คืนค่าเริ่มต้น" Command="{Binding ResetSystemPromptCommand}"
+                                                Height="28" FontSize="12" Padding="12,0" VerticalContentAlignment="Center" />
+                                    </Grid>
+                                    <TextBox Text="{Binding CustomSystemPrompt}" AcceptsReturn="True" TextWrapping="Wrap"
+                                             Height="160" Padding="12" FontSize="12" />
+                                </StackPanel>
+
+                                <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,2" />
+
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*, Auto">
+                                        <TextBlock Text="คำสั่งสำหรับโหมดเกลาคำ (Polish System Prompt)" FontSize="13" FontWeight="Medium" VerticalAlignment="Center" />
+                                        <Button Grid.Column="1" Content="คืนค่าเริ่มต้น" Command="{Binding ResetPolishPromptCommand}"
+                                                Height="28" FontSize="12" Padding="12,0" VerticalContentAlignment="Center" />
+                                    </Grid>
+                                    <TextBox Text="{Binding CustomPolishSystemPrompt}" AcceptsReturn="True" TextWrapping="Wrap"
+                                             Height="130" Padding="12" FontSize="12" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 2. Context & POV -->
+                        <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                BorderThickness="1" CornerRadius="12" Padding="20">
+                            <StackPanel Spacing="14">
+                                <TextBlock Text="บริบทและมุมมองการเล่าเรื่อง (Context &amp; POV)" FontSize="15" FontWeight="SemiBold" />
+
+                                <Grid ColumnDefinitions="*, 88">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="ย่อหน้าบริบทก่อนหน้า (Context Paragraphs)" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="ส่งย่อหน้าก่อนหน้าให้ AI อ้างอิงความต่อเนื่อง แนะนำ 2 ย่อหน้า (0 = ปิด)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" Text="{Binding ContextParagraphCount}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="ดึงบริบทข้ามตอนก่อนหน้า (Cross-Chapter Context)" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="นำท้ายตอนก่อนหน้ามาต่อเป็นบริบทเริ่มต้นของตอนใหม่เพื่อให้สำนวนต่อเนื่อง" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableCrossChapterContext}"
+                                                  OnContent="เปิด" OffContent="ปิด" VerticalAlignment="Center" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="ดูบริบทล่วงหน้าจากส่วนถัดไป (Look-Ahead Context)" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="แนบย่อหน้าแรกของ Chunk ถัดไปให้ AI คาดเดาผู้พูดและเหตุการณ์ได้แม่นยำขึ้น" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableLookAheadContext}"
+                                                  OnContent="เปิด" OffContent="ปิด" VerticalAlignment="Center" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, 220">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,12,0">
+                                        <TextBlock Text="โหมดมุมมองการเล่าเรื่อง (POV Mode)" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="ช่วยคุมสรรพนามเมื่อ Chunk นั้นมีแต่บทสนทนาหรือตัวละครอื่น" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ComboBox Grid.Column="1" SelectedIndex="{Binding PovModeIndex}" Height="32" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                                        <ComboBoxItem Content="ตรวจจับอัตโนมัติ (Auto)" />
+                                        <ComboBoxItem Content="บังคับบุรุษที่ 1 (First Person)" />
+                                        <ComboBoxItem Content="บังคับบุรุษที่ 3 (Third Person)" />
+                                        <ComboBoxItem Content="ปิดคำแนะนำ POV (Off)" />
+                                    </ComboBox>
+                                </Grid>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 3. Output Validator & Retry -->
+                        <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                BorderThickness="1" CornerRadius="12" Padding="20">
+                            <StackPanel Spacing="14">
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <TextBlock Text="ตัวกรองผลลัพธ์และการลองแปลซ้ำ (Output Validator &amp; Retry)" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Button Grid.Column="1" Content="คืนค่าเริ่มต้น" Command="{Binding ResetValidatorSettingsCommand}"
+                                            Height="28" FontSize="12" Padding="12,0" VerticalContentAlignment="Center" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="ตัดแท็ก &lt;think&gt;...&lt;/think&gt; อัตโนมัติ" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="ซ่อนส่วนคิดวิเคราะห์ของโมเดลสาย Reasoning (เช่น DeepSeek-R1, QwQ) ออกจากคำแปล" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding StripThinkTags}"
+                                                  OnContent="เปิด" OffContent="ปิด" VerticalAlignment="Center" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, Auto, 64">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="เพดาน % ภาษาอังกฤษที่ยอมให้หลงเหลือ" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="ค่าเริ่มต้น 25% · ปรับเป็น 100% เพื่อปิดการตรวจ (เหมาะกับนิยายระบบ/LitRPG)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <Slider Grid.Column="1" Minimum="5" Maximum="100" TickFrequency="5" IsSnapToTickEnabled="True"
+                                            Value="{Binding MaxEnglishRatioPercent}" Width="144" VerticalAlignment="Center" Margin="12,0" />
+                                    <TextBox Grid.Column="2" Text="{Binding MaxEnglishRatioPercent}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, Auto, 64">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="จำนวนรอบลองแปลซ้ำอัตโนมัติ (Max Retries)" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="จำนวนรอบที่ให้ส่งแก้ไขเพิ่มเมื่อผลลัพธ์ไม่ผ่าน Validator (0–5 รอบ, ค่าเริ่มต้น 1)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <Slider Grid.Column="1" Minimum="0" Maximum="5" TickFrequency="1" IsSnapToTickEnabled="True"
+                                            Value="{Binding MaxRetryAttempts}" Width="144" VerticalAlignment="Center" Margin="12,0" />
+                                    <TextBox Grid.Column="2" Text="{Binding MaxRetryAttempts}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+                                </Grid>
+
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="คำเกริ่นที่ต้องการตัดออกเพิ่มเติม (Custom Strip Prefixes)" FontSize="13" FontWeight="Medium" />
+                                    <TextBox Text="{Binding CustomStripPrefixes}" AcceptsReturn="True" TextWrapping="Wrap"
+                                             Height="68" Padding="12" FontSize="12"
+                                             PlaceholderText="ระบุคำขึ้นต้นบรรทัดที่ต้องการตัดทิ้ง (คั่นด้วยบรรทัดใหม่ หรือ ,) เช่น หมายเหตุผู้แปล:, Note:" />
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- 4. Glossary Extractor -->
+                        <Border Background="{DynamicResource CardBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                BorderThickness="1" CornerRadius="12" Padding="20">
+                            <StackPanel Spacing="14">
+                                <TextBlock Text="ระบบสแกนคำศัพท์ AI (Glossary Scanner)" FontSize="15" FontWeight="SemiBold" />
+
+                                <Grid ColumnDefinitions="136, *" RowDefinitions="Auto, Auto" RowSpacing="10">
+                                    <TextBlock Text="เลือกโมเดลสแกน" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding GlossaryModelName}"
+                                              Height="32" PlaceholderText="เว้นว่างเพื่อใช้โมเดลเดียวกับการแปลหลัก" HorizontalAlignment="Stretch" />
+
+                                    <TextBlock Grid.Row="1" Text="หรือระบุชื่อโมเดล" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding GlossaryModelName}" Height="32" VerticalContentAlignment="Center"
+                                             PlaceholderText="เว้นว่างเพื่อใช้โมเดลเดียวกับการแปลหลัก" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*, 88">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center">
+                                        <TextBlock Text="จำนวนคำสูงสุดที่สแกนต่อตอน" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="ค่าเริ่มต้น 1,500 คำ · ตั้งเป็น 0 เพื่อส่งสแกนทั้งตอน" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" />
+                                    </StackPanel>
+                                    <TextBox Grid.Column="1" Text="{Binding GlossaryScanMaxWords}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
+                                </Grid>
+
+                                <StackPanel Spacing="6">
+                                    <Grid ColumnDefinitions="*, Auto">
+                                        <StackPanel Spacing="2">
+                                            <TextBlock Text="คำสั่งสแกนคำศัพท์ (Glossary Extraction Prompt)" FontSize="13" FontWeight="Medium" />
+                                            <TextBlock Text="ตัวแปรที่รองรับ: {SourceText}, {TranslatedText} (คงคำขอ JSON Array ไว้เพื่อให้ดึงข้อมูลได้)" FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Content="คืนค่าเริ่มต้น" Command="{Binding ResetGlossaryPromptCommand}"
+                                                Height="28" FontSize="12" Padding="12,0" VerticalContentAlignment="Center" VerticalAlignment="Top" />
+                                    </Grid>
+                                    <TextBox Text="{Binding CustomGlossaryPrompt}" AcceptsReturn="True" TextWrapping="Wrap"
+                                             Height="140" Padding="12" FontSize="12" />
                                 </StackPanel>
                             </StackPanel>
                         </Border>

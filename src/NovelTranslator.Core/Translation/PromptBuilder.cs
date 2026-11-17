@@ -5,22 +5,13 @@ using System.Text;
 using System.Text.RegularExpressions;
 using NovelTranslator.Core.Llm;
 using NovelTranslator.Core.Models;
+using NovelTranslator.Core.Settings;
 
 namespace NovelTranslator.Core.Translation;
 
 public class PromptBuilder
 {
-    public static string BuildSystemPrompt(Story story, string? customSystemPrompt = null)
-    {
-        string style = string.IsNullOrWhiteSpace(story.StyleNotes)
-            ? ""
-            : $"\nคำแนะนำสไตล์และโทนเรื่อง: {story.StyleNotes}";
-
-        string custom = string.IsNullOrWhiteSpace(customSystemPrompt)
-            ? ""
-            : $"\nคำสั่งพิเศษจากผู้ใช้: {customSystemPrompt.Trim()}";
-
-        return $@"คุณคือนักแปลนิยายมืออาชีพ แปลจาก {story.SourceLang} เป็น {story.TargetLang}
+    public const string DefaultSystemPromptTemplate = @"คุณคือนักแปลนิยายมืออาชีพ แปลจาก {SourceLang} เป็น {TargetLang}
 
 หลักการแปลนิยายคุณภาพสูง:
 1. แปลให้ครบถ้วนทุกประโยค ไม่ตัดทอน ไม่สรุป และไม่แต่งเนื้อหาเพิ่มเอง
@@ -33,28 +24,83 @@ public class PromptBuilder
    - หากเนื้อเรื่องเล่าแบบบุรุษที่ 1 (ตัวเอกเล่าเหตุการณ์ผ่านสายตา/ความคิดตัวเอง เช่น I walked...) ให้ใช้สรรพนามและน้ำเสียงของตัวเอกเสมอ ห้ามหลุดไปเล่าแบบบุคคลที่สาม
    - หากเล่าแบบบุรุษที่ 3 (ผู้บรรยายบุคคลภายนอก เช่น He/She walked...) ให้คุมระยะห่างและสรรพนามให้ถูกต้อง
 5. ใช้คำศัพท์ตาม glossary อย่างเคร่งครัด
-6. ตอบเฉพาะคำแปลเท่านั้น ห้ามใส่คำเกริ่น สรุป หรือคำอธิบายใดๆ ทั้งสิ้น{style}{custom}".Trim();
-    }
+6. ตอบเฉพาะคำแปลเท่านั้น ห้ามใส่คำเกริ่น สรุป หรือคำอธิบายใดๆ ทั้งสิ้น
+{StyleNotes}";
 
-    public static string BuildPolishSystemPrompt(Story story, string? customSystemPrompt = null)
-    {
-        string style = string.IsNullOrWhiteSpace(story.StyleNotes)
-            ? ""
-            : $"\nคำแนะนำสไตล์และโทนเรื่อง: {story.StyleNotes}";
-
-        string custom = string.IsNullOrWhiteSpace(customSystemPrompt)
-            ? ""
-            : $"\nคำสั่งพิเศษจากผู้ใช้: {customSystemPrompt.Trim()}";
-
-        return $@"คุณคือบรรณาธิการและนักเกลาสำนวนนิยายมืออาชีพ (ภาษาเป้าหมาย: {story.TargetLang})
-หน้าที่ของคุณคืออ่านทวนคำแปลร่างแรกเทียบกับต้นฉบับ ({story.SourceLang}) แล้วเกลาสำนวนให้สละสลวย ลื่นไหลเป็นธรรมชาติยิ่งขึ้น
+    public const string DefaultPolishSystemPromptTemplate = @"คุณคือบรรณาธิการและนักเกลาสำนวนนิยายมืออาชีพ (ภาษาเป้าหมาย: {TargetLang})
+หน้าที่ของคุณคืออ่านทวนคำแปลร่างแรกเทียบกับต้นฉบับ ({SourceLang}) แล้วเกลาสำนวนให้สละสลวย ลื่นไหลเป็นธรรมชาติยิ่งขึ้น
 
 หลักการเกลาคำคุณภาพสูง:
 1. ปรับภาษาให้เป็นธรรมชาติแบบวรรณกรรม ขจัดกลิ่นอายคำแปลตรงตัว (Anti-Translationese) ลดคำซ้ำ ประธานฟุ่มเฟือย และโครงสร้างประโยคแข็งๆ
 2. รักษาความหมายและรายละเอียดจากต้นฉบับให้ครบถ้วนทุกประโยค ห้ามตัดทอน สรุป หรือแต่งเนื้อหาเพิ่มเอง
 3. รักษาโครงสร้างย่อหน้า บทสนทนา จังหวะการเล่า และมุมมองการเล่า (POV) ให้ตรงกับต้นฉบับและต่อเนื่องกับบริบทก่อนหน้า
 4. คงคำศัพท์เฉพาะ ชื่อตัวละคร และสถานที่ตาม Glossary อย่างเคร่งครัด ห้ามเปลี่ยนคำที่กำหนดไว้ใน Glossary
-5. ตอบเฉพาะเนื้อหาฉบับเกลาคำแล้วเท่านั้น ห้ามใส่คำเกริ่น หมายเหตุ คำอธิบาย หรือเปรียบเทียบก่อน-หลังใดๆ ทั้งสิ้น{style}{custom}".Trim();
+5. ตอบเฉพาะเนื้อหาฉบับเกลาคำแล้วเท่านั้น ห้ามใส่คำเกริ่น หมายเหตุ คำอธิบาย หรือเปรียบเทียบก่อน-หลังใดๆ ทั้งสิ้น
+{StyleNotes}";
+
+    public static bool IsFullPromptTemplate(string? prompt)
+    {
+        if (string.IsNullOrWhiteSpace(prompt)) return false;
+        string trimmed = prompt.Trim();
+        return trimmed.Contains('\n')
+            || trimmed.Contains("{SourceLang}", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Contains("{TargetLang}", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Contains("{StyleNotes}", StringComparison.OrdinalIgnoreCase)
+            || trimmed.Length >= 100;
+    }
+
+    public static string ApplyPromptTemplate(string template, Story story)
+    {
+        string result = template
+            .Replace("{SourceLang}", story.SourceLang ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+            .Replace("{TargetLang}", story.TargetLang ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+
+        string styleText = string.IsNullOrWhiteSpace(story.StyleNotes)
+            ? string.Empty
+            : $"คำแนะนำสไตล์และโทนเรื่อง: {story.StyleNotes}";
+
+        if (result.Contains("{StyleNotes}", StringComparison.OrdinalIgnoreCase))
+        {
+            result = result.Replace("{StyleNotes}", styleText, StringComparison.OrdinalIgnoreCase);
+        }
+        else if (!string.IsNullOrEmpty(styleText))
+        {
+            result = $"{result.TrimEnd()}\n{styleText}";
+        }
+
+        return result.Trim();
+    }
+
+    private static string BuildPromptFromTemplate(string defaultTemplate, Story story, string? customSystemPrompt)
+    {
+        if (string.IsNullOrWhiteSpace(customSystemPrompt))
+        {
+            return ApplyPromptTemplate(defaultTemplate, story);
+        }
+
+        if (IsFullPromptTemplate(customSystemPrompt))
+        {
+            return ApplyPromptTemplate(customSystemPrompt.Trim(), story);
+        }
+
+        return $"{ApplyPromptTemplate(defaultTemplate, story)}\nคำสั่งพิเศษจากผู้ใช้: {customSystemPrompt.Trim()}";
+    }
+
+    public static string BuildSystemPrompt(Story story, string? customSystemPrompt = null)
+        => BuildPromptFromTemplate(DefaultSystemPromptTemplate, story, customSystemPrompt);
+
+    public static string BuildPolishSystemPrompt(Story story, string? customSystemPrompt = null)
+        => BuildPromptFromTemplate(DefaultPolishSystemPromptTemplate, story, customSystemPrompt);
+
+    public static string ResolvePovHint(string text, PovDetectionMode povMode = PovDetectionMode.Auto)
+    {
+        return povMode switch
+        {
+            PovDetectionMode.Off => string.Empty,
+            PovDetectionMode.FirstPerson => "มุมมองการเล่าของส่วนนี้: บุรุษที่ 1 (เล่าผ่านมุมมอง/สายตา/ความคิดของตัวเอกโดยตรง ใช้สรรพนามแทนตัวเอกให้เหมาะสมต่อเนื่อง)",
+            PovDetectionMode.ThirdPerson => "มุมมองการเล่าของส่วนนี้: บุรุษที่ 3 (ผู้บรรยายเล่าเหตุการณ์บุคคลที่สาม คุมสรรพนามและชื่อตัวละครให้สม่ำเสมอ)",
+            _ => DetectPovHint(text)
+        };
     }
 
     /// <summary>
@@ -95,7 +141,8 @@ public class PromptBuilder
         string? previousTranslationContext = null,
         string? retryHint = null,
         string? customSystemPrompt = null,
-        string? nextSourceContext = null)
+        string? nextSourceContext = null,
+        PovDetectionMode povMode = PovDetectionMode.Auto)
     {
         var messages = new List<ChatMessage>
         {
@@ -103,7 +150,7 @@ public class PromptBuilder
         };
 
         var userSb = new StringBuilder();
-        AppendGlossaryAndPov(userSb, chunkText, matchedGlossary);
+        AppendGlossaryAndPov(userSb, chunkText, matchedGlossary, povMode);
 
         // 3. บริบทย่อหน้าก่อนหน้า (ถ้ามี)
         if (!string.IsNullOrWhiteSpace(previousSourceContext) && !string.IsNullOrWhiteSpace(previousTranslationContext))
@@ -146,7 +193,8 @@ public class PromptBuilder
         string draftTranslation,
         IEnumerable<GlossaryEntry> matchedGlossary,
         string? previousTranslationContext = null,
-        string? customSystemPrompt = null)
+        string? customSystemPrompt = null,
+        PovDetectionMode povMode = PovDetectionMode.Auto)
     {
         var messages = new List<ChatMessage>
         {
@@ -154,7 +202,7 @@ public class PromptBuilder
         };
 
         var userSb = new StringBuilder();
-        AppendGlossaryAndPov(userSb, chunkText, matchedGlossary);
+        AppendGlossaryAndPov(userSb, chunkText, matchedGlossary, povMode);
 
         if (!string.IsNullOrWhiteSpace(previousTranslationContext))
         {
@@ -177,7 +225,8 @@ public class PromptBuilder
     private static void AppendGlossaryAndPov(
         StringBuilder userSb,
         string chunkText,
-        IEnumerable<GlossaryEntry> matchedGlossary)
+        IEnumerable<GlossaryEntry> matchedGlossary,
+        PovDetectionMode povMode = PovDetectionMode.Auto)
     {
         // 1. Glossary ที่เกี่ยวข้อง
         var glossaryList = matchedGlossary.ToList();
@@ -193,7 +242,7 @@ public class PromptBuilder
         }
 
         // 2. คำแนะนำมุมมองการเล่าเรื่อง (POV Hint)
-        string povHint = DetectPovHint(chunkText);
+        string povHint = ResolvePovHint(chunkText, povMode);
         if (!string.IsNullOrWhiteSpace(povHint))
         {
             userSb.AppendLine("### คำแนะนำมุมมองการเล่าเรื่อง (POV):");

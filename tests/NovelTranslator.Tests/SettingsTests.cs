@@ -1,6 +1,9 @@
 using System;
 using System.IO;
+using NovelTranslator.App.ViewModels;
+using NovelTranslator.Core.Glossary;
 using NovelTranslator.Core.Settings;
+using NovelTranslator.Core.Translation;
 using Xunit;
 
 namespace NovelTranslator.Tests;
@@ -132,5 +135,123 @@ public class SettingsTests
         {
             if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
         }
+    }
+
+    [Fact]
+    public void AppSettings_BackendPipelineCustomization_DefaultsAndPersistence()
+    {
+        var defaults = new AppSettings();
+        Assert.Equal(1.0f, defaults.TopP);
+        Assert.Equal(0, defaults.MaxTokens);
+        Assert.Equal(0.0f, defaults.FrequencyPenalty);
+        Assert.Equal(300, defaults.RequestTimeoutSeconds);
+        Assert.True(defaults.EnableCrossChapterContext);
+        Assert.True(defaults.EnableLookAheadContext);
+        Assert.Equal(PovDetectionMode.Auto, defaults.PovMode);
+        Assert.True(defaults.StripThinkTags);
+        Assert.Equal(25, defaults.MaxEnglishRatioPercent);
+        Assert.Equal(1, defaults.MaxRetryAttempts);
+        Assert.Equal(1500, defaults.GlossaryScanMaxWords);
+
+        string dir = Path.Combine(Path.GetTempPath(), $"nt_pipeline_cfg_{Path.GetRandomFileName()}");
+        Directory.CreateDirectory(dir);
+        string path = Path.Combine(dir, "settings.json");
+
+        try
+        {
+            var saved = new AppSettings
+            {
+                CustomPolishSystemPrompt = "Polish {SourceLang} to {TargetLang}\n{StyleNotes}",
+                CustomGlossaryPrompt = "Extract {SourceText} / {TranslatedText}",
+                TopP = 0.85f,
+                MaxTokens = 2048,
+                FrequencyPenalty = 0.4f,
+                RequestTimeoutSeconds = 120,
+                EnableCrossChapterContext = false,
+                EnableLookAheadContext = false,
+                PovMode = PovDetectionMode.FirstPerson,
+                StripThinkTags = false,
+                MaxEnglishRatioPercent = 60,
+                MaxRetryAttempts = 3,
+                CustomStripPrefixes = "Note:",
+                GlossaryScanMaxWords = 0,
+                GlossaryModelName = "fast-model"
+            };
+            saved.Save(path);
+
+            var reloaded = System.Text.Json.JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path));
+            Assert.NotNull(reloaded);
+            Assert.Equal("Polish {SourceLang} to {TargetLang}\n{StyleNotes}", reloaded!.CustomPolishSystemPrompt);
+            Assert.Equal("Extract {SourceText} / {TranslatedText}", reloaded.CustomGlossaryPrompt);
+            Assert.Equal(0.85f, reloaded.TopP);
+            Assert.Equal(2048, reloaded.MaxTokens);
+            Assert.Equal(0.4f, reloaded.FrequencyPenalty);
+            Assert.Equal(120, reloaded.RequestTimeoutSeconds);
+            Assert.False(reloaded.EnableCrossChapterContext);
+            Assert.False(reloaded.EnableLookAheadContext);
+            Assert.Equal(PovDetectionMode.FirstPerson, reloaded.PovMode);
+            Assert.False(reloaded.StripThinkTags);
+            Assert.Equal(60, reloaded.MaxEnglishRatioPercent);
+            Assert.Equal(3, reloaded.MaxRetryAttempts);
+            Assert.Equal("Note:", reloaded.CustomStripPrefixes);
+            Assert.Equal(0, reloaded.GlossaryScanMaxWords);
+            Assert.Equal("fast-model", reloaded.GlossaryModelName);
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SettingsViewModel_MigratesLegacyPromptAndResetsToDefaults()
+    {
+        var settings = new AppSettings
+        {
+            CustomSystemPrompt = "ห้ามทับศัพท์",
+            Temperature = 0.9f,
+            TopP = 0.7f,
+            MaxTokens = 1024,
+            FrequencyPenalty = 0.5f,
+            RequestTimeoutSeconds = 90,
+            MaxChunkWords = 900,
+            StripThinkTags = false,
+            MaxEnglishRatioPercent = 80,
+            MaxRetryAttempts = 4,
+            CustomStripPrefixes = "Translator Note:"
+        };
+
+        var vm = new SettingsViewModel(settings);
+
+        // Legacy short prompt is appended to full default template on load
+        Assert.Contains("Anti-Translationese", vm.CustomSystemPrompt);
+        Assert.Contains("คำสั่งพิเศษจากผู้ใช้: ห้ามทับศัพท์", vm.CustomSystemPrompt);
+        Assert.Equal(PromptBuilder.DefaultPolishSystemPromptTemplate, vm.CustomPolishSystemPrompt);
+        Assert.Equal(GlossaryExtractor.DefaultGlossaryPromptTemplate, vm.CustomGlossaryPrompt);
+
+        // Edit prompts and invoke reset commands
+        vm.CustomSystemPrompt = "Custom override";
+        vm.CustomPolishSystemPrompt = "Custom polish";
+        vm.CustomGlossaryPrompt = "Custom glossary";
+
+        vm.ResetSystemPromptCommand.Execute(null);
+        vm.ResetPolishPromptCommand.Execute(null);
+        vm.ResetGlossaryPromptCommand.Execute(null);
+        vm.ResetAiParametersCommand.Execute(null);
+        vm.ResetValidatorSettingsCommand.Execute(null);
+
+        Assert.Equal(PromptBuilder.DefaultSystemPromptTemplate, vm.CustomSystemPrompt);
+        Assert.Equal(PromptBuilder.DefaultPolishSystemPromptTemplate, vm.CustomPolishSystemPrompt);
+        Assert.Equal(GlossaryExtractor.DefaultGlossaryPromptTemplate, vm.CustomGlossaryPrompt);
+        Assert.Equal(0.3f, vm.Temperature);
+        Assert.Equal(1.0f, vm.TopP);
+        Assert.Equal(0, vm.MaxTokens);
+        Assert.Equal(0.0f, vm.FrequencyPenalty);
+        Assert.Equal(300, vm.RequestTimeoutSeconds);
+        Assert.Equal(600, vm.MaxChunkWords);
+        Assert.True(vm.StripThinkTags);
+        Assert.Equal(25, vm.MaxEnglishRatioPercent);
+        Assert.Equal(1, vm.MaxRetryAttempts);
+        Assert.Equal(string.Empty, vm.CustomStripPrefixes);
     }
 }

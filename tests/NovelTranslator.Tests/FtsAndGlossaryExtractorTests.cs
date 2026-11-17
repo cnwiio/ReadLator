@@ -95,4 +95,37 @@ public class FtsAndGlossaryExtractorTests : IDisposable
         Assert.Single(terms);
         Assert.Equal("Jade Seal", terms[0].SourceTerm);
     }
+
+    [Fact]
+    public void GlossaryExtractor_StripsThinkTagsAndBuildsCustomPrompt()
+    {
+        string thinkResponse = """
+            <think>
+            Let me analyze [character names] and [skills] first.
+            </think>
+            [
+                { "source": "Azure Flame", "target": "เพลิงคราม", "category": "Term", "notes": "ธาตุไฟ" }
+            ]
+            """;
+
+        var terms = NovelTranslator.Core.Glossary.GlossaryExtractor.ParseAndFilterResults(
+            thinkResponse,
+            new System.Collections.Generic.HashSet<string>());
+
+        Assert.Single(terms);
+        Assert.Equal("Azure Flame", terms[0].SourceTerm);
+
+        string withPlaceholders = NovelTranslator.Core.Glossary.GlossaryExtractor.BuildExtractionPrompt(
+            "Custom extract:\n{SourceText}\n=>\n{TranslatedText}",
+            "SRC",
+            "TGT");
+        Assert.Equal("Custom extract:\nSRC\n=>\nTGT", withPlaceholders);
+
+        string omittedPlaceholders = NovelTranslator.Core.Glossary.GlossaryExtractor.BuildExtractionPrompt(
+            "Only extract character names.",
+            "SRC",
+            "TGT");
+        Assert.Contains("[ต้นฉบับ]\nSRC", omittedPlaceholders);
+        Assert.Contains("[คำแปล]\nTGT", omittedPlaceholders);
+    }
 }
