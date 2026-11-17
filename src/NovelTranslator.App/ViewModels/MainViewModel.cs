@@ -1898,7 +1898,15 @@ public partial class MainViewModel : ObservableObject
             };
             chap.Id = await _repository.InsertChapterAsync(chap);
             Chapters.Add(chap);
-            RefreshFilteredChapters();
+            if (string.IsNullOrWhiteSpace(ChapterSearchFilter) && ChapterStatusFilterIndex == 0)
+            {
+                FilteredChapters.Add(chap);
+                UpdateStoryProgress();
+            }
+            else
+            {
+                RefreshFilteredChapters();
+            }
             if (selectChapter)
             {
                 SelectedChapter = chap;

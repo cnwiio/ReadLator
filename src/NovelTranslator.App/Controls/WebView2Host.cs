@@ -126,6 +126,38 @@ public sealed class WebView2Host : NativeControlHost
         return JsonSerializer.Deserialize<string>(json) ?? string.Empty;
     }
 
+    public async Task<string?> FetchHtmlViaBrowserSessionAsync(string url)
+    {
+        if (_controller?.CoreWebView2 == null || string.IsNullOrWhiteSpace(url))
+        {
+            return null;
+        }
+
+        if (!Uri.TryCreate(url.Trim(), UriKind.Absolute, out var targetUri) ||
+            (targetUri.Scheme != Uri.UriSchemeHttp && targetUri.Scheme != Uri.UriSchemeHttps) ||
+            WebChapterImportService.IsBlockedUri(targetUri))
+        {
+            return null;
+        }
+
+        if (!Uri.TryCreate(_controller.CoreWebView2.Source, UriKind.Absolute, out var currentUri) ||
+            !string.Equals(currentUri.Host, targetUri.Host, StringComparison.OrdinalIgnoreCase) ||
+            !string.Equals(currentUri.Scheme, targetUri.Scheme, StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        string escapedUrl = JsonSerializer.Serialize(targetUri.ToString());
+        string script = $"(async () => {{ try {{ const r = await fetch({escapedUrl}, {{ credentials: 'include' }}); if (!r.ok) return null; return await r.text(); }} catch {{ return null; }} }})()";
+        string json = await _controller.CoreWebView2.ExecuteScriptAsync(script);
+        if (string.IsNullOrWhiteSpace(json) || json == "null")
+        {
+            return null;
+        }
+
+        return JsonSerializer.Deserialize<string>(json);
+    }
+
     private void UpdateBounds(Size dipSize)
     {
         if (_controller == null) return;

@@ -246,9 +246,42 @@ public partial class BrowserImportWindow : Window
         {
             throw new InvalidOperationException($"ไม่สามารถโหลดหน้าเว็บ: {targetUrl}");
         }
+    }
 
-        // เผื่อเวลาให้สคริปต์บนหน้าเว็บเรนเดอร์เนื้อหา
-        await Task.Delay(500, ct);
+    private async Task<(WebChapterResult Chapter, string ActualUrl)> FetchChapterInBrowserAsync(string targetUrl, CancellationToken ct)
+    {
+        ct.ThrowIfCancellationRequested();
+
+        // ลองดึงเฉพาะ HTML ผ่านเซสชันเบราว์เซอร์โดยตรงก่อน (เร็ว ไม่ต้องโหลดรูป/โฆษณาทั้งหน้า)
+        string? fastHtml = await WebView.FetchHtmlViaBrowserSessionAsync(targetUrl);
+        if (!string.IsNullOrWhiteSpace(fastHtml))
+        {
+            try
+            {
+                var fastResult = WebChapterImportService.ExtractFromHtml(targetUrl, fastHtml);
+                return (fastResult, targetUrl);
+            }
+            catch
+            {
+                // หน้าเว็บอาจต้องรัน JS เพื่อสร้างเนื้อหา — สลับไปเปิดโหลดหน้าจริงด้านล่าง
+            }
+        }
+
+        await NavigateAndWaitAsync(targetUrl, ct);
+        string pageHtml = await WebView.GetPageHtmlAsync();
+        string actualUrl = WebView.CoreWebView2?.Source ?? targetUrl;
+        try
+        {
+            return (WebChapterImportService.ExtractFromHtml(actualUrl, pageHtml), actualUrl);
+        }
+        catch
+        {
+            // กรณีเว็บ SPA กำลังเรนเดอร์เนื้อหาหลังโหลดเสร็จ รอสั้นๆ แล้วอ่านซ้ำอีกหนึ่งครั้ง
+            await Task.Delay(250, ct);
+            pageHtml = await WebView.GetPageHtmlAsync();
+            actualUrl = WebView.CoreWebView2?.Source ?? targetUrl;
+            return (WebChapterImportService.ExtractFromHtml(actualUrl, pageHtml), actualUrl);
+        }
     }
 
     private async Task ImportCurrentPageAsync(bool closeAfterImport)
@@ -308,19 +341,11 @@ public partial class BrowserImportWindow : Window
                 for (int i = 0; i < selected.Count; i++)
                 {
                     ct.ThrowIfCancellationRequested();
-                    StatusText.Text = $"กำลังโหลดและนำเข้าตอนที่ {i + 1}/{selected.Count}...";
-                    await NavigateAndWaitAsync(selected[i].Url, ct);
-                    string pageHtml = await WebView.GetPageHtmlAsync();
-                    string pageUrl = WebView.CoreWebView2?.Source ?? selected[i].Url;
-                    var chapter = WebChapterImportService.ExtractFromHtml(pageUrl, pageHtml);
+                    StatusText.Text = $"กำลังดึงตอนที่ {i + 1}/{selected.Count}...";
+                    var (chapter, _) = await FetchChapterInBrowserAsync(selected[i].Url, ct);
                     await _onImported(chapter);
                     importedCount++;
                     StatusText.Text = $"นำเข้าแล้ว ({importedCount}/{selected.Count}): {chapter.Title}";
-
-                    if (i + 1 < selected.Count)
-                    {
-                        await Task.Delay(900, ct);
-                    }
                 }
             }
             else
@@ -355,12 +380,10 @@ public partial class BrowserImportWindow : Window
                             break;
                         }
 
-                        StatusText.Text = $"กำลังโหลดตอนที่ {i + 1}/{total}...";
-                        await NavigateAndWaitAsync(targetUrl, ct);
-                        string pageHtml = await WebView.GetPageHtmlAsync();
-                        string actualUrl = WebView.CoreWebView2?.Source ?? targetUrl;
+                        StatusText.Text = $"กำลังดึงตอนที่ {i + 1}/{total}...";
+                        var (fetchedChapter, actualUrl) = await FetchChapterInBrowserAsync(targetUrl, ct);
                         visited.Add(actualUrl);
-                        currentChapter = WebChapterImportService.ExtractFromHtml(actualUrl, pageHtml);
+                        currentChapter = fetchedChapter;
                     }
                     else
                     {
@@ -384,7 +407,6 @@ public partial class BrowserImportWindow : Window
 
                     targetUrl = nextUrl;
                     currentChapter = null;
-                    await Task.Delay(900, ct);
                 }
             }
 

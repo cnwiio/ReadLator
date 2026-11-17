@@ -41,7 +41,11 @@ public static class WebChapterImportService
 
     private static HttpClient CreateHttpClient()
     {
-        var client = new HttpClient
+        var handler = new HttpClientHandler
+        {
+            AutomaticDecompression = DecompressionMethods.All
+        };
+        var client = new HttpClient(handler)
         {
             Timeout = TimeSpan.FromSeconds(20)
         };
@@ -64,13 +68,13 @@ public static class WebChapterImportService
         WebMultiImportOptions options,
         Func<WebChapterResult, int, int, Task> onChapterFetched,
         CancellationToken cancellationToken = default)
-        => FetchChaptersBatchAsync(options, onChapterFetched, HttpClient, 900, cancellationToken);
+        => FetchChaptersBatchAsync(options, onChapterFetched, HttpClient, 0, cancellationToken);
 
     internal static async Task<int> FetchChaptersBatchAsync(
         WebMultiImportOptions options,
         Func<WebChapterResult, int, int, Task> onChapterFetched,
         HttpClient? customClient = null,
-        int delayMs = 900,
+        int delayMs = 0,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
