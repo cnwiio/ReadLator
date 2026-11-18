@@ -92,4 +92,20 @@ He drew his sword, refusing to let the enemy intimidate him. He stepped forward.
         Assert.Contains("บุรุษที่ 3", PromptBuilder.ResolvePovHint("Short dialogue only.", PovDetectionMode.ThirdPerson));
         Assert.Contains("บุรุษที่ 3", PromptBuilder.ResolvePovHint(thirdPersonText, PovDetectionMode.Auto));
     }
+
+    [Fact]
+    public void BuildMessages_IncludesPreviousSourceContextWithoutPreviousTranslation()
+    {
+        var story = new Story { Title = "Context Only Source", SourceLang = "English", TargetLang = "Thai" };
+        var messages = PromptBuilder.BuildMessages(
+            story,
+            chunkText: "\"Stop!\" she yelled.",
+            matchedGlossary: new List<GlossaryEntry>(),
+            previousSourceContext: "Alice pointed her staff at the gate.",
+            previousTranslationContext: null);
+
+        Assert.Contains("บริบทย่อหน้าก่อนหน้า", messages[1].Content);
+        Assert.Contains("Alice pointed her staff at the gate.", messages[1].Content);
+        Assert.DoesNotContain("[คำแปลก่อนหน้า]", messages[1].Content);
+    }
 }

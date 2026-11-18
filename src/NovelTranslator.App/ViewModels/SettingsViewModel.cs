@@ -190,7 +190,6 @@ public partial class SettingsViewModel : ObservableObject
         {
             RecordingAction = null;
         }
-        SaveSettings();
     }
 
     [RelayCommand]
@@ -207,7 +206,6 @@ public partial class SettingsViewModel : ObservableObject
         NextChapterKey = defaults.NextChapterKey;
         ToggleSidebarKey = defaults.ToggleSidebarKey;
         RecordingAction = null;
-        SaveSettings();
     }
 
     public void SetShortcut(string action, string key)
@@ -225,15 +223,10 @@ public partial class SettingsViewModel : ObservableObject
             case nameof(ToggleSidebarKey): ToggleSidebarKey = key; break;
         }
         RecordingAction = null;
-        SaveSettings();
     }
 
     // หมวด System & Appearance
     [ObservableProperty] private int _translationAppearanceIndex; // 0: PerChunk, 1: WordByWord
-    partial void OnTranslationAppearanceIndexChanged(int value)
-    {
-        if (!_isInitializing) SaveSettings();
-    }
 
     [ObservableProperty] private int _themeModeIndex; // 0: Light, 1: Dark, 2: Sepia
     partial void OnThemeModeIndexChanged(int value)
@@ -246,7 +239,6 @@ public partial class SettingsViewModel : ObservableObject
             _ => "Light"
         };
         App.ApplyTheme(mode);
-        SaveSettings();
     }
 
     [ObservableProperty] private double _brightnessLevel = 100.0;
@@ -256,9 +248,7 @@ public partial class SettingsViewModel : ObservableObject
         if (Math.Abs(clamped - value) > 0.01)
         {
             BrightnessLevel = clamped;
-            return;
         }
-        if (!_isInitializing) SaveSettings();
     }
 
     [ObservableProperty] private string _editorFontFamily = "Tahoma";
@@ -266,20 +256,11 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnEditorFontFamilyChanged(string value)
     {
         OnPropertyChanged(nameof(CurrentFontFamily));
-        if (!_isInitializing) SaveSettings();
     }
 
     [ObservableProperty] private int _editorFontSize = 20;
-    partial void OnEditorFontSizeChanged(int value)
-    {
-        if (!_isInitializing) SaveSettings();
-    }
 
     [ObservableProperty] private double _autoSaveDelaySeconds = 1.5;
-    partial void OnAutoSaveDelaySecondsChanged(double value)
-    {
-        if (!_isInitializing) SaveSettings();
-    }
 
     [ObservableProperty] private double _mmbScrollSensitivity = 1.0;
     partial void OnMmbScrollSensitivityChanged(double value)
@@ -288,9 +269,7 @@ public partial class SettingsViewModel : ObservableObject
         if (Math.Abs(clamped - value) > 0.01)
         {
             MmbScrollSensitivity = clamped;
-            return;
         }
-        if (!_isInitializing) SaveSettings();
     }
 
     public ObservableCollection<string> AvailableEditorFonts { get; } = new(AppSettings.DefaultEditorFonts);
@@ -311,6 +290,7 @@ public partial class SettingsViewModel : ObservableObject
     public ObservableCollection<string> AvailableModels { get; } = new();
 
     public Action? RequestClose { get; set; }
+    public bool IsSaved { get; private set; }
 
     public SettingsViewModel(AppSettings settings)
     {
@@ -431,7 +411,7 @@ public partial class SettingsViewModel : ObservableObject
     {
         try
         {
-            var client = new LlmClient(_settings);
+            var client = new LlmClient(BuildDraftSettings());
             var models = await client.GetModelsAsync();
             if (models.Count > 0)
             {
@@ -461,7 +441,6 @@ public partial class SettingsViewModel : ObservableObject
                 BaseUrl = "http://localhost:1234/v1";
             }
         }
-        ApplyToSettings();
         _ = RefreshModelsSilentAsync();
     }
 
@@ -471,8 +450,7 @@ public partial class SettingsViewModel : ObservableObject
         IsBusy = true;
         ConnectionStatus = "กำลังทดสอบการเชื่อมต่อ...";
 
-        ApplyToSettings();
-        var client = new LlmClient(_settings);
+        var client = new LlmClient(BuildDraftSettings());
 
         try
         {
@@ -540,6 +518,7 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public void SaveAndClose()
     {
+        IsSaved = true;
         SaveSettings();
         RequestClose?.Invoke();
     }
@@ -548,6 +527,15 @@ public partial class SettingsViewModel : ObservableObject
     {
         ApplyToSettings();
         _settings.Save();
+    }
+
+    public void RevertLiveThemePreview() => App.ApplyTheme(_settings.ThemeMode);
+
+    private AppSettings BuildDraftSettings()
+    {
+        var draft = new AppSettings();
+        ApplyTo(draft);
+        return draft;
     }
 
     private static string NormalizeCustomPrompt(string? value, string defaultTemplate)
@@ -559,60 +547,62 @@ public partial class SettingsViewModel : ObservableObject
             : trimmed;
     }
 
-    internal void ApplyToSettings()
+    internal void ApplyToSettings() => ApplyTo(_settings);
+
+    private void ApplyTo(AppSettings target)
     {
-        _settings.Backend = (BackendType)BackendIndex;
-        _settings.BaseUrl = BaseUrl?.Trim() ?? string.Empty;
-        _settings.ApiKey = ApiKey;
-        _settings.ModelName = ModelName?.Trim() ?? string.Empty;
-        _settings.Temperature = (float)Math.Round(Temperature, 2);
-        _settings.TopP = (float)Math.Round(Math.Clamp(TopP, 0.05f, 1.0f), 2);
-        _settings.MaxTokens = Math.Max(0, MaxTokens);
-        _settings.FrequencyPenalty = (float)Math.Round(Math.Clamp(FrequencyPenalty, -2.0f, 2.0f), 2);
-        _settings.RequestTimeoutSeconds = Math.Clamp(RequestTimeoutSeconds > 0 ? RequestTimeoutSeconds : 300, 10, 3600);
-        _settings.MaxChunkWords = Math.Clamp(MaxChunkWords > 0 ? MaxChunkWords : 600, 50, 10000);
-        _settings.ContextParagraphCount = Math.Clamp(ContextParagraphCount, 0, 20);
-        _settings.CustomSystemPrompt = NormalizeCustomPrompt(CustomSystemPrompt, PromptBuilder.DefaultSystemPromptTemplate);
-        _settings.CustomPolishSystemPrompt = NormalizeCustomPrompt(CustomPolishSystemPrompt, PromptBuilder.DefaultPolishSystemPromptTemplate);
-        _settings.CustomGlossaryPrompt = NormalizeCustomPrompt(CustomGlossaryPrompt, GlossaryExtractor.DefaultGlossaryPromptTemplate);
-        _settings.EnableCrossChapterContext = EnableCrossChapterContext;
-        _settings.EnableLookAheadContext = EnableLookAheadContext;
-        _settings.PovMode = Enum.IsDefined(typeof(PovDetectionMode), PovModeIndex) ? (PovDetectionMode)PovModeIndex : PovDetectionMode.Auto;
-        _settings.StripThinkTags = StripThinkTags;
-        _settings.MaxEnglishRatioPercent = Math.Clamp(MaxEnglishRatioPercent, 5, 100);
-        _settings.MaxRetryAttempts = Math.Clamp(MaxRetryAttempts, 0, 5);
-        _settings.CustomStripPrefixes = CustomStripPrefixes?.Trim() ?? string.Empty;
-        _settings.GlossaryScanMaxWords = Math.Max(0, GlossaryScanMaxWords);
-        _settings.GlossaryModelName = GlossaryModelName?.Trim() ?? string.Empty;
-        _settings.EnableAutoGlossaryScan = EnableAutoGlossaryScan;
-        _settings.EnablePolishMode = EnablePolishMode;
-        _settings.PolishModelName = PolishModelName?.Trim() ?? string.Empty;
+        target.Backend = (BackendType)BackendIndex;
+        target.BaseUrl = BaseUrl?.Trim() ?? string.Empty;
+        target.ApiKey = ApiKey;
+        target.ModelName = ModelName?.Trim() ?? string.Empty;
+        target.Temperature = (float)Math.Round(Temperature, 2);
+        target.TopP = (float)Math.Round(Math.Clamp(TopP, 0.05f, 1.0f), 2);
+        target.MaxTokens = Math.Max(0, MaxTokens);
+        target.FrequencyPenalty = (float)Math.Round(Math.Clamp(FrequencyPenalty, -2.0f, 2.0f), 2);
+        target.RequestTimeoutSeconds = Math.Clamp(RequestTimeoutSeconds > 0 ? RequestTimeoutSeconds : 300, 10, 3600);
+        target.MaxChunkWords = Math.Clamp(MaxChunkWords > 0 ? MaxChunkWords : 600, 50, 10000);
+        target.ContextParagraphCount = Math.Clamp(ContextParagraphCount, 0, 20);
+        target.CustomSystemPrompt = NormalizeCustomPrompt(CustomSystemPrompt, PromptBuilder.DefaultSystemPromptTemplate);
+        target.CustomPolishSystemPrompt = NormalizeCustomPrompt(CustomPolishSystemPrompt, PromptBuilder.DefaultPolishSystemPromptTemplate);
+        target.CustomGlossaryPrompt = NormalizeCustomPrompt(CustomGlossaryPrompt, GlossaryExtractor.DefaultGlossaryPromptTemplate);
+        target.EnableCrossChapterContext = EnableCrossChapterContext;
+        target.EnableLookAheadContext = EnableLookAheadContext;
+        target.PovMode = Enum.IsDefined(typeof(PovDetectionMode), PovModeIndex) ? (PovDetectionMode)PovModeIndex : PovDetectionMode.Auto;
+        target.StripThinkTags = StripThinkTags;
+        target.MaxEnglishRatioPercent = Math.Clamp(MaxEnglishRatioPercent, 5, 100);
+        target.MaxRetryAttempts = Math.Clamp(MaxRetryAttempts, 0, 5);
+        target.CustomStripPrefixes = CustomStripPrefixes?.Trim() ?? string.Empty;
+        target.GlossaryScanMaxWords = Math.Max(0, GlossaryScanMaxWords);
+        target.GlossaryModelName = GlossaryModelName?.Trim() ?? string.Empty;
+        target.EnableAutoGlossaryScan = EnableAutoGlossaryScan;
+        target.EnablePolishMode = EnablePolishMode;
+        target.PolishModelName = PolishModelName?.Trim() ?? string.Empty;
 
         // บันทึก Shortkeys
-        _settings.Shortkeys.TranslateKey = TranslateKey;
-        _settings.Shortkeys.TranslateAllKey = TranslateAllKey;
-        _settings.Shortkeys.SearchReplaceKey = SearchReplaceKey;
-        _settings.Shortkeys.SaveKey = SaveKey;
-        _settings.Shortkeys.FullScreenKey = FullScreenKey;
-        _settings.Shortkeys.FocusModeKey = FocusModeKey;
-        _settings.Shortkeys.PrevChapterKey = PrevChapterKey;
-        _settings.Shortkeys.NextChapterKey = NextChapterKey;
-        _settings.Shortkeys.ToggleSidebarKey = ToggleSidebarKey;
+        target.Shortkeys.TranslateKey = TranslateKey;
+        target.Shortkeys.TranslateAllKey = TranslateAllKey;
+        target.Shortkeys.SearchReplaceKey = SearchReplaceKey;
+        target.Shortkeys.SaveKey = SaveKey;
+        target.Shortkeys.FullScreenKey = FullScreenKey;
+        target.Shortkeys.FocusModeKey = FocusModeKey;
+        target.Shortkeys.PrevChapterKey = PrevChapterKey;
+        target.Shortkeys.NextChapterKey = NextChapterKey;
+        target.Shortkeys.ToggleSidebarKey = ToggleSidebarKey;
 
         // บันทึก System & Appearance
-        _settings.TranslationAppearance = TranslationAppearanceIndex == 1
+        target.TranslationAppearance = TranslationAppearanceIndex == 1
             ? TranslationAppearanceMode.WordByWord
             : TranslationAppearanceMode.PerChunk;
-        _settings.ThemeMode = ThemeModeIndex switch
+        target.ThemeMode = ThemeModeIndex switch
         {
             1 => "Dark",
             2 => "Sepia",
             _ => "Light"
         };
-        _settings.BrightnessLevel = Math.Clamp(BrightnessLevel, 30.0, 100.0);
-        _settings.EditorFontFamily = EditorFontFamily;
-        _settings.EditorFontSize = EditorFontSize;
-        _settings.AutoSaveDelaySeconds = AutoSaveDelaySeconds;
-        _settings.MmbScrollSensitivity = Math.Clamp(Math.Round(MmbScrollSensitivity, 1), 0.2, 5.0);
+        target.BrightnessLevel = Math.Clamp(BrightnessLevel, 30.0, 100.0);
+        target.EditorFontFamily = EditorFontFamily;
+        target.EditorFontSize = EditorFontSize;
+        target.AutoSaveDelaySeconds = AutoSaveDelaySeconds;
+        target.MmbScrollSensitivity = Math.Clamp(Math.Round(MmbScrollSensitivity, 1), 0.2, 5.0);
     }
 }

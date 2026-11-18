@@ -45,7 +45,7 @@ public partial class EditorViewModel : ObservableObject
         try
         {
             var sParagraphs = SplitParagraphs(sourceText);
-            var tParagraphs = SplitParagraphs(translatedText);
+            var tParagraphs = SplitParagraphs(translatedText, preserveEmptySlots: true);
 
             int maxCount = Math.Max(sParagraphs.Count, tParagraphs.Count);
             var glossaryList = glossary?.ToList() ?? ActiveGlossary.ToList();
@@ -106,7 +106,10 @@ public partial class EditorViewModel : ObservableObject
 
     public string CombineTranslatedParagraphs()
     {
-        return string.Join("\n\n", ParagraphPairs.Select(p => p.TranslatedText?.Trim()).Where(t => !string.IsNullOrEmpty(t)));
+        var list = ParagraphPairs.Select(p => p.TranslatedText?.Trim() ?? string.Empty).ToList();
+        int lastNonEmpty = list.FindLastIndex(t => !string.IsNullOrEmpty(t));
+        if (lastNonEmpty < 0) return string.Empty;
+        return string.Join("\n\n", list.Take(lastNonEmpty + 1));
     }
 
     public string CombineSourceParagraphs()
@@ -114,14 +117,24 @@ public partial class EditorViewModel : ObservableObject
         return string.Join("\n\n", ParagraphPairs.Select(p => p.SourceText?.Trim()).Where(s => !string.IsNullOrEmpty(s)));
     }
 
-    public static List<string> SplitParagraphs(string text)
+    public static List<string> SplitParagraphs(string text, bool preserveEmptySlots = false)
     {
         if (string.IsNullOrWhiteSpace(text)) return new List<string>();
-        return text.Replace("\r\n", "\n")
-                   .Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries)
-                   .Select(p => p.Trim())
-                   .Where(p => !string.IsNullOrEmpty(p))
-                   .ToList();
+        var parts = text.Replace("\r\n", "\n")
+                        .Split(new[] { "\n\n" }, preserveEmptySlots ? StringSplitOptions.None : StringSplitOptions.RemoveEmptyEntries)
+                        .Select(p => p.Trim());
+
+        if (!preserveEmptySlots)
+        {
+            return parts.Where(p => !string.IsNullOrEmpty(p)).ToList();
+        }
+
+        var list = parts.ToList();
+        while (list.Count > 0 && string.IsNullOrEmpty(list[^1]))
+        {
+            list.RemoveAt(list.Count - 1);
+        }
+        return list;
     }
 
     public async Task RefreshActiveGlossaryAsync(long storyId, string sourceText)

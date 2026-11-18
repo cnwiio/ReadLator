@@ -55,6 +55,11 @@ public class TranslationPipeline
         // ตรวจสอบว่า chunks เดิมสอดคล้องกับ splitTexts ปัจจุบันหรือไม่ หรือมีการสั่ง forceRetranslate
         bool needsResplit = forceRetranslate || chunks.Count != splitTexts.Count ||
             !chunks.Select(c => c.SourceText).SequenceEqual(splitTexts);
+        bool isPureAppend = !forceRetranslate
+            && chunks.Count > 0
+            && chunks.Count < splitTexts.Count
+            && chunks.All(c => c.IsCompleted && !string.IsNullOrEmpty(c.TranslatedText))
+            && chunks.Select(c => c.SourceText).SequenceEqual(splitTexts.Take(chunks.Count));
 
         if (needsResplit)
         {
@@ -64,7 +69,7 @@ public class TranslationPipeline
 
         int completedCount = chunks.Count(c => c.IsCompleted && !string.IsNullOrEmpty(c.TranslatedText));
         bool isContiguousPrefix = chunks.Take(completedCount).All(c => c.IsCompleted && !string.IsNullOrEmpty(c.TranslatedText));
-        bool preserveExistingTranslation = !forceRetranslate && !needsResplit && completedCount > 0 && isContiguousPrefix && !string.IsNullOrWhiteSpace(chapter.TranslatedText);
+        bool preserveExistingTranslation = !forceRetranslate && (!needsResplit || isPureAppend) && completedCount > 0 && isContiguousPrefix && !string.IsNullOrWhiteSpace(chapter.TranslatedText);
         var appendedParts = new List<string>();
         if (preserveExistingTranslation)
         {
@@ -291,7 +296,8 @@ public class TranslationPipeline
         Story story,
         string selectedSourceParagraph,
         string? surroundingSourceContext,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? surroundingTranslationContext = null)
     {
         var allGlossary = await _repository.GetGlossaryByStoryAsync(story.Id);
         var matchedGlossary = GlossaryService.FindMatchingEntries(selectedSourceParagraph, allGlossary);
@@ -301,7 +307,7 @@ public class TranslationPipeline
             selectedSourceParagraph,
             matchedGlossary,
             surroundingSourceContext,
-            null,
+            surroundingTranslationContext,
             null,
             _settings.CustomSystemPrompt,
             null,

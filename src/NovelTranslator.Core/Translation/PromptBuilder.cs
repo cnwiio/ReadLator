@@ -153,13 +153,16 @@ public class PromptBuilder
         AppendGlossaryAndPov(userSb, chunkText, matchedGlossary, povMode);
 
         // 3. บริบทย่อหน้าก่อนหน้า (ถ้ามี)
-        if (!string.IsNullOrWhiteSpace(previousSourceContext) && !string.IsNullOrWhiteSpace(previousTranslationContext))
+        if (!string.IsNullOrWhiteSpace(previousSourceContext))
         {
             userSb.AppendLine("### บริบทย่อหน้าก่อนหน้า (ห้ามแปลซ้ำ ใช้อ้างอิงความต่อเนื่องของสำนวนและสรรพนามเท่านั้น):");
             userSb.AppendLine("[ต้นฉบับก่อนหน้า]");
             userSb.AppendLine(previousSourceContext.Trim());
-            userSb.AppendLine("[คำแปลก่อนหน้า]");
-            userSb.AppendLine(previousTranslationContext.Trim());
+            if (!string.IsNullOrWhiteSpace(previousTranslationContext))
+            {
+                userSb.AppendLine("[คำแปลก่อนหน้า]");
+                userSb.AppendLine(previousTranslationContext.Trim());
+            }
             userSb.AppendLine();
         }
 

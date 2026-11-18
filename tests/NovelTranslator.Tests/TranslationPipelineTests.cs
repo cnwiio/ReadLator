@@ -397,6 +397,57 @@ public class TranslationPipelineTests : IDisposable
         Assert.Throws<InvalidOperationException>(() => emptyClient.BuildEndpointUrl("/models"));
     }
 
+    [Fact]
+    public async Task TranslateChapterAsync_PureAppendToEditedChapter_PreservesManualEdits()
+    {
+        var story = new Story { Title = "Pure Append Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var chapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "Ch 1",
+            OriginalText = "First paragraph here.\n\nSecond paragraph here."
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        var settings = new AppSettings { MaxChunkWords = 3 };
+        var firstPipeline = new TranslationPipeline(_repository, new QueueLlmClient("ย่อหน้าหนึ่ง", "ย่อหน้าสองเดิม"), settings);
+        await firstPipeline.TranslateChapterAsync(story, chapter, new Progress<TranslationProgressInfo>());
+
+        // User manually polishes chapter.TranslatedText (chunks table still holds raw LLM output)
+        chapter.TranslatedText = "ย่อหน้าหนึ่ง (ขัดเกลา)\n\nย่อหน้าสอง (ขัดเกลา)";
+        chapter.Status = ChapterStatus.Edited;
+        await _repository.UpdateChapterAsync(chapter);
+
+        // User appends a 3rd paragraph and clicks Translate without forceRetranslate
+        chapter.OriginalText = "First paragraph here.\n\nSecond paragraph here.\n\nThird paragraph appended.";
+        var appendPipeline = new TranslationPipeline(_repository, new QueueLlmClient("ย่อหน้าสามใหม่"), settings);
+        await appendPipeline.TranslateChapterAsync(story, chapter, new Progress<TranslationProgressInfo>());
+
+        Assert.Equal("ย่อหน้าหนึ่ง (ขัดเกลา)\n\nย่อหน้าสอง (ขัดเกลา)\n\nย่อหน้าสามใหม่", chapter.TranslatedText);
+    }
+
+    [Fact]
+    public async Task RetranslateParagraphAsync_IncludesSurroundingSourceContextEvenWithoutTranslation()
+    {
+        var story = new Story { Title = "Paragraph Context Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var llm = new QueueLlmClient("“ไปกันเถอะ” เธอพูด");
+        var pipeline = new TranslationPipeline(_repository, llm, new AppSettings());
+
+        await pipeline.RetranslateParagraphAsync(
+            story,
+            "\"Let's go,\" she said.",
+            surroundingSourceContext: "Elena raised her lantern.");
+
+        string userPrompt = llm.RecordedMessages[0][1].Content;
+        Assert.Contains("บริบทย่อหน้าก่อนหน้า", userPrompt);
+        Assert.Contains("Elena raised her lantern.", userPrompt);
+    }
+
     private sealed class QueueLlmClient : ILlmClient
     {
         private readonly Queue<string> _responses;

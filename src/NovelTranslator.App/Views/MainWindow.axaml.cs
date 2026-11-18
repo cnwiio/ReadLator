@@ -104,9 +104,16 @@ public partial class MainWindow : Window
             var vm = new SettingsViewModel(settings);
             var win = new SettingsWindow(vm);
             await win.ShowDialog(this);
-            ViewModel.ReloadSettings();
-            ApplyEditorFont(ViewModel.EditorFontFamily);
-            ApplyKeyBindings();
+            if (vm.IsSaved)
+            {
+                ViewModel.ReloadSettings();
+                ApplyEditorFont(ViewModel.EditorFontFamily);
+                ApplyKeyBindings();
+            }
+            else
+            {
+                vm.RevertLiveThemePreview();
+            }
         };
 
         ViewModel.RequestOpenGlossary = async (story) =>

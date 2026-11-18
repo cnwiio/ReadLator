@@ -287,4 +287,32 @@ public class SettingsTests
         Assert.Equal(600, settings.MaxChunkWords);
         Assert.Equal(0, settings.ContextParagraphCount);
     }
+
+    [Fact]
+    public void SettingsViewModel_EditingWithoutSave_DoesNotMutateAppSettings()
+    {
+        var settings = new AppSettings
+        {
+            Backend = BackendType.Ollama,
+            BaseUrl = "http://localhost:11434/v1",
+            EditorFontSize = 20,
+            Temperature = 0.3f
+        };
+        var vm = new SettingsViewModel(settings);
+
+        vm.EditorFontSize = 26;
+        vm.Temperature = 0.8f;
+        vm.MmbScrollSensitivity = 2.5;
+        vm.SetShortcut(nameof(vm.TranslateKey), "F9");
+        vm.ResetShortcut(nameof(vm.SaveKey));
+        vm.BackendIndex = 1;
+
+        Assert.False(vm.IsSaved);
+        Assert.Equal(BackendType.Ollama, settings.Backend);
+        Assert.Equal("http://localhost:11434/v1", settings.BaseUrl);
+        Assert.Equal(20, settings.EditorFontSize);
+        Assert.Equal(0.3f, settings.Temperature);
+        Assert.Equal(1.0, settings.MmbScrollSensitivity);
+        Assert.Equal("Ctrl+Enter", settings.Shortkeys.TranslateKey);
+    }
 }

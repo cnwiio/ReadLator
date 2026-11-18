@@ -953,17 +953,20 @@ public partial class MainViewModel : ObservableObject
         if (SelectedStory == null || SelectedChapter == null) return;
         if (string.IsNullOrWhiteSpace(OriginalText)) return;
 
+        var story = SelectedStory;
+        var chapter = SelectedChapter;
+
         // ซิงค์ข้อความต้นฉบับล่าสุดเข้า Chapter ทันที
-        SelectedChapter.OriginalText = OriginalText;
+        chapter.OriginalText = OriginalText;
         if (forceRetranslate)
         {
-            SelectedChapter.TranslatedText = string.Empty;
+            chapter.TranslatedText = string.Empty;
             TranslatedText = string.Empty;
         }
         else
         {
             // แสดงเฉพาะคำแปลเดิมของตอนนี้เท่านั้น (ถ้ายังไม่มีก็จะเป็นค่าว่าง)
-            TranslatedText = SelectedChapter.TranslatedText ?? string.Empty;
+            TranslatedText = chapter.TranslatedText ?? string.Empty;
         }
 
         IsTranslating = true;
@@ -981,7 +984,7 @@ public partial class MainViewModel : ObservableObject
         int lastReportedChunk = 0;
         var progress = new Progress<TranslationProgressInfo>(info =>
         {
-            if (!string.IsNullOrEmpty(info.CombinedTranslatedTextSoFar))
+            if (!string.IsNullOrEmpty(info.CombinedTranslatedTextSoFar) && ReferenceEquals(SelectedChapter, chapter))
             {
                 TranslatedText = info.CombinedTranslatedTextSoFar;
             }
@@ -1015,24 +1018,27 @@ public partial class MainViewModel : ObservableObject
             ProgressText = forceRetranslate ? "กำลังแปลใหม่ทั้งหมดตั้งแต่เริ่มต้น..." : "กำลังเริ่มขั้นตอนการแปล...";
             await Task.Run(async () =>
             {
-                await pipeline.TranslateChapterAsync(SelectedStory, SelectedChapter, progress, forceRetranslate, _translationCts.Token);
+                await pipeline.TranslateChapterAsync(story, chapter, progress, forceRetranslate, _translationCts.Token);
             });
-            TranslatedText = SelectedChapter.TranslatedText ?? string.Empty;
-            UpdateChapterStatusDisplay(SelectedChapter.Status);
+            if (ReferenceEquals(SelectedChapter, chapter))
+            {
+                TranslatedText = chapter.TranslatedText ?? string.Empty;
+                UpdateChapterStatusDisplay(chapter.Status);
+                SaveStatusText = $"บันทึกอัตโนมัติ {DateTime.Now:HH:mm:ss}";
+                SaveStateColor = "#4CC38A";
+            }
             UpdateStoryProgress();
             StopFakeProgressTimer();
             TranslationProgressPercentage = 100;
-            SaveStatusText = $"บันทึกอัตโนมัติ {DateTime.Now:HH:mm:ss}";
-            SaveStateColor = "#4CC38A";
 
             if (_settings.EnableAutoGlossaryScan &&
-                SelectedChapter.Status == ChapterStatus.Translated &&
+                chapter.Status == ChapterStatus.Translated &&
                 !_translationCts.IsCancellationRequested)
             {
                 ProgressText = "แปลเสร็จสิ้น · กำลังสแกนชื่อเฉพาะเข้า Glossary อัตโนมัติ...";
                 try
                 {
-                    var addedTerms = await AutoExtractAndSaveGlossaryAsync(SelectedStory, SelectedChapter, _translationCts.Token);
+                    var addedTerms = await AutoExtractAndSaveGlossaryAsync(story, chapter, _translationCts.Token);
                     ProgressText = addedTerms.Count > 0
                         ? $"แปลเสร็จสิ้น · เพิ่มชื่อเฉพาะเข้า Glossary {addedTerms.Count} คำ"
                         : "แปลเสร็จสิ้น";
@@ -1055,8 +1061,7 @@ public partial class MainViewModel : ObservableObject
         {
             StopFakeProgressTimer();
             ProgressText = "หยุดการแปลแล้ว";
-            SelectedChapter.Status = ChapterStatus.Edited;
-            UpdateChapterStatusDisplay(SelectedChapter.Status);
+            await PersistInterruptedChapterStatusAsync(chapter);
         }
         catch (Exception ex)
         {
@@ -1065,17 +1070,31 @@ public partial class MainViewModel : ObservableObject
             LastErrorDetails = ex.ToString();
             string firstLine = ex.Message.Split('\n')[0];
             ProgressText = $"ข้อผิดพลาด · {firstLine}";
+            await PersistInterruptedChapterStatusAsync(chapter);
         }
         finally
         {
             StopFakeProgressTimer();
             IsTranslating = false;
             IsTranslatingIndeterminate = false;
-            if (Editor.IsParagraphMode)
+            if (Editor.IsParagraphMode && ReferenceEquals(SelectedChapter, chapter))
             {
                 Editor.SyncParagraphPairs(OriginalText, TranslatedText);
             }
         }
+    }
+
+    private async Task PersistInterruptedChapterStatusAsync(Chapter chapter)
+    {
+        chapter.Status = string.IsNullOrWhiteSpace(chapter.TranslatedText)
+            ? ChapterStatus.NotTranslated
+            : ChapterStatus.Edited;
+        await _repository.UpdateChapterAsync(chapter);
+        if (ReferenceEquals(SelectedChapter, chapter))
+        {
+            UpdateChapterStatusDisplay(chapter.Status);
+        }
+        UpdateStoryProgress();
     }
 
     [RelayCommand]
@@ -1189,15 +1208,22 @@ public partial class MainViewModel : ObservableObject
         var llmClient = new LlmClient(_settings);
         var pipeline = new TranslationPipeline(_repository, llmClient, _settings);
 
-        string? surroundingContext = pair.Index > 1 && pair.Index - 2 < Editor.ParagraphPairs.Count
-            ? Editor.ParagraphPairs[pair.Index - 2].SourceText
+        var prevPair = pair.Index > 1 && pair.Index - 2 < Editor.ParagraphPairs.Count
+            ? Editor.ParagraphPairs[pair.Index - 2]
             : null;
+        string? surroundingContext = prevPair?.SourceText;
+        string? surroundingTranslationContext = prevPair?.TranslatedText;
 
         try
         {
             string newTranslation = await Task.Run(async () =>
             {
-                return await pipeline.RetranslateParagraphAsync(SelectedStory, pair.SourceText, surroundingContext, ct);
+                return await pipeline.RetranslateParagraphAsync(
+                    SelectedStory,
+                    pair.SourceText,
+                    surroundingContext,
+                    ct,
+                    surroundingTranslationContext);
             }, ct);
 
             if (!string.IsNullOrWhiteSpace(newTranslation))
@@ -1651,7 +1677,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void PreviousChapter()
     {
-        if (SelectedChapter == null || Chapters.Count == 0) return;
+        if (IsTranslating || SelectedChapter == null || Chapters.Count == 0) return;
         int idx = Chapters.IndexOf(SelectedChapter);
         if (idx > 0)
         {
@@ -1662,7 +1688,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void NextChapter()
     {
-        if (SelectedChapter == null || Chapters.Count == 0) return;
+        if (IsTranslating || SelectedChapter == null || Chapters.Count == 0) return;
         int idx = Chapters.IndexOf(SelectedChapter);
         if (idx >= 0 && idx < Chapters.Count - 1)
         {
@@ -2154,7 +2180,10 @@ public partial class MainViewModel : ObservableObject
         }).ToList();
 
         await _repository.BulkInsertGlossaryEntriesAsync(entries);
-        await Editor.RefreshActiveGlossaryAsync(story.Id, OriginalText);
+        if (ReferenceEquals(SelectedStory, story))
+        {
+            await Editor.RefreshActiveGlossaryAsync(story.Id, OriginalText);
+        }
 
         string preview = string.Join(", ", entries.Take(4).Select(e => $"{e.SourceTerm} → {e.TargetTerm}"));
         if (entries.Count > 4)
@@ -2229,29 +2258,37 @@ public partial class MainViewModel : ObservableObject
             }
 
             await RequestOpenSearchReplace(SelectedStory, SelectedChapter);
-            // โหลดเนื้อหาใหม่หากมีการแทนที่
-            if (SelectedChapter != null)
+            // โหลดเนื้อหาและสถานะล่าสุดของทุกตอนในเรื่องหลังแทนที่คำ (รองรับ Whole-story Replace)
+            var freshChapters = await _repository.GetChaptersByStoryAsync(SelectedStory.Id);
+            var freshMap = freshChapters.ToDictionary(c => c.Id);
+            foreach (var ch in Chapters)
             {
-                var refreshed = await _repository.GetChapterByIdAsync(SelectedChapter.Id);
-                if (refreshed != null)
+                if (freshMap.TryGetValue(ch.Id, out var fresh))
                 {
-                    SelectedChapter.TranslatedText = refreshed.TranslatedText;
-                    SelectedChapter.Status = refreshed.Status;
-                    _isLoadingChapter = true;
-                    try
-                    {
-                        TranslatedText = refreshed.TranslatedText;
-                        if (Editor.IsParagraphMode)
-                        {
-                            Editor.SyncParagraphPairs(OriginalText, TranslatedText);
-                        }
-                    }
-                    finally
-                    {
-                        _isLoadingChapter = false;
-                    }
+                    ch.TranslatedText = fresh.TranslatedText;
+                    ch.Status = fresh.Status;
+                    ch.UpdatedAt = fresh.UpdatedAt;
                 }
             }
+
+            if (SelectedChapter != null && freshMap.TryGetValue(SelectedChapter.Id, out var refreshed))
+            {
+                _isLoadingChapter = true;
+                try
+                {
+                    TranslatedText = refreshed.TranslatedText;
+                    UpdateChapterStatusDisplay(refreshed.Status);
+                    if (Editor.IsParagraphMode)
+                    {
+                        Editor.SyncParagraphPairs(OriginalText, TranslatedText);
+                    }
+                }
+                finally
+                {
+                    _isLoadingChapter = false;
+                }
+            }
+            UpdateStoryProgress();
         }
     }
 
