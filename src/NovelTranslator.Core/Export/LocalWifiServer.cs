@@ -119,10 +119,18 @@ public sealed class LocalWifiServer : IDisposable
 
                 string[] parts = requestLine.Split(' ');
                 string rawTarget = parts.Length >= 2 ? parts[1] : "/";
+                int qIdx = rawTarget.IndexOf('?');
+                string path = qIdx >= 0 ? rawTarget[..qIdx] : rawTarget;
 
-                if (rawTarget.StartsWith("/favicon.ico", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(path, "/favicon.ico", StringComparison.OrdinalIgnoreCase))
                 {
                     await WriteResponseAsync(stream, "204 No Content", "text/plain", Array.Empty<byte>(), ct);
+                    return;
+                }
+
+                if (!string.Equals(path, "/", StringComparison.Ordinal))
+                {
+                    await WriteResponseAsync(stream, "404 Not Found", "text/plain", Array.Empty<byte>(), ct);
                     return;
                 }
 

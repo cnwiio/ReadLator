@@ -320,6 +320,9 @@ public class NewFeaturesTests : IDisposable
         Assert.Contains("Original Wi-Fi text.", bilingualBody);
         Assert.Contains("เนื้อหาสำหรับอ่านบนมือถือ", bilingualBody);
 
+        using var unknownResp = await http.GetAsync($"{server.LocalUrl}apple-touch-icon.png");
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, unknownResp.StatusCode);
+
         server.Stop();
         Assert.False(server.IsRunning);
     }

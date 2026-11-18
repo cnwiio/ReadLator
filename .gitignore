@@ -3,6 +3,7 @@
 [Oo]bj/
 **/[Bb]in/**
 **/[Oo]bj/**
+*.binlog
 
 # Visual Studio & IDE files
 .vs/
