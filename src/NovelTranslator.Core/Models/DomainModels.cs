@@ -101,7 +101,11 @@ public class Chapter : INotifyPropertyChanged
         }
     }
 
-    public string StatusBadgeText => Status switch
+    public string StatusBadgeText => GetStatusBadgeText(Status);
+
+    public string StatusBadgeColor => GetStatusBadgeColor(Status);
+
+    public static string GetStatusBadgeText(ChapterStatus status) => status switch
     {
         ChapterStatus.NotTranslated => "ยังไม่แปล",
         ChapterStatus.Translating => "กำลังแปล",
@@ -110,7 +114,7 @@ public class Chapter : INotifyPropertyChanged
         _ => ""
     };
 
-    public string StatusBadgeColor => Status switch
+    public static string GetStatusBadgeColor(ChapterStatus status) => status switch
     {
         ChapterStatus.NotTranslated => "#737373",
         ChapterStatus.Translating => "#F59E0B",

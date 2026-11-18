@@ -20,9 +20,6 @@ public partial class ParagraphPairViewModel : ObservableObject
     private string _translatedText = string.Empty;
 
     [ObservableProperty]
-    private bool _isSelected;
-
-    [ObservableProperty]
     private bool _isRetranslating;
 
     public ObservableCollection<GlossaryEntry> MatchedGlossary { get; } = new();

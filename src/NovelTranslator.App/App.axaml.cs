@@ -1,8 +1,12 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Avalonia.VisualTree;
 using Avalonia.Media;
 using Avalonia.Styling;
 using NovelTranslator.App.ViewModels;
@@ -142,5 +146,26 @@ public partial class App : Application
         {
             Current.Resources[key] = SolidColorBrush.Parse(hex);
         }
+    }
+
+    internal static void HandleOutsideTextBoxPointerPressed(Window window, PointerPressedEventArgs e, Action? onCleared = null)
+    {
+        if (TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not TextBox focused)
+        {
+            return;
+        }
+
+        if (e.Source is Visual src)
+        {
+            foreach (var ancestor in src.GetVisualAncestors().Prepend(src))
+            {
+                if (ReferenceEquals(ancestor, focused)) return;
+                if (ancestor is Button or Avalonia.Controls.Primitives.Popup or MenuItem) return;
+            }
+        }
+
+        focused.SelectionStart = focused.SelectionEnd;
+        TopLevel.GetTopLevel(window)?.FocusManager?.Focus(null);
+        onCleared?.Invoke();
     }
 }

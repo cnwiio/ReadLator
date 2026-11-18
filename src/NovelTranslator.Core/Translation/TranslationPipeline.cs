@@ -39,14 +39,14 @@ public class TranslationPipeline
     /// <summary>
     /// แปลทั้งตอน พร้อมรองรับการ Resume ต่อจากส่วนที่ค้างไว้
     /// </summary>
-    public async Task TranslateChapterAsync(
+    public async Task<bool> TranslateChapterAsync(
         Story story,
         Chapter chapter,
         IProgress<TranslationProgressInfo> progress,
         bool forceRetranslate = false,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(chapter.OriginalText)) return;
+        if (string.IsNullOrWhiteSpace(chapter.OriginalText)) return false;
 
         // ดึง Chunks เดิมจาก DB หรือสร้างใหม่ถ้ายังไม่มีหรือเนื้อหาเปลี่ยน
         var chunks = await _repository.GetChunksByChapterAsync(chapter.Id);
@@ -90,6 +90,16 @@ public class TranslationPipeline
                 ? "เนื้อหาทั้งหมดแปลเสร็จเรียบร้อยแล้ว"
                 : $"กำลังเตรียมแปล {chunks.Count - completedCount} ส่วนที่เหลือ (จากทั้งหมด {chunks.Count} ส่วน)..."
         });
+
+        if (!forceRetranslate && chunks.Count > 0 && completedCount == chunks.Count)
+        {
+            if (chapter.Status != ChapterStatus.Edited && chapter.Status != ChapterStatus.Translated)
+            {
+                chapter.Status = ChapterStatus.Translated;
+                await _repository.UpdateChapterAsync(chapter);
+            }
+            return false;
+        }
 
         var allGlossary = await _repository.GetGlossaryByStoryAsync(story.Id);
 
@@ -287,6 +297,7 @@ public class TranslationPipeline
         // เมื่อแปลครบทุกชิ้น
         chapter.Status = ChapterStatus.Translated;
         await _repository.UpdateChapterAsync(chapter);
+        return true;
     }
 
     /// <summary>

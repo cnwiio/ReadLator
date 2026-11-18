@@ -65,4 +65,11 @@ public class ParagraphAndEditorTests
         Assert.Equal(string.Empty, editor.ParagraphPairs[1].TranslatedText);
         Assert.Equal("คำแปล 3", editor.ParagraphPairs[2].TranslatedText);
     }
+
+    [Fact]
+    public void SplitParagraphs_NormalizesBareCarriageReturn()
+    {
+        var list = EditorViewModel.SplitParagraphs("P1\r\rP2\r\rP3");
+        Assert.Equal(new[] { "P1", "P2", "P3" }, list);
+    }
 }

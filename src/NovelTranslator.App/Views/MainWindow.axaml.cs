@@ -56,6 +56,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         Loaded += MainWindow_Loaded;
+        AddHandler(PointerPressedEvent, (_, e) => App.HandleOutsideTextBoxPointerPressed(this, e, () => GlossaryPopup.IsOpen = false), RoutingStrategies.Tunnel);
     }
 
     protected override async void OnClosing(WindowClosingEventArgs e)
@@ -137,14 +138,16 @@ public partial class MainWindow : Window
 
         ViewModel.RequestOpenBrowserImport = (initialUrl) =>
         {
-            var win = new BrowserImportWindow(initialUrl, result => ViewModel.ImportWebChapterAsync(result));
+            var story = ViewModel.SelectedStory;
+            var win = new BrowserImportWindow(initialUrl, result => ViewModel.ImportWebChapterAsync(result, story));
             win.Show(this);
             return Task.CompletedTask;
         };
 
         ViewModel.RequestOpenBrowserMultiImport = (options) =>
         {
-            var win = new BrowserImportWindow(options, result => ViewModel.ImportWebChapterAsync(result));
+            var story = ViewModel.SelectedStory;
+            var win = new BrowserImportWindow(options, result => ViewModel.ImportWebChapterAsync(result, story));
             win.Show(this);
             return Task.CompletedTask;
         };

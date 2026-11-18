@@ -14,6 +14,7 @@ public partial class SettingsWindow : Window
     {
         InitializeComponent();
         AddHandler(KeyDownEvent, OnWindowKeyDown, RoutingStrategies.Tunnel);
+        AddHandler(PointerPressedEvent, (_, e) => App.HandleOutsideTextBoxPointerPressed(this, e), RoutingStrategies.Tunnel);
     }
 
     public SettingsWindow(SettingsViewModel viewModel) : this()

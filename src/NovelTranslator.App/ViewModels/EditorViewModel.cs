@@ -121,6 +121,7 @@ public partial class EditorViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(text)) return new List<string>();
         var parts = text.Replace("\r\n", "\n")
+                        .Replace('\r', '\n')
                         .Split(new[] { "\n\n" }, preserveEmptySlots ? StringSplitOptions.None : StringSplitOptions.RemoveEmptyEntries)
                         .Select(p => p.Trim());
 

@@ -113,7 +113,6 @@ public partial class MainViewModel : ObservableObject
     private bool _isFocusMode;
 
     private bool _sidebarBeforeFocusMode = true;
-    public bool IsHeaderVisible => !IsFocusMode;
     public string FocusModeButtonText => IsFocusMode ? "ออกโหมดอ่าน" : "โหมดอ่าน";
     public string ReadingChapterPositionText
     {
@@ -129,7 +128,6 @@ public partial class MainViewModel : ObservableObject
 
     partial void OnIsFocusModeChanged(bool value)
     {
-        OnPropertyChanged(nameof(IsHeaderVisible));
         OnPropertyChanged(nameof(FocusModeButtonText));
         OnPropertyChanged(nameof(ReadingChapterPositionText));
     }
@@ -852,28 +850,15 @@ public partial class MainViewModel : ObservableObject
         else
         {
             OriginalParagraphCount = text.Replace("\r\n", "\n")
+                .Replace('\r', '\n')
                 .Split(new[] { "\n\n" }, StringSplitOptions.RemoveEmptyEntries).Length;
         }
     }
 
     private void UpdateChapterStatusDisplay(ChapterStatus status)
     {
-        ChapterStatusText = status switch
-        {
-            ChapterStatus.NotTranslated => "ยังไม่แปล",
-            ChapterStatus.Translating => "กำลังแปล",
-            ChapterStatus.Translated => "แปลแล้ว",
-            ChapterStatus.Edited => "แก้ไขแล้ว",
-            _ => ""
-        };
-        ChapterStatusColor = status switch
-        {
-            ChapterStatus.NotTranslated => "#737373",
-            ChapterStatus.Translating => "#F59E0B",
-            ChapterStatus.Translated => "#4CC38A",
-            ChapterStatus.Edited => "#3B82F6",
-            _ => "#737373"
-        };
+        ChapterStatusText = Chapter.GetStatusBadgeText(status);
+        ChapterStatusColor = Chapter.GetStatusBadgeColor(status);
     }
 
     // ================= คำสั่งควบคุมการแปล =================
@@ -1018,12 +1003,13 @@ public partial class MainViewModel : ObservableObject
             }
         });
 
+        bool anyChunkTranslated = false;
         try
         {
             ProgressText = forceRetranslate ? "กำลังแปลใหม่ทั้งหมดตั้งแต่เริ่มต้น..." : "กำลังเริ่มขั้นตอนการแปล...";
-            await Task.Run(async () =>
+            anyChunkTranslated = await Task.Run(async () =>
             {
-                await pipeline.TranslateChapterAsync(story, chapter, progress, forceRetranslate, _translationCts.Token);
+                return await pipeline.TranslateChapterAsync(story, chapter, progress, forceRetranslate, _translationCts.Token);
             });
             if (ReferenceEquals(SelectedChapter, chapter))
             {
@@ -1036,7 +1022,8 @@ public partial class MainViewModel : ObservableObject
             StopFakeProgressTimer();
             TranslationProgressPercentage = 100;
 
-            if (_settings.EnableAutoGlossaryScan &&
+            if (anyChunkTranslated &&
+                _settings.EnableAutoGlossaryScan &&
                 chapter.Status == ChapterStatus.Translated &&
                 !_translationCts.IsCancellationRequested)
             {
@@ -1244,9 +1231,23 @@ public partial class MainViewModel : ObservableObject
         if (!ok) return;
 
         _autoSaveTimer.Stop();
+        IsStoryDetailsExpanded = false;
+        _lastDeletedChapters.Clear();
+        OnPropertyChanged(nameof(CanUndoDeleteChapter));
+        OnPropertyChanged(nameof(UndoDeleteButtonText));
+        Editor.ParagraphPairs.Clear();
+        Editor.ActiveGlossary.Clear();
+
         await _repository.DeleteStoryAsync(SelectedStory.Id);
         Stories.Remove(SelectedStory);
-        SelectedStory = Stories.FirstOrDefault();
+        if (Stories.Count == 0)
+        {
+            await LoadInitialDataAsync();
+        }
+        else
+        {
+            SelectedStory = Stories.FirstOrDefault();
+        }
     }
 
     // ================= จัดการตอน (Chapter) =================
@@ -1880,14 +1881,34 @@ public partial class MainViewModel : ObservableObject
         await RequestOpenBrowserImport(null);
     }
 
-    public Task ImportWebChapterAsync(WebChapterResult result)
-        => ImportWebChapterInternalAsync(result, selectChapter: true);
+    public Task ImportWebChapterAsync(WebChapterResult result, Story? targetStory = null)
+        => ImportWebChapterInternalAsync(result, selectChapter: true, targetStory);
 
-    private async Task ImportWebChapterInternalAsync(WebChapterResult result, bool selectChapter)
+    private async Task ImportWebChapterInternalAsync(WebChapterResult result, bool selectChapter, Story? targetStory = null)
     {
-        if (SelectedStory == null) return;
+        var story = targetStory ?? SelectedStory;
+        if (story == null || !Stories.Contains(story)) return;
 
         string sourceForNaming = !string.IsNullOrWhiteSpace(result.RawTitle) ? result.RawTitle : result.Title;
+
+        if (!ReferenceEquals(SelectedStory, story))
+        {
+            var existing = await _repository.GetChaptersByStoryAsync(story.Id);
+            int nextOrd = existing.Count > 0 ? existing.Max(c => c.Ordinal) + 1 : 1;
+            string bgTitle = SmartChapterNaming.ResolveTitle(sourceForNaming, result.Content, nextOrd, story.Title, result.SourceUrl);
+            var bgChap = new Chapter
+            {
+                StoryId = story.Id,
+                Ordinal = nextOrd,
+                Title = bgTitle,
+                OriginalText = result.Content,
+                TranslatedText = string.Empty,
+                Status = ChapterStatus.NotTranslated
+            };
+            await _repository.InsertChapterAsync(bgChap);
+            SaveStatusText = $"นำเข้า \"{bgChap.Title}\" เข้าเรื่อง \"{story.Title}\" แล้ว";
+            return;
+        }
 
         if (SelectedChapter != null &&
             (string.IsNullOrWhiteSpace(OriginalText) || OriginalText.Trim() == DefaultPlaceholderText) &&
@@ -1899,7 +1920,7 @@ public partial class MainViewModel : ObservableObject
                 sourceForNaming,
                 result.Content,
                 SelectedChapter.Ordinal,
-                SelectedStory.Title,
+                story.Title,
                 result.SourceUrl);
             SelectedChapter.Title = cleanTitle;
             SelectedChapter.Status = ChapterStatus.NotTranslated;
@@ -1911,7 +1932,7 @@ public partial class MainViewModel : ObservableObject
             {
                 Editor.SyncParagraphPairs(OriginalText, TranslatedText);
             }
-            _ = Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, OriginalText);
+            _ = Editor.RefreshActiveGlossaryAsync(story.Id, OriginalText);
             await SaveCurrentChapterInternalAsync(isAutoSave: false);
             SaveStatusText = $"ดึงเนื้อหา \"{SelectedChapter.Title}\" เรียบร้อย";
         }
@@ -1922,11 +1943,11 @@ public partial class MainViewModel : ObservableObject
                 sourceForNaming,
                 result.Content,
                 nextOrdinal,
-                SelectedStory.Title,
+                story.Title,
                 result.SourceUrl);
             var chap = new Chapter
             {
-                StoryId = SelectedStory.Id,
+                StoryId = story.Id,
                 Ordinal = nextOrdinal,
                 Title = cleanTitle,
                 OriginalText = result.Content,

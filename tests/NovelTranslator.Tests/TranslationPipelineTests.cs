@@ -448,6 +448,40 @@ public class TranslationPipelineTests : IDisposable
         Assert.Contains("Elena raised her lantern.", userPrompt);
     }
 
+    [Fact]
+    public async Task TranslateChapterAsync_WhenAlreadyCompleted_ReturnsFalseAndPreservesEditedStatus()
+    {
+        var story = new Story { Title = "Completed Edited Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+
+        var chapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "Ch 1",
+            OriginalText = "Hello world."
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        var settings = new AppSettings { MaxChunkWords = 50 };
+        var firstLlm = new QueueLlmClient("สวัสดีชาวโลก");
+        var firstPipeline = new TranslationPipeline(_repository, firstLlm, settings);
+        Assert.True(await firstPipeline.TranslateChapterAsync(story, chapter, new Progress<TranslationProgressInfo>()));
+
+        chapter.TranslatedText = "สวัสดีชาวโลก (ขัดเกลาแล้ว)";
+        chapter.Status = ChapterStatus.Edited;
+        await _repository.UpdateChapterAsync(chapter);
+
+        var noopLlm = new QueueLlmClient("ไม่ควรถูกเรียก");
+        var noopPipeline = new TranslationPipeline(_repository, noopLlm, settings);
+        bool anyTranslated = await noopPipeline.TranslateChapterAsync(story, chapter, new Progress<TranslationProgressInfo>());
+
+        Assert.False(anyTranslated);
+        Assert.Equal(0, noopLlm.CallCount);
+        Assert.Equal(ChapterStatus.Edited, chapter.Status);
+        Assert.Equal("สวัสดีชาวโลก (ขัดเกลาแล้ว)", chapter.TranslatedText);
+    }
+
     private sealed class QueueLlmClient : ILlmClient
     {
         private readonly Queue<string> _responses;
