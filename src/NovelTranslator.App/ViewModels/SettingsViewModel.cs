@@ -396,15 +396,6 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public void SelectCategory(string indexStr)
-    {
-        if (int.TryParse(indexStr, out int idx))
-        {
-            SelectedCategoryIndex = idx;
-        }
-    }
-
-    [RelayCommand]
     public void ToggleApiKeyVisibility() => IsApiKeyVisible = !IsApiKeyVisible;
 
     public async Task RefreshModelsSilentAsync()

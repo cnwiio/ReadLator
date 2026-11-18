@@ -4,7 +4,7 @@
 
 #define MyAppName "NovelTranslator"
 #ifndef MyAppVersion
-  #define MyAppVersion "6.9.0"
+  #define MyAppVersion "7.0.0"
 #endif
 #define MyAppExeName "NovelTranslator.App.exe"
 

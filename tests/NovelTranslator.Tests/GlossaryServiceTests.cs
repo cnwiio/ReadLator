@@ -106,4 +106,45 @@ public class GlossaryServiceTests
             if (File.Exists(tempFile)) File.Delete(tempFile);
         }
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task GlossaryViewModel_ImportCsvAsync_DeduplicatesAndUpdatesExistingTerms()
+    {
+        string dbPath = Path.Combine(Path.GetTempPath(), $"test_gl_vm_{Path.GetRandomFileName()}.db");
+        string csvPath = Path.Combine(Path.GetTempPath(), $"test_gl_vm_{Path.GetRandomFileName()}.csv");
+        try
+        {
+            var db = new NovelTranslator.Core.Data.NovelDatabase(dbPath);
+            db.Initialize();
+            var repo = new NovelTranslator.Core.Data.NovelRepository(db);
+            var story = new Story { Title = "CSV Story" };
+            story.Id = await repo.InsertStoryAsync(story);
+
+            await repo.InsertGlossaryEntryAsync(new GlossaryEntry
+            {
+                StoryId = story.Id,
+                SourceTerm = "Arthur",
+                TargetTerm = "อาเธอร์เดิม",
+                Category = GlossaryCategory.Person
+            });
+
+            var vm = new NovelTranslator.App.ViewModels.GlossaryViewModel(repo, story);
+            await vm.LoadEntriesAsync();
+
+            File.WriteAllText(csvPath, "SourceTerm,TargetTerm,Category,Notes\nArthur,อาเธอร์ใหม่,Person,อัปเดต\nExcalibur,เอ็กซ์คาลิเบอร์,Term,ดาบ\nexcalibur,เอ็กซ์คาลิเบอร์ 2,Term,ล่าสุด\n");
+
+            await vm.ImportCsvAsync(csvPath);
+
+            var all = await repo.GetGlossaryByStoryAsync(story.Id);
+            Assert.Equal(2, all.Count);
+            Assert.Equal("อาเธอร์ใหม่", all.Find(e => e.SourceTerm == "Arthur")!.TargetTerm);
+            Assert.Equal("เอ็กซ์คาลิเบอร์ 2", all.Find(e => e.SourceTerm.Equals("Excalibur", System.StringComparison.OrdinalIgnoreCase))!.TargetTerm);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            if (File.Exists(dbPath)) File.Delete(dbPath);
+            if (File.Exists(csvPath)) File.Delete(csvPath);
+        }
+    }
 }

@@ -329,7 +329,6 @@ public partial class MainViewModel : ObservableObject
 
     // Actions สำหรับเปิดหน้าต่างย่อย
     public Func<Story, Task>? RequestOpenGlossary { get; set; }
-    public Func<Story, Chapter?, Task>? RequestOpenAutoGlossary { get; set; }
     public Func<Task>? RequestOpenSettings { get; set; }
     public Func<Story, Chapter?, Task>? RequestOpenSearchReplace { get; set; }
     public Func<string, Task<string?>>? RequestSaveFileDialog { get; set; }
@@ -1124,51 +1123,6 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task RetranslateParagraphAsync(string selectedParagraph)
-    {
-        if (SelectedStory == null || SelectedChapter == null || string.IsNullOrWhiteSpace(selectedParagraph)) return;
-
-        _translationCts?.Cancel();
-        _translationCts?.Dispose();
-        _translationCts = new CancellationTokenSource();
-        var ct = _translationCts.Token;
-
-        IsTranslating = true;
-        ProgressText = "กำลังแปลซ้ำเฉพาะย่อหน้าที่เลือก...";
-
-        var llmClient = new LlmClient(_settings);
-        var pipeline = new TranslationPipeline(_repository, llmClient, _settings);
-
-        try
-        {
-            string newTranslation = await Task.Run(async () =>
-            {
-                return await pipeline.RetranslateParagraphAsync(SelectedStory, selectedParagraph, null, ct);
-            }, ct);
-            ProgressText = "แปลซ้ำย่อหน้านี้แล้ว";
-            // แจ้งเตือนผู้ใช้ให้นำผลแปลไปวาง
-            if (RequestPromptDialog != null)
-            {
-                await RequestPromptDialog("ผลการแปลซ้ำย่อหน้าที่เลือก", newTranslation);
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            ProgressText = "ยกเลิกการแปลซ้ำย่อหน้าแล้ว";
-        }
-        catch (Exception ex)
-        {
-            ProgressText = $"แปลซ้ำไม่สำเร็จ · {ex.Message}";
-        }
-        finally
-        {
-            IsTranslating = false;
-            _translationCts?.Dispose();
-            _translationCts = null;
-        }
-    }
-
-    [RelayCommand]
     public void ToggleParagraphMode()
     {
         SetParagraphMode(!Editor.IsParagraphMode);
@@ -1696,48 +1650,6 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    [RelayCommand]
-    public async Task MoveChapterUpAsync()
-    {
-        if (SelectedChapter == null) return;
-        int index = Chapters.IndexOf(SelectedChapter);
-        if (index <= 0) return;
-
-        var prev = Chapters[index - 1];
-        int temp = SelectedChapter.Ordinal;
-        SelectedChapter.Ordinal = prev.Ordinal;
-        prev.Ordinal = temp;
-
-        await _repository.UpdateChapterAsync(SelectedChapter);
-        await _repository.UpdateChapterAsync(prev);
-
-        var current = SelectedChapter;
-        Chapters.Move(index, index - 1);
-        RefreshFilteredChapters();
-        SelectedChapter = current;
-    }
-
-    [RelayCommand]
-    public async Task MoveChapterDownAsync()
-    {
-        if (SelectedChapter == null) return;
-        int index = Chapters.IndexOf(SelectedChapter);
-        if (index >= Chapters.Count - 1 || index < 0) return;
-
-        var next = Chapters[index + 1];
-        int temp = SelectedChapter.Ordinal;
-        SelectedChapter.Ordinal = next.Ordinal;
-        next.Ordinal = temp;
-
-        await _repository.UpdateChapterAsync(SelectedChapter);
-        await _repository.UpdateChapterAsync(next);
-
-        var current = SelectedChapter;
-        Chapters.Move(index, index + 1);
-        RefreshFilteredChapters();
-        SelectedChapter = current;
-    }
-
     // ================= บันทึกและนำเข้า/ส่งออก =================
 
     [RelayCommand]
@@ -1805,6 +1717,7 @@ public partial class MainViewModel : ObservableObject
             (string.IsNullOrWhiteSpace(Chapters[0].OriginalText) || Chapters[0].OriginalText.Trim() == DefaultPlaceholderText) &&
             string.IsNullOrWhiteSpace(Chapters[0].TranslatedText))
         {
+            _autoSaveTimer.Stop();
             var starter = Chapters[0];
             var importedFirst = await TextExportImportService.ImportChapterFromFileAsync(sortedFiles[0], SelectedStory.Id, starter.Ordinal, SelectedStory.Title);
             starter.Title = importedFirst.Title;
@@ -1818,11 +1731,18 @@ public partial class MainViewModel : ObservableObject
                 {
                     ChapterTitleEdit = starter.Title;
                     OriginalText = starter.OriginalText;
+                    UpdateChapterStatusDisplay(starter.Status);
+                    if (Editor.IsParagraphMode)
+                    {
+                        Editor.SyncParagraphPairs(OriginalText, TranslatedText);
+                    }
                 }
                 finally
                 {
                     _isLoadingChapter = false;
                 }
+                _ = Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, OriginalText);
+                UpdateStoryProgress();
             }
             firstImported = starter;
             startIndex = 1;
@@ -1958,8 +1878,12 @@ public partial class MainViewModel : ObservableObject
 
         string sourceForNaming = !string.IsNullOrWhiteSpace(result.RawTitle) ? result.RawTitle : result.Title;
 
-        if (SelectedChapter != null && (string.IsNullOrWhiteSpace(OriginalText) || OriginalText.Trim() == DefaultPlaceholderText))
+        if (SelectedChapter != null &&
+            (string.IsNullOrWhiteSpace(OriginalText) || OriginalText.Trim() == DefaultPlaceholderText) &&
+            string.IsNullOrWhiteSpace(TranslatedText) &&
+            string.IsNullOrWhiteSpace(SelectedChapter.TranslatedText))
         {
+            _autoSaveTimer.Stop();
             string cleanTitle = SmartChapterNaming.ResolveTitle(
                 sourceForNaming,
                 result.Content,
@@ -1967,8 +1891,16 @@ public partial class MainViewModel : ObservableObject
                 SelectedStory.Title,
                 result.SourceUrl);
             SelectedChapter.Title = cleanTitle;
+            SelectedChapter.Status = ChapterStatus.NotTranslated;
             ChapterTitleEdit = cleanTitle;
             OriginalText = result.Content;
+            UpdateChapterStatusDisplay(SelectedChapter.Status);
+            UpdateStoryProgress();
+            if (Editor.IsParagraphMode)
+            {
+                Editor.SyncParagraphPairs(OriginalText, TranslatedText);
+            }
+            _ = Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, OriginalText);
             await SaveCurrentChapterInternalAsync(isAutoSave: false);
             SaveStatusText = $"ดึงเนื้อหา \"{SelectedChapter.Title}\" เรียบร้อย";
         }

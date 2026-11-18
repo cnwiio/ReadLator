@@ -172,7 +172,7 @@ public class OutputValidator
         {
             foreach (var g in activeGlossary)
             {
-                if (!string.IsNullOrWhiteSpace(g.TargetTerm))
+                if (!string.IsNullOrWhiteSpace(g.TargetTerm) && g.TargetTerm.Any(char.IsAsciiLetter))
                 {
                     textForRatio = textForRatio.Replace(g.TargetTerm, "");
                 }

@@ -113,4 +113,20 @@ public class OutputValidatorTests
         var relaxedResult = OutputValidator.Validate(source, litRpgTranslation, maxEnglishRatioPercent: 100);
         Assert.True(relaxedResult.IsValid);
     }
+
+    [Fact]
+    public void Validate_DoesNotStripThaiGlossaryTargetTermsWhenMeasuringEnglishRatio()
+    {
+        var glossary = new List<GlossaryEntry>
+        {
+            new() { SourceTerm = "Arthur", TargetTerm = "อาเธอร์" },
+            new() { SourceTerm = "Camelot", TargetTerm = "คาเมล็อต" },
+            new() { SourceTerm = "Excalibur", TargetTerm = "เอ็กซ์คาลิเบอร์" }
+        };
+        string source = "Arthur raised Excalibur in Camelot while checking his MP.";
+        string translation = "อาเธอร์ชูเอ็กซ์คาลิเบอร์ขึ้นกลางคาเมล็อตพร้อมตรวจสอบค่า MP ของตนอย่างระมัดระวัง";
+
+        var result = OutputValidator.Validate(source, translation, glossary, maxEnglishRatioPercent: 20);
+        Assert.True(result.IsValid);
+    }
 }

@@ -175,10 +175,59 @@ public partial class GlossaryViewModel : ObservableObject
 
     public async Task ImportCsvAsync(string filePath)
     {
-        var imported = GlossaryService.ImportFromCsv(filePath, _story.Id);
-        await _repository.BulkInsertGlossaryEntriesAsync(imported);
+        var rawImported = GlossaryService.ImportFromCsv(filePath, _story.Id);
+        // ตัดรายการซ้ำภายในไฟล์ CSV เองโดยคงข้อมูลล่าสุดของแต่ละ SourceTerm
+        var deduped = new Dictionary<string, GlossaryEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in rawImported)
+        {
+            string key = item.SourceTerm.Trim();
+            if (!string.IsNullOrEmpty(key))
+            {
+                deduped[key] = item;
+            }
+        }
+
+        var existingBySource = new Dictionary<string, GlossaryEntry>(StringComparer.OrdinalIgnoreCase);
+        foreach (var existing in _allEntries)
+        {
+            string key = existing.SourceTerm.Trim();
+            if (!string.IsNullOrEmpty(key) && !existingBySource.ContainsKey(key))
+            {
+                existingBySource[key] = existing;
+            }
+        }
+
+        var toInsert = new List<GlossaryEntry>();
+        int updatedCount = 0;
+
+        foreach (var entry in deduped.Values)
+        {
+            string source = entry.SourceTerm.Trim();
+            if (existingBySource.TryGetValue(source, out var existing))
+            {
+                existing.SourceTerm = source;
+                existing.TargetTerm = entry.TargetTerm.Trim();
+                existing.Category = entry.Category;
+                existing.Notes = entry.Notes.Trim();
+                await _repository.UpdateGlossaryEntryAsync(existing);
+                updatedCount++;
+            }
+            else
+            {
+                entry.SourceTerm = source;
+                entry.TargetTerm = entry.TargetTerm.Trim();
+                entry.Notes = entry.Notes.Trim();
+                toInsert.Add(entry);
+            }
+        }
+
+        if (toInsert.Count > 0)
+        {
+            await _repository.BulkInsertGlossaryEntriesAsync(toInsert);
+        }
+
         await LoadEntriesAsync();
-        StatusMessage = $"นำเข้าจาก CSV สำเร็จ ({imported.Count} คำ)";
+        StatusMessage = $"นำเข้าจาก CSV สำเร็จ (เพิ่ม {toInsert.Count} คำ, อัปเดต {updatedCount} คำ)";
     }
 
     public void ExportCsv(string filePath)

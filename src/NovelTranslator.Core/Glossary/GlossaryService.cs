@@ -23,6 +23,8 @@ public class GlossaryService
             if (string.IsNullOrWhiteSpace(entry.SourceTerm)) continue;
 
             string term = entry.SourceTerm.Trim();
+            if (!chunkText.Contains(term, StringComparison.OrdinalIgnoreCase)) continue;
+
             bool useWordBoundary = IsAsciiWordChar(term[0]) && IsAsciiWordChar(term[^1]);
 
             if (useWordBoundary)
@@ -33,7 +35,7 @@ public class GlossaryService
                     matched.Add(entry);
                 }
             }
-            else if (chunkText.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0)
+            else
             {
                 matched.Add(entry);
             }
