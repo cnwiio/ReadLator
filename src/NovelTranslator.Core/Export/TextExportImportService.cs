@@ -46,11 +46,11 @@ public class TextExportImportService
     /// <summary>
     /// นำเข้าไฟล์ .txt (1 ไฟล์ = 1 ตอน)
     /// </summary>
-    public static async Task<Chapter> ImportChapterFromFileAsync(string filePath, long storyId, int nextOrdinal)
+    public static async Task<Chapter> ImportChapterFromFileAsync(string filePath, long storyId, int nextOrdinal, string? storyTitle = null)
     {
         string content = await File.ReadAllTextAsync(filePath, Encoding.UTF8);
         string fileNameWithoutExt = Path.GetFileNameWithoutExtension(filePath);
-        string title = SmartChapterNaming.ResolveTitle(fileNameWithoutExt, content, nextOrdinal);
+        string title = SmartChapterNaming.ResolveTitle(fileNameWithoutExt, content, nextOrdinal, storyTitle);
 
         return new Chapter
         {

@@ -1,8 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Runtime.CompilerServices;
+using System.Threading;
 using System.Threading.Tasks;
+using NovelTranslator.App.ViewModels;
 using NovelTranslator.Core.Data;
+using NovelTranslator.Core.Llm;
 using NovelTranslator.Core.Models;
+using NovelTranslator.Core.Settings;
 using Xunit;
 
 namespace NovelTranslator.Tests;
@@ -127,5 +133,86 @@ public class FtsAndGlossaryExtractorTests : IDisposable
             "TGT");
         Assert.Contains("[ต้นฉบับ]\nSRC", omittedPlaceholders);
         Assert.Contains("[คำแปล]\nTGT", omittedPlaceholders);
+    }
+
+    [Fact]
+    public async Task AutoExtractAndSaveGlossaryAsync_FiltersSentencesSavesAndNotifiesNewestFirst()
+    {
+        // Rejects >5 word sentence and sentence punctuation, deduplicates within same batch
+        string json = """
+            [
+                { "source": "Arthur opened the iron gate slowly.", "target": "อาร์เธอร์เปิดประตูเหล็กอย่างช้าๆ", "category": "Person", "notes": "sentence" },
+                { "source": "This is definitely a very long phrase exceeding five words", "target": "ยาวเกิน", "category": "Term", "notes": "too long" },
+                { "source": "Kael", "target": "คาเอล", "category": "Person", "notes": "ตัวเอก" },
+                { "source": "kael", "target": "คาเอลซ้ำ", "category": "Person", "notes": "ซ้ำ" },
+                { "source": "Shadow Step", "target": "ก้าวเงา", "category": "Term", "notes": "สกิล" }
+            ]
+            """;
+
+        var filtered = NovelTranslator.Core.Glossary.GlossaryExtractor.ParseAndFilterResults(json, new HashSet<string>());
+        Assert.Equal(2, filtered.Count);
+        Assert.Equal("Kael", filtered[0].SourceTerm);
+        Assert.Equal("Shadow Step", filtered[1].SourceTerm);
+
+        var story = new Story { Title = "Glossary Auto Save Story" };
+        story.Id = await _repository.InsertStoryAsync(story);
+        await _repository.InsertGlossaryEntryAsync(new GlossaryEntry
+        {
+            StoryId = story.Id,
+            SourceTerm = "OldTerm",
+            TargetTerm = "คำเก่า",
+            Category = GlossaryCategory.Term
+        });
+
+        var chapter = new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "ตอนที่ 1",
+            OriginalText = "Kael used Shadow Step.",
+            TranslatedText = "คาเอลใช้ก้าวเงา",
+            Status = ChapterStatus.Translated
+        };
+        chapter.Id = await _repository.InsertChapterAsync(chapter);
+
+        var vm = new MainViewModel(new AppSettings(), _database, deferInitialLoad: true);
+        var added = await vm.AutoExtractAndSaveGlossaryAsync(story, chapter, CancellationToken.None, new SingleResponseLlmClient(json));
+
+        Assert.Equal(2, added.Count);
+        Assert.True(vm.HasAutoGlossaryNotification);
+        Assert.Contains("Kael → คาเอล", vm.AutoGlossaryNotificationText);
+        Assert.Contains("Shadow Step → ก้าวเงา", vm.AutoGlossaryNotificationText);
+
+        var allEntries = await _repository.GetGlossaryByStoryAsync(story.Id);
+        Assert.Equal(3, allEntries.Count);
+        // Newest entries sorted first (ORDER BY Id DESC)
+        Assert.Equal("Shadow Step", allEntries[0].SourceTerm);
+        Assert.Equal("Kael", allEntries[1].SourceTerm);
+        Assert.Equal("OldTerm", allEntries[2].SourceTerm);
+    }
+
+    private sealed class SingleResponseLlmClient : ILlmClient
+    {
+        private readonly string _response;
+        public SingleResponseLlmClient(string response) => _response = response;
+
+        public IAsyncEnumerable<string> StreamChatAsync(IEnumerable<ChatMessage> messages, float temperature, CancellationToken cancellationToken = default)
+            => StreamChatAsync(messages, temperature, null, cancellationToken);
+
+        public async IAsyncEnumerable<string> StreamChatAsync(
+            IEnumerable<ChatMessage> messages,
+            float temperature,
+            string? modelOverride,
+            [EnumeratorCancellation] CancellationToken cancellationToken = default)
+        {
+            await Task.CompletedTask;
+            yield return _response;
+        }
+
+        public Task<List<ModelInfo>> GetModelsAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult(new List<ModelInfo>());
+
+        public Task<(bool Success, string Message)> TestConnectionAsync(CancellationToken cancellationToken = default)
+            => Task.FromResult((true, "OK"));
     }
 }

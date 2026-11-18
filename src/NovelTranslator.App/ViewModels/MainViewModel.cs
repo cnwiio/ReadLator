@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using NovelTranslator.Core.Data;
 using NovelTranslator.Core.Export;
+using NovelTranslator.Core.Glossary;
 using NovelTranslator.Core.Llm;
 using NovelTranslator.Core.Models;
 using NovelTranslator.Core.Settings;
@@ -318,6 +319,13 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isTranslatingIndeterminate;
 
+    // Auto-Glossary Notification Banner
+    [ObservableProperty]
+    private bool _hasAutoGlossaryNotification;
+
+    [ObservableProperty]
+    private string _autoGlossaryNotificationText = string.Empty;
+
     // Actions สำหรับเปิดหน้าต่างย่อย
     public Func<Story, Task>? RequestOpenGlossary { get; set; }
     public Func<Story, Chapter?, Task>? RequestOpenAutoGlossary { get; set; }
@@ -428,6 +436,7 @@ public partial class MainViewModel : ObservableObject
         _settings.CustomStripPrefixes = fresh.CustomStripPrefixes;
         _settings.GlossaryScanMaxWords = fresh.GlossaryScanMaxWords;
         _settings.GlossaryModelName = fresh.GlossaryModelName;
+        _settings.EnableAutoGlossaryScan = fresh.EnableAutoGlossaryScan;
         _settings.EnablePolishMode = fresh.EnablePolishMode;
         _settings.PolishModelName = fresh.PolishModelName;
         _settings.Shortkeys = fresh.Shortkeys;
@@ -1004,10 +1013,35 @@ public partial class MainViewModel : ObservableObject
             UpdateChapterStatusDisplay(SelectedChapter.Status);
             UpdateStoryProgress();
             StopFakeProgressTimer();
-            ProgressText = "แปลเสร็จสิ้น";
             TranslationProgressPercentage = 100;
             SaveStatusText = $"บันทึกอัตโนมัติ {DateTime.Now:HH:mm:ss}";
             SaveStateColor = "#4CC38A";
+
+            if (_settings.EnableAutoGlossaryScan &&
+                SelectedChapter.Status == ChapterStatus.Translated &&
+                !_translationCts.IsCancellationRequested)
+            {
+                ProgressText = "แปลเสร็จสิ้น · กำลังสแกนชื่อเฉพาะเข้า Glossary อัตโนมัติ...";
+                try
+                {
+                    var addedTerms = await AutoExtractAndSaveGlossaryAsync(SelectedStory, SelectedChapter, _translationCts.Token);
+                    ProgressText = addedTerms.Count > 0
+                        ? $"แปลเสร็จสิ้น · เพิ่มชื่อเฉพาะเข้า Glossary {addedTerms.Count} คำ"
+                        : "แปลเสร็จสิ้น";
+                }
+                catch (OperationCanceledException)
+                {
+                    ProgressText = "แปลเสร็จสิ้น (ข้ามการสแกนศัพท์)";
+                }
+                catch
+                {
+                    ProgressText = "แปลเสร็จสิ้น";
+                }
+            }
+            else
+            {
+                ProgressText = "แปลเสร็จสิ้น";
+            }
         }
         catch (OperationCanceledException)
         {
@@ -1738,7 +1772,7 @@ public partial class MainViewModel : ObservableObject
             string.IsNullOrWhiteSpace(Chapters[0].TranslatedText))
         {
             var starter = Chapters[0];
-            var importedFirst = await TextExportImportService.ImportChapterFromFileAsync(sortedFiles[0], SelectedStory.Id, starter.Ordinal);
+            var importedFirst = await TextExportImportService.ImportChapterFromFileAsync(sortedFiles[0], SelectedStory.Id, starter.Ordinal, SelectedStory.Title);
             starter.Title = importedFirst.Title;
             starter.OriginalText = importedFirst.OriginalText;
             starter.Status = ChapterStatus.NotTranslated;
@@ -1763,7 +1797,7 @@ public partial class MainViewModel : ObservableObject
         int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
         for (int i = startIndex; i < sortedFiles.Count; i++)
         {
-            var chap = await TextExportImportService.ImportChapterFromFileAsync(sortedFiles[i], SelectedStory.Id, nextOrdinal++);
+            var chap = await TextExportImportService.ImportChapterFromFileAsync(sortedFiles[i], SelectedStory.Id, nextOrdinal++, SelectedStory.Title);
             chap.Id = await _repository.InsertChapterAsync(chap);
             Chapters.Add(chap);
             firstImported ??= chap;
@@ -1888,13 +1922,18 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedStory == null) return;
 
+        string sourceForNaming = !string.IsNullOrWhiteSpace(result.RawTitle) ? result.RawTitle : result.Title;
+
         if (SelectedChapter != null && (string.IsNullOrWhiteSpace(OriginalText) || OriginalText.Trim() == DefaultPlaceholderText))
         {
-            if (string.IsNullOrWhiteSpace(SelectedChapter.Title) || SelectedChapter.Title.StartsWith("ตอนที่ "))
-            {
-                SelectedChapter.Title = result.Title;
-                ChapterTitleEdit = result.Title;
-            }
+            string cleanTitle = SmartChapterNaming.ResolveTitle(
+                sourceForNaming,
+                result.Content,
+                SelectedChapter.Ordinal,
+                SelectedStory.Title,
+                result.SourceUrl);
+            SelectedChapter.Title = cleanTitle;
+            ChapterTitleEdit = cleanTitle;
             OriginalText = result.Content;
             await SaveCurrentChapterInternalAsync(isAutoSave: false);
             SaveStatusText = $"ดึงเนื้อหา \"{SelectedChapter.Title}\" เรียบร้อย";
@@ -1902,11 +1941,17 @@ public partial class MainViewModel : ObservableObject
         else
         {
             int nextOrdinal = Chapters.Count > 0 ? Chapters.Max(c => c.Ordinal) + 1 : 1;
+            string cleanTitle = SmartChapterNaming.ResolveTitle(
+                sourceForNaming,
+                result.Content,
+                nextOrdinal,
+                SelectedStory.Title,
+                result.SourceUrl);
             var chap = new Chapter
             {
                 StoryId = SelectedStory.Id,
                 Ordinal = nextOrdinal,
-                Title = result.Title,
+                Title = cleanTitle,
                 OriginalText = result.Content,
                 TranslatedText = string.Empty,
                 Status = ChapterStatus.NotTranslated
@@ -1973,18 +2018,114 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public void DismissAutoGlossaryNotification() => HasAutoGlossaryNotification = false;
+
+    [RelayCommand]
+    public async Task OpenGlossaryFromNotificationAsync()
+    {
+        HasAutoGlossaryNotification = false;
+        if (SelectedStory != null && RequestOpenGlossary != null)
+        {
+            await RequestOpenGlossary(SelectedStory);
+        }
+    }
+
+    public async Task<IReadOnlyList<GlossaryEntry>> AutoExtractAndSaveGlossaryAsync(
+        Story story,
+        Chapter chapter,
+        CancellationToken cancellationToken = default,
+        ILlmClient? llmClientOverride = null)
+    {
+        if (string.IsNullOrWhiteSpace(chapter.OriginalText) || string.IsNullOrWhiteSpace(chapter.TranslatedText))
+        {
+            return Array.Empty<GlossaryEntry>();
+        }
+
+        ILlmClient llm = llmClientOverride ?? new LlmClient(_settings);
+        var extractor = new GlossaryExtractor(llm, _settings);
+
+        var existingGlossary = await _repository.GetGlossaryByStoryAsync(story.Id);
+        var extracted = await extractor.ExtractNewTermsAsync(
+            chapter.OriginalText,
+            chapter.TranslatedText,
+            existingGlossary,
+            cancellationToken);
+
+        if (extracted.Count == 0)
+        {
+            return Array.Empty<GlossaryEntry>();
+        }
+
+        var entries = extracted.Select(t => new GlossaryEntry
+        {
+            StoryId = story.Id,
+            SourceTerm = t.SourceTerm.Trim(),
+            TargetTerm = t.TargetTerm.Trim(),
+            Category = t.Category,
+            Notes = t.Notes.Trim()
+        }).ToList();
+
+        await _repository.BulkInsertGlossaryEntriesAsync(entries);
+        await Editor.RefreshActiveGlossaryAsync(story.Id, OriginalText);
+
+        string preview = string.Join(", ", entries.Take(4).Select(e => $"{e.SourceTerm} → {e.TargetTerm}"));
+        if (entries.Count > 4)
+        {
+            preview += $" และอีก {entries.Count - 4} คำ";
+        }
+        AutoGlossaryNotificationText = $"เพิ่มชื่อเฉพาะเข้า Glossary อัตโนมัติ {entries.Count} คำ: {preview}";
+        HasAutoGlossaryNotification = true;
+
+        return entries;
+    }
+
+    [RelayCommand]
     public async Task ScanNewTermsAsync()
     {
-        if (SelectedStory == null || SelectedChapter == null) return;
+        if (SelectedStory == null || SelectedChapter == null || IsTranslating) return;
         if (string.IsNullOrWhiteSpace(OriginalText))
         {
             SaveStatusText = "ไม่มีข้อความต้นฉบับสำหรับสแกน";
             return;
         }
-
-        if (RequestOpenAutoGlossary != null)
+        if (string.IsNullOrWhiteSpace(TranslatedText))
         {
-            await RequestOpenAutoGlossary(SelectedStory, SelectedChapter);
+            SaveStatusText = "กรุณาแปลเนื้อหาก่อนสแกนหาชื่อเฉพาะ";
+            return;
+        }
+
+        SelectedChapter.OriginalText = OriginalText;
+        SelectedChapter.TranslatedText = TranslatedText;
+
+        IsTranslating = true;
+        IsTranslatingIndeterminate = true;
+        LastErrorDetails = string.Empty;
+        ProgressText = "กำลังสแกนและบันทึกชื่อเฉพาะใหม่ด้วย AI...";
+
+        try
+        {
+            var added = await AutoExtractAndSaveGlossaryAsync(SelectedStory, SelectedChapter);
+            if (added.Count == 0)
+            {
+                ProgressText = "ไม่พบชื่อเฉพาะใหม่ในตอนนี้";
+                SaveStatusText = "ไม่พบชื่อเฉพาะใหม่ในตอนนี้";
+            }
+            else
+            {
+                ProgressText = $"สแกนเสร็จสิ้น · เพิ่มเข้า Glossary {added.Count} คำ";
+                SaveStatusText = $"เพิ่ม {added.Count} คำเข้า Glossary แล้ว";
+            }
+        }
+        catch (Exception ex)
+        {
+            LastErrorDetails = ex.ToString();
+            string firstLine = ex.Message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ex.Message;
+            ProgressText = $"สแกนศัพท์ไม่สำเร็จ · {firstLine}";
+        }
+        finally
+        {
+            IsTranslating = false;
+            IsTranslatingIndeterminate = false;
         }
     }
 

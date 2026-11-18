@@ -152,6 +152,7 @@ public class SettingsTests
         Assert.Equal(25, defaults.MaxEnglishRatioPercent);
         Assert.Equal(1, defaults.MaxRetryAttempts);
         Assert.Equal(1500, defaults.GlossaryScanMaxWords);
+        Assert.True(defaults.EnableAutoGlossaryScan);
 
         string dir = Path.Combine(Path.GetTempPath(), $"nt_pipeline_cfg_{Path.GetRandomFileName()}");
         Directory.CreateDirectory(dir);
@@ -175,7 +176,8 @@ public class SettingsTests
                 MaxRetryAttempts = 3,
                 CustomStripPrefixes = "Note:",
                 GlossaryScanMaxWords = 0,
-                GlossaryModelName = "fast-model"
+                GlossaryModelName = "fast-model",
+                EnableAutoGlossaryScan = false
             };
             saved.Save(path);
 
@@ -196,6 +198,7 @@ public class SettingsTests
             Assert.Equal("Note:", reloaded.CustomStripPrefixes);
             Assert.Equal(0, reloaded.GlossaryScanMaxWords);
             Assert.Equal("fast-model", reloaded.GlossaryModelName);
+            Assert.False(reloaded.EnableAutoGlossaryScan);
         }
         finally
         {

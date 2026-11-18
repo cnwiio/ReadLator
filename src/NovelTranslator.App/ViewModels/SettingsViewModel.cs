@@ -88,6 +88,9 @@ public partial class SettingsViewModel : ObservableObject
     private string _glossaryModelName = string.Empty;
 
     [ObservableProperty]
+    private bool _enableAutoGlossaryScan = true;
+
+    [ObservableProperty]
     private bool _enablePolishMode;
 
     [ObservableProperty]
@@ -364,6 +367,7 @@ public partial class SettingsViewModel : ObservableObject
         CustomStripPrefixes = settings.CustomStripPrefixes ?? string.Empty;
         GlossaryScanMaxWords = Math.Max(0, settings.GlossaryScanMaxWords);
         GlossaryModelName = settings.GlossaryModelName ?? string.Empty;
+        EnableAutoGlossaryScan = settings.EnableAutoGlossaryScan;
         EnablePolishMode = settings.EnablePolishMode;
         PolishModelName = settings.PolishModelName ?? string.Empty;
 
@@ -580,6 +584,7 @@ public partial class SettingsViewModel : ObservableObject
         _settings.CustomStripPrefixes = CustomStripPrefixes?.Trim() ?? string.Empty;
         _settings.GlossaryScanMaxWords = Math.Max(0, GlossaryScanMaxWords);
         _settings.GlossaryModelName = GlossaryModelName?.Trim() ?? string.Empty;
+        _settings.EnableAutoGlossaryScan = EnableAutoGlossaryScan;
         _settings.EnablePolishMode = EnablePolishMode;
         _settings.PolishModelName = PolishModelName?.Trim() ?? string.Empty;
 

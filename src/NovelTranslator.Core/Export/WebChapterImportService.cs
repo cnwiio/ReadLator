@@ -32,7 +32,12 @@ public sealed record WebMultiImportOptions(
         : Math.Clamp(Count, 1, 200);
 }
 
-public sealed record WebChapterResult(string Title, string Content, string? NextChapterUrl = null);
+public sealed record WebChapterResult(
+    string Title,
+    string Content,
+    string? NextChapterUrl = null,
+    string? RawTitle = null,
+    string? SourceUrl = null);
 
 public static class WebChapterImportService
 {
@@ -361,10 +366,45 @@ public static class WebChapterImportService
         int spaceWords = normalized.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
         unitCount = Math.Max(spaceWords, normalized.Length / 5);
 
-        string title = SmartChapterNaming.ResolveTitle(article.Title, normalized, 0);
+        string? detectedStoryTitle = TryExtractStoryTitleFromHtml(html);
+        string title = SmartChapterNaming.ResolveTitle(article.Title, normalized, 0, detectedStoryTitle, url);
         string? nextUrl = ExtractNextChapterUrl(url, html);
-        result = new WebChapterResult(title, normalized, nextUrl);
+        result = new WebChapterResult(title, normalized, nextUrl, article.Title, url);
         return true;
+    }
+
+    internal static string? TryExtractStoryTitleFromHtml(string html)
+    {
+        if (string.IsNullOrWhiteSpace(html)) return null;
+        var doc = new HtmlParser().ParseDocument(html);
+
+        foreach (var selector in new[]
+                 {
+                     "meta[property='og:novel:book_name']",
+                     "meta[name='novel_name']",
+                     "meta[name='book_name']"
+                 })
+        {
+            string? content = doc.QuerySelector(selector)?.GetAttribute("content");
+            string clean = NormalizeWhitespace(content ?? string.Empty);
+            if (clean.Length is >= 2 and <= 120) return clean;
+        }
+
+        foreach (var selector in new[]
+                 {
+                     ".novel-title",
+                     ".book-title",
+                     ".series-title",
+                     ".story-title",
+                     ".fic-title"
+                 })
+        {
+            string? text = doc.QuerySelector(selector)?.TextContent;
+            string clean = NormalizeWhitespace(text ?? string.Empty);
+            if (clean.Length is >= 2 and <= 120) return clean;
+        }
+
+        return null;
     }
 
     private static readonly string[] NextTextExact =

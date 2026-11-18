@@ -110,9 +110,10 @@ public partial class MainWindow : Window
 
         ViewModel.RequestOpenGlossary = async (story) =>
         {
-            var vm = new GlossaryViewModel(ViewModel.Repository, story);
+            var vm = new GlossaryViewModel(ViewModel.Repository, story) { SelectFirstOnLoad = true };
             var win = new GlossaryWindow(vm);
             await win.ShowDialog(this);
+            await ViewModel.Editor.RefreshActiveGlossaryAsync(story.Id, ViewModel.OriginalText);
         };
 
         ViewModel.RequestOpenAutoGlossary = async (story, chapter) =>

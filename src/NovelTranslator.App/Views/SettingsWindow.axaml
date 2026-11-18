@@ -392,6 +392,16 @@
                             <StackPanel Spacing="14">
                                 <TextBlock Text="ระบบสแกนคำศัพท์ AI (Glossary Scanner)" FontSize="15" FontWeight="SemiBold" />
 
+                                <Grid ColumnDefinitions="*, Auto">
+                                    <StackPanel Spacing="2" VerticalAlignment="Center" Margin="0,0,16,0">
+                                        <TextBlock Text="สแกนและบันทึกชื่อเฉพาะเข้า Glossary อัตโนมัติหลังแปลจบตอน" FontSize="13" FontWeight="Medium" />
+                                        <TextBlock Text="ให้ AI สกัดชื่อคน สถานที่ และสกิลใหม่เข้า Glossary ทันทีเมื่อแปลเสร็จ พร้อมแจ้งเตือน"
+                                                   FontSize="12" Foreground="{DynamicResource TextMutedBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                    <ToggleSwitch Grid.Column="1" IsChecked="{Binding EnableAutoGlossaryScan}"
+                                                  OnContent="เปิด" OffContent="ปิด" VerticalAlignment="Center" />
+                                </Grid>
+
                                 <Grid ColumnDefinitions="136, *" RowDefinitions="Auto, Auto" RowSpacing="10">
                                     <TextBlock Text="เลือกโมเดลสแกน" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                                     <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding GlossaryModelName}"

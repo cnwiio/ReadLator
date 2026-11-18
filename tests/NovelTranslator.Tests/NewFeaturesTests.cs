@@ -50,6 +50,19 @@ public class NewFeaturesTests : IDisposable
         Assert.Equal(expected, actual);
     }
 
+    [Theory]
+    [InlineData("Shadow Slave Chapter 15: The Dark Castle", "Darkness spread across the ruins.", 1, null, "ตอนที่ 15: The Dark Castle")]
+    [InlineData("Shadow Slave - Chapter 12 - The Awakening - NovelBin", "Body text.", 1, null, "ตอนที่ 12: The Awakening")]
+    [InlineData("Shadow Slave - The Awakening", "Body text.", 7, "Shadow Slave", "ตอนที่ 7: The Awakening")]
+    [InlineData("Shadow Slave | WebNovel", "Body text.", 3, "Shadow Slave", "ตอนที่ 3")]
+    [InlineData("The Trial", "Body text.", 4, "Shadow Slave", "ตอนที่ 4: The Trial")]
+    [InlineData("ตอนที่ 8: Shadow Slave", "Body text.", 8, "Shadow Slave", "ตอนที่ 8")]
+    public void SmartChapterNaming_StripsStoryTitleAndForcesChapterPrefix(string rawName, string content, int ordinal, string? storyTitle, string expected)
+    {
+        string actual = SmartChapterNaming.ResolveTitle(rawName, content, ordinal, storyTitle);
+        Assert.Equal(expected, actual);
+    }
+
     [Fact]
     public async Task UndoDeleteChapter_RestoresChapterAndChunksAtOriginalOrdinal()
     {
@@ -169,8 +182,49 @@ public class NewFeaturesTests : IDisposable
         await vm.ImportWebChapterAsync(new NovelTranslator.Core.Export.WebChapterResult("Chapter One", "Imported web content."));
 
         Assert.Single(vm.Chapters);
-        Assert.Equal("Chapter One", vm.SelectedChapter.Title);
+        Assert.Equal("ตอนที่ 1", vm.SelectedChapter.Title);
         Assert.Equal("Imported web content.", vm.OriginalText);
+    }
+
+    [Fact]
+    public async Task ImportWebChapterAsync_StripsStoryTitleFromHtmlAndStoryContext()
+    {
+        const string html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Shadow Slave - The Awakening - NovelBin</title>
+                <meta property="og:novel:book_name" content="Shadow Slave" />
+            </head>
+            <body>
+                <article>
+                    <p>Sunny stared at the dark clouds rolling across the Forgotten Shore while keeping his lantern dimmed behind the broken stone pillar.</p>
+                    <p>Somewhere below the cliff, the tide hissed against ancient bones and rusted iron chains left behind by forgotten expeditions.</p>
+                    <p>He tightened his grip on the dagger and waited silently until the patrol passed beneath the archway without noticing him.</p>
+                </article>
+            </body>
+            </html>
+            """;
+
+        var extracted = WebChapterImportService.ExtractFromHtml("https://example.com/shadow-slave/chapter-12", html);
+        Assert.Equal("ตอนที่ 12: The Awakening", extracted.Title);
+
+        var story = new Story { Title = "Shadow Slave" };
+        story.Id = await _repository.InsertStoryAsync(story);
+        var ch1 = new Chapter { StoryId = story.Id, Ordinal = 1, Title = "ตอนที่ 1", OriginalText = "Existing chapter" };
+        ch1.Id = await _repository.InsertChapterAsync(ch1);
+
+        var vm = new MainViewModel(new AppSettings(), _database, deferInitialLoad: true);
+        vm.Stories.Add(story);
+        vm.SelectedStory = story;
+        for (int i = 0; i < 20 && vm.Chapters.Count == 0; i++)
+        {
+            await Task.Delay(25);
+        }
+
+        await vm.ImportWebChapterAsync(new WebChapterResult("Shadow Slave - Second Trial", "Second chapter text."));
+        Assert.Equal(2, vm.Chapters.Count);
+        Assert.Equal("ตอนที่ 2: Second Trial", vm.Chapters[1].Title);
     }
 
     private sealed class SynchronousProgress<T> : IProgress<T>

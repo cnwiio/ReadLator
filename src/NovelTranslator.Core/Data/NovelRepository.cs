@@ -252,7 +252,7 @@ public class NovelRepository
     {
         using var conn = _database.CreateConnection();
         var entries = await conn.QueryAsync<GlossaryEntry>(
-            "SELECT * FROM GlossaryEntries WHERE StoryId = @StoryId ORDER BY SourceTerm ASC",
+            "SELECT * FROM GlossaryEntries WHERE StoryId = @StoryId ORDER BY Id DESC",
             new { StoryId = storyId });
         return entries.ToList();
     }

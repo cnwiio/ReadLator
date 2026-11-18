@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v6.6"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v6.7"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -401,6 +401,28 @@
                                         ToolTip.Tip="หยุดการแปลชั่วคราว/ยกเลิก" />
                             </Grid>
                         </StackPanel>
+
+                        <!-- แถบแจ้งเตือนชื่อเฉพาะที่ถูกเพิ่มเข้า Glossary อัตโนมัติ -->
+                        <Border IsVisible="{Binding HasAutoGlossaryNotification}"
+                                Background="{DynamicResource RaisedBgBrush}"
+                                BorderBrush="{DynamicResource AccentBrush}"
+                                BorderThickness="1" CornerRadius="6" Padding="10,6">
+                            <Grid ColumnDefinitions="*, Auto, Auto">
+                                <TextBlock Text="{Binding AutoGlossaryNotificationText}"
+                                           FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}"
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
+                                           ToolTip.Tip="{Binding AutoGlossaryNotificationText}" />
+                                <Button Grid.Column="1" Content="ดู/แก้ไขใน Glossary"
+                                        Command="{Binding OpenGlossaryFromNotificationCommand}"
+                                        Height="24" FontSize="11" Padding="10,0" Margin="8,0,4,0"
+                                        VerticalContentAlignment="Center" />
+                                <Button Grid.Column="2" Content="✕" Classes="ghost"
+                                        Command="{Binding DismissAutoGlossaryNotificationCommand}"
+                                        Width="24" Height="24" Padding="0" FontSize="11"
+                                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center"
+                                        ToolTip.Tip="ปิดการแจ้งเตือน" />
+                            </Grid>
+                        </Border>
                     </StackPanel>
                 </Border>
 

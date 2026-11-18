@@ -40,19 +40,22 @@ public class ExtractedTerm : INotifyPropertyChanged
 
 public class GlossaryExtractor
 {
-    public const string DefaultGlossaryPromptTemplate = @"คุณคือผู้เชี่ยวชาญการทำพจนานุกรมศัพท์นิยาย (Glossary)
-จากเนื้อหานิยายต้นฉบับและคำแปลด้านล่างนี้ ให้สกัดคำศัพท์เฉพาะที่เป็น:
-1. ชื่อตัวละคร (Person)
-2. ชื่อสถานที่ (Location)
-3. สกิล, ไอเทม, ตำแหน่ง, องค์กร หรือศัพท์เทคนิคเฉพาะเรื่อง (Term)
+    public const string DefaultGlossaryPromptTemplate = @"คุณคือผู้เชี่ยวชาญการจัดทำพจนานุกรมชื่อเฉพาะในนิยาย (Glossary)
+จากเนื้อหานิยายต้นฉบับและคำแปลด้านล่างนี้ ให้สกัดเฉพาะ ""ชื่อเฉพาะ (Proper Nouns)"" ที่สำคัญ ได้แก่:
+1. ชื่อตัวละคร หรือฉายาเฉพาะ (Person)
+2. ชื่อสถานที่ เมือง ดันเจี้ยน อาณาจักร (Location)
+3. ชื่อสกิล วิชา ไอเทมสำคัญ หรือองค์กรเฉพาะเรื่อง (Term)
 
-โดยตอบกลับเป็น JSON Array เท่านั้น ไม่มีข้อความอื่นปน ในรูปแบบ:
+กฎเหล็ก:
+- ห้ามดึงคำนามทั่วไป คำกริยา หรือคำสามัญ (เช่น guards, sword, room, father)
+- ห้ามดึงทั้งประโยค ให้ดึงเฉพาะตัวชื่อสั้นๆ เท่านั้น
+- ตอบกลับเป็น JSON Array เท่านั้น ห้ามมีข้อความอื่นปน ในรูปแบบ:
 [
   {
-    ""source"": ""คำภาษาอังกฤษ"",
-    ""target"": ""คำแปลภาษาไทยที่ปรากฏในเนื้อเรื่อง"",
+    ""source"": ""ชื่อเฉพาะในภาษาต้นฉบับ"",
+    ""target"": ""คำแปลภาษาไทยที่ใช้ในเรื่อง"",
     ""category"": ""Person"" | ""Location"" | ""Term"",
-    ""notes"": ""คำอธิบายสั้นๆ เช่น ตัวเอก, เมืองหลวง, วิชาดาบ""
+    ""notes"": ""คำอธิบายสั้นๆ เช่น ตัวเอก, เมืองหลวง, สกิลดาบ""
   }
 ]
 
@@ -156,6 +159,8 @@ public class GlossaryExtractor
             using var doc = JsonDocument.Parse(jsonArray);
             if (doc.RootElement.ValueKind != JsonValueKind.Array) return results;
 
+            var seen = new HashSet<string>(existingLowerTerms, StringComparer.OrdinalIgnoreCase);
+
             foreach (var element in doc.RootElement.EnumerateArray())
             {
                 string source = element.TryGetProperty("source", out var s) ? s.GetString() ?? "" : "";
@@ -167,9 +172,12 @@ public class GlossaryExtractor
                 target = target.Trim();
 
                 if (string.IsNullOrWhiteSpace(source) || string.IsNullOrWhiteSpace(target)) continue;
+                if (source.Length > 60 || target.Length > 80) continue;
+                if (source.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length > 5) continue;
+                if (source.EndsWith('.') || source.EndsWith('!') || source.EndsWith('?')) continue;
 
-                // กรองคำที่มีใน Glossary อยู่แล้วออก
-                if (existingLowerTerms.Contains(source.ToLowerInvariant())) continue;
+                // กรองคำที่มีใน Glossary อยู่แล้วหรือซ้ำภายในชุดเดียวกันออก
+                if (!seen.Add(source.ToLowerInvariant())) continue;
 
                 var category = catStr.Equals("Person", StringComparison.OrdinalIgnoreCase) ? GlossaryCategory.Person
                              : catStr.Equals("Location", StringComparison.OrdinalIgnoreCase) ? GlossaryCategory.Location

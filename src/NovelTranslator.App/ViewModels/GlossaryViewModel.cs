@@ -42,6 +42,7 @@ public partial class GlossaryViewModel : ObservableObject
     private string _statusMessage = string.Empty;
 
     public Action? RequestClose { get; set; }
+    public bool SelectFirstOnLoad { get; set; }
 
     public GlossaryViewModel(NovelRepository repository, Story story, string? initialSource = null, string? initialTarget = null)
     {
@@ -57,6 +58,11 @@ public partial class GlossaryViewModel : ObservableObject
         _allEntries.Clear();
         _allEntries.AddRange(list);
         ApplyFilter();
+        if (SelectFirstOnLoad && Entries.Count > 0)
+        {
+            SelectedEntry = Entries[0];
+            SelectFirstOnLoad = false;
+        }
     }
 
     partial void OnSearchFilterChanged(string value) => ApplyFilter();

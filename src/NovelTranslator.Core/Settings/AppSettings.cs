@@ -76,6 +76,7 @@ public class AppSettings
     public string CustomStripPrefixes { get; set; } = string.Empty;
     public int GlossaryScanMaxWords { get; set; } = 1500; // 0 = scan full chapter
     public string GlossaryModelName { get; set; } = string.Empty;
+    public bool EnableAutoGlossaryScan { get; set; } = true;
     public bool EnablePolishMode { get; set; } = false;
     public string PolishModelName { get; set; } = string.Empty;
     public string ThemeMode { get; set; } = "Light"; // Light, Dark, Sepia
