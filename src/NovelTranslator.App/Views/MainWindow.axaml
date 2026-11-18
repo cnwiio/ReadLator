@@ -4,7 +4,7 @@
         x:Class="NovelTranslator.App.Views.MainWindow"
         x:DataType="vm:MainViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v6.7"
+        Title="โปรแกรมแปลนิยายด้วย AI (NovelTranslator) v6.8"
         Width="1400" Height="880"
         MinWidth="960" MinHeight="640"
         WindowStartupLocation="CenterScreen"
@@ -71,6 +71,9 @@
                                 <MenuItem Header="เปิดเบราว์เซอร์ดึงเนื้อหา (WebView)..." Command="{Binding OpenBrowserImportCommand}" />
                                 <MenuItem Header="ส่งออกตอนนี้ (.txt)" Command="{Binding ExportCurrentChapterCommand}" />
                                 <MenuItem Header="ส่งออกทั้งเรื่อง (.txt)" Command="{Binding ExportStoryCommand}" />
+                                <MenuItem Header="ส่งออกเป็นเว็บอ่านบนมือถือ (.html)..." Command="{Binding ExportMobileHtmlCommand}" />
+                                <MenuItem Header="ส่งออกเป็นอีบุ๊ก (.epub)..." Command="{Binding ExportEpubCommand}" />
+                                <MenuItem Header="{Binding WifiServerMenuText}" Command="{Binding ToggleWifiServerCommand}" />
                                 <Separator />
                                 <MenuItem Header="สำรองฐานข้อมูล (.db)" Command="{Binding BackupDatabaseCommand}" />
                                 <MenuItem Header="กู้คืนฐานข้อมูล (.db)" Command="{Binding RestoreDatabaseCommand}" />

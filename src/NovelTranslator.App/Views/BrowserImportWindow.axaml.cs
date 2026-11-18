@@ -128,6 +128,11 @@ public partial class BrowserImportWindow : Window
 
         core.NavigationCompleted += (_, args) =>
         {
+            if (args.IsSuccess)
+            {
+                _ = WebView.UnlockCopyProtectionAsync();
+            }
+
             var tcs = Interlocked.Exchange(ref _pendingNavTcs, null);
             tcs?.TrySetResult(args.IsSuccess);
 

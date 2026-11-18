@@ -320,6 +320,40 @@ public class WebChapterImportServiceTests
             System.Linq.Enumerable.ToArray(System.Linq.Enumerable.Select(fetched, c => c.Title)));
     }
 
+    [Fact]
+    public void ExtractFromHtml_ExtractsMadaraReadingContentAndStripsHiddenWatermarks()
+    {
+        const string html = """
+            <!DOCTYPE html>
+            <html>
+            <head><title>บทที่ 2 สังหารล้างหมู่บ้าน - Aileen Novel</title></head>
+            <body>
+                <div class="c-blog-post">
+                    <div class="entry-header"><h1 id="chapter-heading">บทที่ 2: สังหารล้างหมู่บ้าน</h1></div>
+                    <div class="entry-content">
+                        <div class="reading-content" style="user-select:none">
+                            <div class="text-left">
+                                <p>สายลมหนาวพัดผ่านหุบเขาอันเงียบสงัดในยามค่ำคืนขณะที่ชายหนุ่มยืนจ้องมองแสงไฟที่ปลายขอบฟ้า</p>
+                                <p><span style="display:none">ห้ามคัดลอกมาจากเว็บเถื่อน watermark123</span>เสียงฝีเท้าม้าดังก้องใกล้เข้ามาตามทางเดินหินเก่าแก่ที่ปกคลุมไปด้วยหมอกขาว</p>
+                                <p style="opacity:0">ข้อความลวงตา</p>
+                                <p>เขากระชับด้ามดาบในมือแน่นพร้อมเตรียมรับมือกับศัตรูที่กำลังจะปรากฏตัวขึ้นเบื้องหน้า</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """;
+
+        var result = WebChapterImportService.ExtractFromHtml("https://example.com/novel/ch-2", html);
+
+        Assert.Equal("ตอนที่ 2: สังหารล้างหมู่บ้าน", result.Title);
+        Assert.Contains("สายลมหนาวพัดผ่านหุบเขา", result.Content);
+        Assert.Contains("เสียงฝีเท้าม้าดังก้อง", result.Content);
+        Assert.DoesNotContain("watermark123", result.Content);
+        Assert.DoesNotContain("ข้อความลวงตา", result.Content);
+    }
+
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;

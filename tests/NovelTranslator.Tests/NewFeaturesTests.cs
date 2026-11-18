@@ -227,6 +227,103 @@ public class NewFeaturesTests : IDisposable
         Assert.Equal("ตอนที่ 2: Second Trial", vm.Chapters[1].Title);
     }
 
+    [Fact]
+    public async Task MobileExportService_ExportsValidHtmlAndEpubInBothModes()
+    {
+        var story = new Story { Id = 10, Title = "Mobile Export Story", SourceLang = "English", TargetLang = "Thai" };
+        var chapters = new List<Chapter>
+        {
+            new()
+            {
+                StoryId = 10,
+                Ordinal = 1,
+                Title = "ตอนที่ 1: Dawn",
+                OriginalText = "First English line.\n\nSecond English line.",
+                TranslatedText = "บรรทัดไทยแรก\n\nบรรทัดไทยที่สอง"
+            }
+        };
+
+        string tempDir = Path.Combine(Path.GetTempPath(), $"nt_mob_{Path.GetRandomFileName()}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            string htmlTransPath = Path.Combine(tempDir, "trans.html");
+            string htmlBiPath = Path.Combine(tempDir, "bi.html");
+            await MobileExportService.ExportHtmlAsync(htmlTransPath, story, chapters, ExportContentMode.TranslatedOnly);
+            await MobileExportService.ExportHtmlAsync(htmlBiPath, story, chapters, ExportContentMode.Bilingual);
+
+            string htmlTrans = await File.ReadAllTextAsync(htmlTransPath);
+            Assert.Contains("Mobile Export Story", htmlTrans);
+            Assert.Contains("บรรทัดไทยแรก", htmlTrans);
+            Assert.DoesNotContain("First English line.", htmlTrans);
+
+            string htmlBi = await File.ReadAllTextAsync(htmlBiPath);
+            Assert.Contains("First English line.", htmlBi);
+            Assert.Contains("บรรทัดไทยแรก", htmlBi);
+            Assert.Contains("toggleOriginal()", htmlBi);
+
+            string epubPath = Path.Combine(tempDir, "book.epub");
+            await MobileExportService.ExportEpubAsync(epubPath, story, chapters, ExportContentMode.Bilingual);
+            Assert.True(File.Exists(epubPath));
+
+            using var zip = System.IO.Compression.ZipFile.OpenRead(epubPath);
+            Assert.Equal("mimetype", zip.Entries[0].FullName);
+            using (var reader = new StreamReader(zip.Entries[0].Open()))
+            {
+                Assert.Equal("application/epub+zip", await reader.ReadToEndAsync());
+            }
+            Assert.NotNull(zip.GetEntry("META-INF/container.xml"));
+            Assert.NotNull(zip.GetEntry("OEBPS/content.opf"));
+            Assert.NotNull(zip.GetEntry("OEBPS/nav.xhtml"));
+            Assert.NotNull(zip.GetEntry("OEBPS/toc.ncx"));
+
+            var chEntry = zip.GetEntry("OEBPS/chapter_1.xhtml");
+            Assert.NotNull(chEntry);
+            using var chReader = new StreamReader(chEntry!.Open());
+            string chXml = await chReader.ReadToEndAsync();
+            Assert.Contains("First English line.", chXml);
+            Assert.Contains("บรรทัดไทยแรก", chXml);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task LocalWifiServer_ServesTranslatedAndBilingualHtml()
+    {
+        var story = new Story { Title = "Wi-Fi Story", SourceLang = "English", TargetLang = "Thai" };
+        story.Id = await _repository.InsertStoryAsync(story);
+        await _repository.InsertChapterAsync(new Chapter
+        {
+            StoryId = story.Id,
+            Ordinal = 1,
+            Title = "ตอนที่ 1",
+            OriginalText = "Original Wi-Fi text.",
+            TranslatedText = "เนื้อหาสำหรับอ่านบนมือถือ",
+            Status = ChapterStatus.Translated
+        });
+
+        using var server = new LocalWifiServer(_repository, () => story.Id, preferredPort: 0);
+        server.Start();
+        Assert.True(server.IsRunning);
+        Assert.True(server.Port > 0);
+
+        using var http = new System.Net.Http.HttpClient();
+        string translatedBody = await http.GetStringAsync(server.LocalUrl);
+        Assert.Contains("Wi-Fi Story", translatedBody);
+        Assert.Contains("เนื้อหาสำหรับอ่านบนมือถือ", translatedBody);
+        Assert.DoesNotContain("Original Wi-Fi text.", translatedBody);
+
+        string bilingualBody = await http.GetStringAsync($"{server.LocalUrl}?story={story.Id}&mode=bilingual");
+        Assert.Contains("Original Wi-Fi text.", bilingualBody);
+        Assert.Contains("เนื้อหาสำหรับอ่านบนมือถือ", bilingualBody);
+
+        server.Stop();
+        Assert.False(server.IsRunning);
+    }
+
     private sealed class SynchronousProgress<T> : IProgress<T>
     {
         private readonly Action<T> _handler;

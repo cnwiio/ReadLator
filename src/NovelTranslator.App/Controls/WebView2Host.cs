@@ -12,6 +12,34 @@ namespace NovelTranslator.App.Controls;
 
 public sealed class WebView2Host : NativeControlHost
 {
+    public const string UnlockCopyProtectionScript = @"
+(() => {
+    try {
+        if (!document.getElementById('__nt_unlock_copy_style')) {
+            const style = document.createElement('style');
+            style.id = '__nt_unlock_copy_style';
+            style.textContent = '* { -webkit-user-select: text !important; -moz-user-select: text !important; user-select: text !important; -webkit-touch-callout: default !important; }';
+            (document.head || document.documentElement).appendChild(style);
+        }
+        if (!window.__ntCopyUnlocked) {
+            window.__ntCopyUnlocked = true;
+            const events = ['copy', 'cut', 'contextmenu', 'selectstart', 'dragstart', 'mousedown', 'mouseup'];
+            for (const ev of events) {
+                window.addEventListener(ev, e => e.stopPropagation(), true);
+                document.addEventListener(ev, e => e.stopPropagation(), true);
+            }
+        }
+        const clearProps = el => {
+            if (!el) return;
+            el.oncopy = el.oncut = el.oncontextmenu = el.onselectstart = el.ondragstart = null;
+        };
+        clearProps(window);
+        clearProps(document);
+        clearProps(document.documentElement);
+        clearProps(document.body);
+    } catch {}
+})();";
+
     private IPlatformHandle? _hostHandle;
     private CoreWebView2Controller? _controller;
     private string? _tempUserDataDir;
@@ -80,6 +108,7 @@ public sealed class WebView2Host : NativeControlHost
             }
 
             _controller = controller;
+            await controller.CoreWebView2.AddScriptToExecuteOnDocumentCreatedAsync(UnlockCopyProtectionScript);
             UpdateBounds(Bounds.Size);
             _controller.IsVisible = true;
 
@@ -112,6 +141,19 @@ public sealed class WebView2Host : NativeControlHost
             !WebChapterImportService.IsBlockedUri(uri))
         {
             _controller.CoreWebView2.Navigate(uri.ToString());
+        }
+    }
+
+    public async Task UnlockCopyProtectionAsync()
+    {
+        if (_controller?.CoreWebView2 == null) return;
+        try
+        {
+            await _controller.CoreWebView2.ExecuteScriptAsync(UnlockCopyProtectionScript);
+        }
+        catch
+        {
+            // ข้ามหากหน้าเว็บปิดตัวหรือยังไม่พร้อมรันสคริปต์
         }
     }
 

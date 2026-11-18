@@ -349,16 +349,28 @@ public static class WebChapterImportService
 
         var reader = new Reader(url, html);
         var article = reader.GetArticle();
+        string readerText = article != null && !string.IsNullOrWhiteSpace(article.TextContent)
+            ? NormalizeText(article.TextContent)
+            : string.Empty;
+        bool readerOk = article != null &&
+            !string.IsNullOrWhiteSpace(readerText) &&
+            (article.IsReadable || readerText.Length >= 80);
 
-        if (article == null ||
-            string.IsNullOrWhiteSpace(article.TextContent) ||
-            (!article.IsReadable && article.TextContent.Trim().Length < 80))
+        bool domOk = TryExtractFromNovelDom(html, out string? domRawTitle, out string domContent, out bool isSpecificNovelContainer);
+
+        string normalized;
+        string? rawTitle;
+        if (domOk && (!readerOk || (isSpecificNovelContainer && domContent.Length >= readerText.Length * 0.5) || domContent.Length > readerText.Length * 1.2))
         {
-            return false;
+            normalized = domContent;
+            rawTitle = !string.IsNullOrWhiteSpace(domRawTitle) ? domRawTitle : article?.Title;
         }
-
-        string normalized = NormalizeText(article.TextContent);
-        if (string.IsNullOrWhiteSpace(normalized))
+        else if (readerOk)
+        {
+            normalized = readerText;
+            rawTitle = article!.Title;
+        }
+        else
         {
             return false;
         }
@@ -367,10 +379,106 @@ public static class WebChapterImportService
         unitCount = Math.Max(spaceWords, normalized.Length / 5);
 
         string? detectedStoryTitle = TryExtractStoryTitleFromHtml(html);
-        string title = SmartChapterNaming.ResolveTitle(article.Title, normalized, 0, detectedStoryTitle, url);
+        string title = SmartChapterNaming.ResolveTitle(rawTitle, normalized, 0, detectedStoryTitle, url);
         string? nextUrl = ExtractNextChapterUrl(url, html);
-        result = new WebChapterResult(title, normalized, nextUrl, article.Title, url);
+        result = new WebChapterResult(title, normalized, nextUrl, rawTitle, url);
         return true;
+    }
+
+    private static readonly string[] NovelDomSelectors =
+    {
+        ".reading-content .text-left",
+        ".reading-content",
+        ".epcontent",
+        ".chapter-content",
+        "#chapter-content",
+        "#chr-content",
+        "#chapter-body",
+        ".chapter-body",
+        ".cha-words",
+        ".novel-content",
+        ".txtnav",
+        ".entry-content .text-left",
+        ".entry-content",
+        "article"
+    };
+
+    private static readonly Regex HiddenStyleRegex = new(
+        @"(?:display\s*:\s*none|visibility\s*:\s*hidden|font-size\s*:\s*0(?:px|pt|em|rem|%)?(?:\s*;|\s*$)|opacity\s*:\s*0(?:\s*;|\s*$))",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+    internal static bool TryExtractFromNovelDom(string html, out string? rawTitle, out string content)
+        => TryExtractFromNovelDom(html, out rawTitle, out content, out _);
+
+    private static bool TryExtractFromNovelDom(string html, out string? rawTitle, out string content, out bool isSpecificNovelContainer)
+    {
+        rawTitle = null;
+        content = string.Empty;
+        isSpecificNovelContainer = false;
+
+        if (string.IsNullOrWhiteSpace(html)) return false;
+
+        var parser = new HtmlParser();
+        var doc = parser.ParseDocument(html);
+
+        foreach (var selector in new[] { "#chapter-heading", ".chapter-title", "h1.entry-title", "h1" })
+        {
+            string? heading = doc.QuerySelector(selector)?.TextContent;
+            string cleanHeading = NormalizeWhitespace(heading ?? string.Empty);
+            if (cleanHeading.Length is >= 2 and <= 150)
+            {
+                rawTitle = cleanHeading;
+                break;
+            }
+        }
+        rawTitle ??= NormalizeWhitespace(doc.Title ?? string.Empty);
+
+        foreach (var noise in doc.QuerySelectorAll(
+            "script, style, noscript, iframe, svg, canvas, nav, header, footer, form, button, .sharedaddy, .jp-relatedposts, .code-block, .ads, .ad-container, .post-rating, .wp-post-navigation, .nav-links, .c-blog-post .entry-header, [hidden]").ToList())
+        {
+            noise.Remove();
+        }
+
+        foreach (var el in doc.All.ToList())
+        {
+            string? styleAttr = el.GetAttribute("style");
+            if (!string.IsNullOrWhiteSpace(styleAttr) && HiddenStyleRegex.IsMatch(styleAttr))
+            {
+                el.Remove();
+            }
+        }
+
+        foreach (string selector in NovelDomSelectors)
+        {
+            var container = doc.QuerySelector(selector);
+            if (container == null) continue;
+
+            string blockHtml = Regex.Replace(
+                container.InnerHtml,
+                @"(?i)<\s*br\s*/?\s*>|</\s*(?:p|div|li|h[1-6])\s*>",
+                "\n");
+            var fragDoc = parser.ParseDocument($"<div>{blockHtml}</div>");
+            string fullText = NormalizeText(fragDoc.Body?.TextContent ?? string.Empty);
+
+            var paragraphs = container.QuerySelectorAll("p")
+                .Select(p => NormalizeWhitespace(p.TextContent))
+                .Where(t => !string.IsNullOrWhiteSpace(t))
+                .ToList();
+            string pText = paragraphs.Count > 0 ? string.Join("\n\n", paragraphs) : string.Empty;
+
+            string extracted = pText.Length >= fullText.Length * 0.75 && pText.Length >= 80
+                ? pText
+                : fullText;
+
+            if (extracted.Length >= 80)
+            {
+                content = extracted;
+                isSpecificNovelContainer = !selector.Equals("article", StringComparison.Ordinal);
+                return true;
+            }
+        }
+
+        return false;
     }
 
     internal static string? TryExtractStoryTitleFromHtml(string html)
@@ -416,7 +524,8 @@ public static class WebChapterImportService
 
     private static readonly string[] NextAttrMarkers =
     {
-        "next-chap", "next_chap", "btn-next", "chr-next", "next_url", "nextchapter", "chap-next", "chapter-next"
+        "next-chap", "next_chap", "btn-next", "chr-next", "next_url", "nextchapter", "chap-next", "chapter-next",
+        "next_page", "nav-next", "next-post"
     };
 
     public static string? ExtractNextChapterUrl(string currentUrl, string html)

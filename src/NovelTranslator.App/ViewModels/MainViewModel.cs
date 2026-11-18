@@ -28,6 +28,7 @@ public partial class MainViewModel : ObservableObject
     public NovelRepository Repository => _repository;
     private CancellationTokenSource? _translationCts;
     private CancellationTokenSource? _webImportCts;
+    private LocalWifiServer? _wifiServer;
     private readonly DispatcherTimer _autoSaveTimer;
     private DispatcherTimer? _fakeProgressTimer;
 
@@ -340,7 +341,14 @@ public partial class MainViewModel : ObservableObject
     public Func<string?, Task>? RequestOpenBrowserImport { get; set; }
     public Func<Task<WebMultiImportOptions?>>? RequestWebImportDialog { get; set; }
     public Func<WebMultiImportOptions?, Task>? RequestOpenBrowserMultiImport { get; set; }
+    public Func<string, Task<ExportContentMode?>>? RequestExportContentModeDialog { get; set; }
+    public Func<LocalWifiServer, Task>? RequestShowWifiServerDialog { get; set; }
     public Action? RequestSelectAllChapters { get; set; }
+
+    public bool IsWifiServerRunning => _wifiServer?.IsRunning == true;
+    public string WifiServerMenuText => IsWifiServerRunning
+        ? $"เซิร์ฟเวอร์อ่านบนมือถือ ({_wifiServer!.LanUrl})"
+        : "เปิดเซิร์ฟเวอร์อ่านบนมือถือ (Wi-Fi)...";
     public Action? RequestClearChapterSelection { get; set; }
     public Action? RequestToggleFullScreen { get; set; }
 
@@ -1995,6 +2003,86 @@ public partial class MainViewModel : ObservableObject
 
         await TextExportImportService.ExportStorySingleFileAsync(path, SelectedStory, Chapters);
         SaveStatusText = "ส่งออกทั้งเรื่องแล้ว";
+    }
+
+    private string SanitizeFileName(string name)
+    {
+        char[] invalid = System.IO.Path.GetInvalidFileNameChars();
+        string cleaned = string.Concat(name.Select(c => invalid.Contains(c) ? '_' : c)).Trim();
+        return string.IsNullOrWhiteSpace(cleaned) ? "novel" : cleaned;
+    }
+
+    [RelayCommand]
+    public async Task ExportMobileHtmlAsync()
+    {
+        if (SelectedStory == null || RequestSaveFileDialog == null) return;
+
+        ExportContentMode? mode = RequestExportContentModeDialog != null
+            ? await RequestExportContentModeDialog("เว็บอ่านบนมือถือ (.html)")
+            : ExportContentMode.TranslatedOnly;
+        if (!mode.HasValue) return;
+
+        await FlushPendingSaveAsync();
+        string? path = await RequestSaveFileDialog($"{SanitizeFileName(SelectedStory.Title)}.html");
+        if (string.IsNullOrEmpty(path)) return;
+
+        await MobileExportService.ExportHtmlAsync(path, SelectedStory, Chapters, mode.Value);
+        SaveStatusText = "ส่งออกไฟล์เว็บ (.html) สำหรับมือถือแล้ว";
+    }
+
+    [RelayCommand]
+    public async Task ExportEpubAsync()
+    {
+        if (SelectedStory == null || RequestSaveFileDialog == null) return;
+
+        ExportContentMode? mode = RequestExportContentModeDialog != null
+            ? await RequestExportContentModeDialog("อีบุ๊ก (.epub)")
+            : ExportContentMode.TranslatedOnly;
+        if (!mode.HasValue) return;
+
+        await FlushPendingSaveAsync();
+        string? path = await RequestSaveFileDialog($"{SanitizeFileName(SelectedStory.Title)}.epub");
+        if (string.IsNullOrEmpty(path)) return;
+
+        await MobileExportService.ExportEpubAsync(path, SelectedStory, Chapters, mode.Value);
+        SaveStatusText = "ส่งออกไฟล์อีบุ๊ก (.epub) แล้ว";
+    }
+
+    [RelayCommand]
+    public async Task ToggleWifiServerAsync()
+    {
+        if (_wifiServer is { IsRunning: true } && RequestShowWifiServerDialog == null)
+        {
+            StopWifiServer();
+            return;
+        }
+
+        if (_wifiServer == null || !_wifiServer.IsRunning)
+        {
+            await FlushPendingSaveAsync();
+            _wifiServer?.Dispose();
+            _wifiServer = new LocalWifiServer(_repository, () => SelectedStory?.Id);
+            _wifiServer.Start();
+            OnPropertyChanged(nameof(IsWifiServerRunning));
+            OnPropertyChanged(nameof(WifiServerMenuText));
+            SaveStatusText = $"เปิดเซิร์ฟเวอร์อ่านบนมือถือแล้ว: {_wifiServer.LanUrl}";
+        }
+
+        if (RequestShowWifiServerDialog != null && _wifiServer != null)
+        {
+            await RequestShowWifiServerDialog(_wifiServer);
+        }
+    }
+
+    public void StopWifiServer()
+    {
+        if (_wifiServer == null) return;
+        _wifiServer.Stop();
+        _wifiServer.Dispose();
+        _wifiServer = null;
+        OnPropertyChanged(nameof(IsWifiServerRunning));
+        OnPropertyChanged(nameof(WifiServerMenuText));
+        SaveStatusText = "ปิดเซิร์ฟเวอร์อ่านบนมือถือแล้ว";
     }
 
     // ================= เปิดหน้าต่างเสริม =================

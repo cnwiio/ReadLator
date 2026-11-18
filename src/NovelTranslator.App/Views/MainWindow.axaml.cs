@@ -68,6 +68,7 @@ public partial class MainWindow : Window
             Close();
             return;
         }
+        ViewModel?.StopWifiServer();
         base.OnClosing(e);
     }
 
@@ -403,18 +404,147 @@ public partial class MainWindow : Window
             var topLevel = GetTopLevel(this);
             if (topLevel == null) return null;
 
+            string ext = Path.GetExtension(suggestedFileName).TrimStart('.').ToLowerInvariant();
+            string typeName = ext switch
+            {
+                "html" => "Web Reader HTML (.html)",
+                "epub" => "EPUB E-Book (.epub)",
+                "db" => "SQLite Database (.db)",
+                _ => "Text / Data Files"
+            };
+
             var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = "บันทึกไฟล์",
                 SuggestedFileName = suggestedFileName,
-                DefaultExtension = Path.GetExtension(suggestedFileName).TrimStart('.'),
+                DefaultExtension = ext,
                 FileTypeChoices = new[]
                 {
-                    new FilePickerFileType("Text / Data Files") { Patterns = new[] { $"*{Path.GetExtension(suggestedFileName)}" } }
+                    new FilePickerFileType(typeName) { Patterns = new[] { $"*.{ext}" } }
                 }
             });
 
             return file?.Path.LocalPath;
+        };
+
+        ViewModel.RequestExportContentModeDialog = async (formatLabel) =>
+        {
+            ExportContentMode? selected = null;
+            var msgBlock = new TextBlock
+            {
+                Text = $"เลือกรูปแบบเนื้อหาสำหรับส่งออกเป็น {formatLabel}:",
+                FontSize = 13,
+                Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 16)
+            };
+
+            var translatedBtn = new Button
+            {
+                Content = "เฉพาะคำแปลภาษาไทย",
+                Classes = { "primary" },
+                Height = 32,
+                Padding = new Thickness(14, 0),
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            var bilingualBtn = new Button
+            {
+                Content = "คำแปลควบคู่ต้นฉบับ",
+                Height = 32,
+                Padding = new Thickness(14, 0),
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            var cancelBtn = new Button
+            {
+                Content = "ยกเลิก",
+                Classes = { "ghost" },
+                Height = 32,
+                Padding = new Thickness(12, 0),
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+
+            var dialog = CreateModalDialog("เลือกรูปแบบเนื้อหาที่ส่งออก", 480, null, false, new Control[] { msgBlock }, cancelBtn, bilingualBtn, translatedBtn);
+            translatedBtn.Click += (_, _) => { selected = ExportContentMode.TranslatedOnly; dialog.Close(); };
+            bilingualBtn.Click += (_, _) => { selected = ExportContentMode.Bilingual; dialog.Close(); };
+            cancelBtn.Click += (_, _) => dialog.Close();
+
+            await dialog.ShowDialog(this);
+            return selected;
+        };
+
+        ViewModel.RequestShowWifiServerDialog = async (server) =>
+        {
+            var infoBlock = new TextBlock
+            {
+                Text = "เปิดลิงก์นี้ในเบราว์เซอร์บนโทรศัพท์มือถือที่เชื่อมต่อ Wi-Fi วงเดียวกัน:",
+                FontSize = 13,
+                Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            var urlBox = new TextBox
+            {
+                Text = server.LanUrl,
+                IsReadOnly = true,
+                Height = 34,
+                FontSize = 14,
+                FontWeight = FontWeight.SemiBold,
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                CornerRadius = new CornerRadius(6),
+                Margin = new Thickness(0, 0, 0, 8)
+            };
+            var hintBlock = new TextBlock
+            {
+                Text = $"ลิงก์ทดสอบบนเครื่องนี้: {server.LocalUrl}\nหมายเหตุ: หากมือถือเปิดไม่ได้ในครั้งแรก ให้กดอนุญาต (Allow) ใน Windows Firewall เมื่อระบบแจ้งเตือน",
+                FontSize = 11,
+                Foreground = GetThemeBrush("TextMutedBrush", "#85858B"),
+                TextWrapping = TextWrapping.Wrap,
+                Margin = new Thickness(0, 0, 0, 16)
+            };
+
+            var copyBtn = new Button
+            {
+                Content = "คัดลอกลิงก์",
+                Height = 32,
+                Padding = new Thickness(14, 0),
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            var stopBtn = new Button
+            {
+                Content = "ปิดเซิร์ฟเวอร์ Wi-Fi",
+                Classes = { "danger" },
+                Height = 32,
+                Padding = new Thickness(14, 0),
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+            var hideBtn = new Button
+            {
+                Content = "เปิดค้างไว้",
+                Classes = { "primary" },
+                Height = 32,
+                Padding = new Thickness(16, 0),
+                VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center
+            };
+
+            var dialog = CreateModalDialog("เซิร์ฟเวอร์อ่านนิยายบนมือถือ (Wi-Fi)", 520, null, false, new Control[] { infoBlock, urlBox, hintBlock }, stopBtn, copyBtn, hideBtn);
+
+            copyBtn.Click += async (_, _) =>
+            {
+                var topLevel = GetTopLevel(dialog);
+                if (topLevel?.Clipboard != null)
+                {
+                    await topLevel.Clipboard.SetTextAsync(server.LanUrl);
+                    copyBtn.Content = "คัดลอกแล้ว ✓";
+                }
+            };
+            stopBtn.Click += (_, _) =>
+            {
+                ViewModel.StopWifiServer();
+                dialog.Close();
+            };
+            hideBtn.Click += (_, _) => dialog.Close();
+
+            await dialog.ShowDialog(this);
         };
 
         ViewModel.RequestOpenFilesDialog = async (title) =>
