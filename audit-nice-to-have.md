@@ -1,7 +1,7 @@
-# Ponytail Audit — Nice to Have (v6.8)
+# Ponytail Audit — Nice to Have (v7.1)
 
-> **Scope:** Minor HTTP server efficiency and cleaning up non-test benchmark script + tracked binary build artifacts.
-> **Target:** Agent-actionable specification. Numbered 14–15 (continuing from `audit-should-fix.md` items 8–13).
+> **Scope:** Merging duplicate `ViewModel.PropertyChanged` subscriptions and eliminating double `settings.json` disk writes on startup and story switching.
+> **Target:** Agent-actionable specification. Numbered 12 (continuing from `audit-should-fix.md` items 7–11).
 
 ---
 
@@ -9,29 +9,22 @@
 
 | # | Area | File | Core Issue |
 |---|---|---|---|
-| **14** | Wi-Fi Server Path Filtering | `src/NovelTranslator.Core/Export/LocalWifiServer.cs` | `HandleClientAsync` only filters `/favicon.ico` and renders the entire story HTML from SQLite on any unknown path such as `/apple-touch-icon.png` or `/manifest.json` |
-| **15** | Benchmark Test & Tracked Binlog (`-345` lines) | `tests/NovelTranslator.Tests/ResourceBenchmarkTests.cs`, `build.binlog` | `ResourceBenchmarkTests` runs forced `GC.Collect()`, 50 SQLite inserts, and `Assert.True(true)` on every `dotnet test`, and `build.binlog` is tracked in Git |
+| **12** | Duplicate `PropertyChanged` Handler & Double Settings Save | `src/NovelTranslator.App/Views/MainWindow.axaml.cs` / `MainViewModel.cs` | `MainWindow_Loaded` attaches two separate `ViewModel.PropertyChanged` handlers, and `OnSelectedStoryChanged` + `OnSelectedChapterChanged` write `settings.json` twice in a row on every startup and story change |
 
 ---
 
-## 14. `LocalWifiServer` rebuilds the entire story HTML from SQLite on unknown browser paths like `/apple-touch-icon.png`
+## 12. `MainWindow_Loaded` attaches two `ViewModel.PropertyChanged` handlers and writes `settings.json` twice on every startup and story switch
 **Location:**
-- [LocalWifiServer.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Export/LocalWifiServer.cs#L120-L160)
+- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L79)
+- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L622-L654)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L667-L702)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L753-L756)
 
-- **What this is:** Handling incoming HTTP requests in the local Wi-Fi mobile reader server.
-- **Problem:** `HandleClientAsync` (`L123-127`) only short-circuits `/favicon.ico`. Every other non-root path automatically requested by mobile browsers (e.g. `/apple-touch-icon.png`, `/apple-touch-icon-precomposed.png`, `/manifest.json`, `/robots.txt`) falls through to querying all stories and chapters from SQLite and serializing the full story HTML.
-- **Fix:** Extract the path before `?` from `rawTarget` (`int q = rawTarget.IndexOf('?'); string path = q >= 0 ? rawTarget[..q] : rawTarget;`) and return `404 Not Found` (or `204 No Content`) whenever `!string.Equals(path, "/", StringComparison.Ordinal)`.
-- **If we skip it:** Mobile browsers trigger redundant SQLite queries and multi-megabyte HTML serialization for background icon/metadata requests.
-
----
-
-## 15. Remove `ResourceBenchmarkTests.cs` from the unit test suite and untrack `build.binlog` from Git
-**Location:**
-- [ResourceBenchmarkTests.cs](file:///d:/Work/Other/ReadLator/tests/NovelTranslator.Tests/ResourceBenchmarkTests.cs#L1-L345)
-- [build.binlog](file:///d:/Work/Other/ReadLator/build.binlog)
-- [.gitignore](file:///d:/Work/Other/ReadLator/.gitignore)
-
-- **What this is:** A 345-line manual profiling script marked `[Fact]` inside `NovelTranslator.Tests` and an MSBuild binary log file committed to the repository root.
-- **Problem:** `ResourceBenchmarkTests.cs` forces `GC.Collect()` multiple times, inserts 50 chapters into SQLite, contains a duplicate `FindMatchingEntries_Optimized` helper whose `if`/`else` branches both add the entry (`L232-239`), and asserts only `Assert.True(true)` (`L210`). Meanwhile, `build.binlog` is tracked in Git and exposes local build paths and environment variables.
-- **Fix:** Delete `tests/NovelTranslator.Tests/ResourceBenchmarkTests.cs` (or mark `[Fact(Skip = "Manual benchmark")]` if kept for profiling), run `git rm --cached build.binlog`, and add `*.binlog` (and optionally `audit-*.md` if not meant to be committed long-term) to `.gitignore`.
-- **If we skip it:** Every `dotnet test` run spends time executing a no-assertion GC/DB profiling loop, and local MSBuild binary logs stay tracked in Git.
+- **What this is:** Property-change event wiring in `MainWindow_Loaded` and saving `LastSelectedStoryId` / `LastSelectedChapterId` when loading a story.
+- **Problem:**
+  1. `MainWindow_Loaded` subscribes `ViewModel.PropertyChanged += OnViewModelPropertyChanged;` at `L79` and a second anonymous `ViewModel.PropertyChanged += (s, e) => ...` at `L622`, both branching on `e.PropertyName == nameof(MainViewModel.SelectedChapter)`.
+  2. `OnSelectedStoryChanged` (`MainViewModel.cs:L667-668`) sets `_settings.LastSelectedStoryId = value.Id; _settings.Save();` and then selects a chapter (`L696` or `L701`), which synchronously triggers `OnSelectedChapterChanged` (`L754-755`) and calls `_settings.Save()` a second time—performing two atomic temp-file writes and `File.Move` operations back-to-back on every app launch and story switch.
+- **Fix:**
+  1. Move the `TranslatedText` live-scroll and `SelectedChapter` ListBox sync blocks from the anonymous handler (`MainWindow.axaml.cs:L622-654`) into `OnViewModelPropertyChanged` (`L701-738`) so `MainWindow` has a single `PropertyChanged` subscription.
+  2. In `MainViewModel.OnSelectedStoryChanged` (`L667-668`), set `_settings.LastSelectedStoryId = value.Id;` without calling `_settings.Save()` immediately, and let `OnSelectedChapterChanged` persist both `LastSelectedStoryId` and `LastSelectedChapterId` in a single `_settings.Save()` call.
+- **If we skip it:** Every property change invokes two handlers on `MainWindow`, and every startup or story switch writes `settings.json` to disk twice.

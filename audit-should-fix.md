@@ -1,7 +1,7 @@
-# Ponytail Audit — Should Fix (v6.8)
+# Ponytail Audit — Should Fix (v7.1)
 
-> **Scope:** Duplicate glossary entries, dead code deletion (`-310` lines), regex hot-loop speed, false-positive English ratio validation, and UI state synchronization.
-> **Target:** Agent-actionable specification. Numbered 8–13 (continuing from `audit-must-fix.md` items 1–7).
+> **Scope:** Workspace state cleanup on deleting the last story, non-modal WebView story isolation, avoiding redundant status/glossary mutations on completed chapters, deduplicating helpers, and removing leftover dead properties.
+> **Target:** Agent-actionable specification. Numbered 7–11 (continuing from `audit-must-fix.md` items 1–6).
 
 ---
 
@@ -9,101 +9,79 @@
 
 | # | Area | File | Core Issue |
 |---|---|---|---|
-| **8** | Glossary CSV Import Deduplication | `src/NovelTranslator.App/ViewModels/GlossaryViewModel.cs` | `ImportCsvAsync` calls `BulkInsertGlossaryEntriesAsync` directly without checking `_allEntries` or duplicates within the CSV, duplicating existing terms on re-import |
-| **9** | Dead Dialog & Unused Commands (`-310` lines) | `AutoGlossary*`, `MainWindow.axaml.cs`, `MainViewModel.cs`, `SettingsViewModel.cs` | Unreachable `AutoGlossaryDialog` / `AutoGlossaryViewModel` / `RequestOpenAutoGlossary` plus unused `RetranslateParagraphAsync(string)`, `MoveChapterUpAsync`, `MoveChapterDownAsync`, and `SelectCategory` |
-| **10** | Glossary Matching Hot Loop | `src/NovelTranslator.Core/Glossary/GlossaryService.cs` | `FindMatchingEntries` compiles/evaluates a `\b...\b` `Regex.IsMatch` for every glossary term on every paragraph without a fast substring pre-check |
-| **11** | OutputValidator Thai Glossary Inflation | `src/NovelTranslator.Core/Translation/OutputValidator.cs` | `Validate` strips Thai `TargetTerm` strings before computing `latinRatio`, shrinking `nonWhitespaceCount` and causing false English-leftover retries |
-| **12** | Glossary Window Refresh | `src/NovelTranslator.App/Views/MainWindow.axaml.cs` | Closing `GlossaryWindow` from the selection popup never refreshes `Editor.ActiveGlossary`, and neither handler re-syncs `Editor.ParagraphPairs` in Paragraph Mode |
-| **13** | Starter Chapter Import Sync | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | Overwriting starter Chapter 1 in `ImportTxtFilesAsync` skips stopping `_autoSaveTimer`, word count update, and Paragraph Mode sync; `ImportWebChapterInternalAsync` can overwrite a translated chapter if `OriginalText` is empty |
+| **7** | Delete Last Story Workspace State | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | Deleting the only story leaves `IsStoryDetailsExpanded = true`, stale `Editor.ParagraphPairs` / `ActiveGlossary` / `_lastDeletedChapters`, and an unusable `SelectedStory == null` state |
+| **8** | Non-Modal WebView Target Story | `src/NovelTranslator.App/Views/MainWindow.axaml.cs` / `MainViewModel.cs` | Non-modal `BrowserImportWindow` calls `ImportWebChapterAsync`, which reads live `SelectedStory` on each chapter callback instead of the story that opened the browser |
+| **9** | Completed Chapter No-Op Translate | `src/NovelTranslator.Core/Translation/TranslationPipeline.cs` / `MainViewModel.cs` | Clicking "แปลตอนนี้" on a 100%-completed `Edited` chapter resets its status from `Edited` to `Translated` and re-runs the AI Glossary scanner even though 0 chunks were translated |
+| **10** | Duplicate Paragraph Split & Status Badge | `src/NovelTranslator.App/ViewModels/EditorViewModel.cs` / `MainViewModel.cs` | `EditorViewModel.SplitParagraphs` misses `.Replace('\r', '\n')`, and `MainViewModel.UpdateChapterStatusDisplay` duplicates `Chapter.StatusBadgeText` / `StatusBadgeColor` |
+| **11** | Leftover Dead Properties (`-35` lines) | `GlossaryExtractor.cs`, `ParagraphPairViewModel.cs`, `MainViewModel.cs`, `GlossaryServiceTests.cs` | `ExtractedTerm.IsSelected` / `INotifyPropertyChanged`, `ParagraphPairViewModel.IsSelected`, and `MainViewModel.IsHeaderVisible` have zero callers in `src/` |
 
 ---
 
-## 8. `GlossaryViewModel.ImportCsvAsync` duplicates every existing `SourceTerm` on CSV re-import
+## 7. Deleting the last story leaves the story editor panel open over a broken no-story workspace
 **Location:**
-- [GlossaryViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/GlossaryViewModel.cs#L176-L182)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L653-L709)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1229-L1239)
 
-- **What this is:** Importing a Glossary CSV file (**"นำเข้า CSV"**).
-- **Problem:** `GlossaryViewModel.ImportCsvAsync` passes all parsed rows directly to `_repository.BulkInsertGlossaryEntriesAsync(imported)` without checking `_allEntries` or deduplicating within the CSV. If a user exports `glossary.csv`, edits a couple of terms, and imports it back, every existing term in that story is duplicated in SQLite.
-- **Fix:** Match imported rows against `_allEntries` by `SourceTerm` (`StringComparison.OrdinalIgnoreCase`, deduplicating within the CSV first): update existing rows via `_repository.UpdateGlossaryEntryAsync` and only pass genuinely new, distinct entries to `BulkInsertGlossaryEntriesAsync`.
-- **If we skip it:** Re-importing an updated CSV creates duplicate glossary rules in SQLite and bloats LLM prompts.
+- **What this is:** Clicking **"ลบเรื่อง"** (`DeleteStoryAsync`) when only one story exists in the database.
+- **Problem:** `DeleteStoryAsync` deletes the story from SQLite, removes it from `Stories`, and sets `SelectedStory = Stories.FirstOrDefault()` (`null`). When `SelectedStory` becomes `null`:
+  1. `IsStoryDetailsExpanded` remains `true`, leaving the story-edit card open on screen for a deleted story.
+  2. `_lastDeletedChapters`, `Editor.ParagraphPairs`, and `Editor.ActiveGlossary` are not cleared.
+  3. With `SelectedStory == null`, clicking **"เพิ่มตอน"**, **"แปลตอนนี้"**, **"นำเข้าไฟล์นิยาย (.txt)"**, or **"พจนานุกรมคำศัพท์"** silently returns without doing anything until the user restarts the app (when `LoadInitialDataAsync` creates a default story).
+- **Fix:** In `DeleteStoryAsync` (`L1235-1239`), set `IsStoryDetailsExpanded = false`, clear `_lastDeletedChapters` (and notify `CanUndoDeleteChapter`), clear `Editor.ParagraphPairs` and `Editor.ActiveGlossary`, and if `Stories.Count == 0`, call `await LoadInitialDataAsync();` so a fresh default story and starter chapter are created immediately.
+- **If we skip it:** Deleting the only story leaves the edit popup open over an unusable workspace until the user restarts the app.
 
 ---
 
-## 9. Delete 310 lines of unreachable Auto-Glossary dialog and unused commands in `NovelTranslator.App`
+## 8. Non-modal `BrowserImportWindow` inserts chapters into the wrong story if the user switches stories while it is open
 **Location:**
-- [AutoGlossaryViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/AutoGlossaryViewModel.cs#L1-L91)
-- [AutoGlossaryDialog.axaml](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/AutoGlossaryDialog.axaml#L1-L53)
-- [AutoGlossaryDialog.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/AutoGlossaryDialog.axaml.cs#L1-L17)
-- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L120-L175)
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L332)
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1107-L1150)
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1673-L1713)
-- [SettingsViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/SettingsViewModel.cs#L418-L425)
+- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L138-L150)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1866-L1942)
 
-- **What this is:** Legacy dialog UI and `[RelayCommand]` methods replaced by auto-save glossary extraction (v6.7), in-place paragraph retranslation (`RetranslateParagraphInPlaceAsync`), drag-and-drop chapter reordering (`ReorderChaptersAsync`), and ListBox category selection.
-- **Problem:** Grep across `src/` and `tests/` confirms zero callers for:
-  1. `RequestOpenAutoGlossary`, `AutoGlossaryViewModel`, and `AutoGlossaryDialog` (218 lines; `ScanNewTermsAsync` now calls `AutoExtractAndSaveGlossaryAsync` directly).
-  2. `MainViewModel.RetranslateParagraphAsync(string)` (`L1107-1150`, 44 lines).
-  3. `MainViewModel.MoveChapterUpAsync()` and `MoveChapterDownAsync()` (`L1673-1713`, 40 lines).
-  4. `SettingsViewModel.SelectCategory(string)` (`L418-425`, 8 lines).
-- **Fix:** Delete `AutoGlossaryViewModel.cs`, `AutoGlossaryDialog.axaml`, `AutoGlossaryDialog.axaml.cs`, `RequestOpenAutoGlossary` (property + `MainWindow.axaml.cs` handler), `RetranslateParagraphAsync(string)`, `MoveChapterUpAsync()`, `MoveChapterDownAsync()`, and `SelectCategory(string)`.
-- **If we skip it:** 310 lines of dead code and unused generated `RelayCommand` properties remain in the codebase.
+- **What this is:** Using **เบราว์เซอร์ดึงเนื้อหา (WebView)** (`BrowserImportWindow`) to import chapters while `MainWindow` remains interactive in the background.
+- **Problem:** `MainWindow.axaml.cs` opens `BrowserImportWindow` with `win.Show(this)` (non-modal) and passes `result => ViewModel.ImportWebChapterAsync(result)`. `ImportWebChapterInternalAsync` reads the live `SelectedStory` property each time a chapter finishes downloading. If the user switches stories in `MainWindow` while a multi-chapter WebView import is running, subsequent chapters are inserted into the newly selected story.
+- **Fix:** Add an optional `Story? targetStory = null` parameter to `ImportWebChapterAsync(WebChapterResult result, Story? targetStory = null)` and `ImportWebChapterInternalAsync`. When opening `BrowserImportWindow` in `MainWindow.axaml.cs` (`L138-150`), capture `var story = ViewModel.SelectedStory;` and pass `result => ViewModel.ImportWebChapterAsync(result, story)`. Inside `ImportWebChapterInternalAsync`, if `targetStory` is no longer in `Stories`, return early; if `!ReferenceEquals(SelectedStory, story)`, insert the chapter into SQLite for `story.Id` without mutating the currently displayed story's `Chapters` collection.
+- **If we skip it:** Switching stories in the main window while WebView is importing a batch splits the imported chapters across two stories.
 
 ---
 
-## 10. `GlossaryService.FindMatchingEntries` builds and evaluates a regex for every glossary term on every paragraph
+## 9. Clicking "แปลตอนนี้" on a finished `Edited` chapter resets its status to `Translated` and re-runs the AI Glossary scanner
 **Location:**
-- [GlossaryService.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Glossary/GlossaryService.cs#L16-L43)
-- [EditorViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/EditorViewModel.cs#L89-L96)
+- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L70-L99)
+- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L287-L290)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1033-L1053)
 
-- **What this is:** Filtering which glossary entries appear in a chunk or paragraph.
-- **Problem:** For every ASCII term, `FindMatchingEntries` allocates `"\b" + Regex.Escape(term) + "\b"` and executes `Regex.IsMatch` even when the term does not appear anywhere in `chunkText`. In Paragraph Mode, `EditorViewModel.SyncParagraphPairs` calls `FindMatchingEntries` for every paragraph on the UI thread (e.g., 100 paragraphs × 500 glossary terms = 50,000 regex evaluations per chapter load or mode toggle).
-- **Fix:** Add an ordinal case-insensitive substring pre-check before the `useWordBoundary` check in `GlossaryService.FindMatchingEntries`:
-  ```csharp
-  if (!chunkText.Contains(term, StringComparison.OrdinalIgnoreCase)) continue;
-  ```
-- **If we skip it:** Opening large chapters or toggling Paragraph Mode with hundreds of glossary entries causes avoidable UI lag and allocations.
+- **What this is:** Clicking **"แปลตอนนี้"** (`Ctrl+Enter`, `forceRetranslate: false`) on a chapter whose chunks are already 100% completed (`completedCount == chunks.Count`).
+- **Problem:** Even when zero chunks need translating (`!forceRetranslate && chunks.Count > 0 && completedCount == chunks.Count`), `TranslateChapterAsync` overwrites `chapter.Status` in SQLite from `Edited` to `Translating` (`L97`) and then to `Translated` (`L288`), and `StartTranslationInternalAsync` (`L1033`) then runs `AutoExtractAndSaveGlossaryAsync`, making an unnecessary LLM request on an unchanged chapter.
+- **Fix:** In `TranslationPipeline.TranslateChapterAsync` (right after `progress.Report` at `L84-92`), if `!forceRetranslate && chunks.Count > 0 && completedCount == chunks.Count`, ensure `chapter.Status` is `Translated` or `Edited` (do not overwrite `Edited` with `Translated`) and return early; or return a `bool anyChunkTranslated` from `TranslateChapterAsync` and only run `AutoExtractAndSaveGlossaryAsync` in `StartTranslationInternalAsync` when at least one chunk was actually translated.
+- **If we skip it:** Pressing `Ctrl+Enter` on a manually polished chapter erases its `"แก้ไขแล้ว"` (`Edited`) badge and wastes an AI glossary scan call.
 
 ---
 
-## 11. `OutputValidator.Validate` removes Thai `TargetTerm` text before measuring the leftover English ratio
+## 10. Duplicate `SplitParagraphs` (missing `\r` normalization) and duplicate `StatusBadgeText`/`StatusBadgeColor` mappings
 **Location:**
-- [OutputValidator.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/OutputValidator.cs#L168-L199)
+- [EditorViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/EditorViewModel.cs#L120-L138)
+- [DomainModels.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Models/DomainModels.cs#L104-L120)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L854-L872)
 
-- **What this is:** Checking `MaxEnglishRatioPercent` to detect chunks where the LLM failed to translate English into Thai.
-- **Problem:** Lines 173–179 call `textForRatio = textForRatio.Replace(g.TargetTerm, "");` for every entry in `activeGlossary`—even when `TargetTerm` is pure Thai (e.g. `"อาเธอร์"`). Removing Thai characters shrinks `nonWhitespaceCount` while leaving non-glossary English tokens intact, artificially inflating `latinRatio` on short chunks with many glossary terms and triggering false validation failures/retries.
-- **Fix:** Only exclude `g.TargetTerm` from `textForRatio` when `g.TargetTerm.Any(char.IsAsciiLetter)` is true. Add a unit test in `OutputValidatorTests.cs` covering a short translated chunk with Thai glossary names and a small allowed English token.
-- **If we skip it:** Short dialogue chunks with multiple glossary character names can fail validation and waste an unnecessary AI retry request.
-
----
-
-## 12. Closing `GlossaryWindow` from the text-selection popup or in Paragraph Mode leaves `ActiveGlossary` and `MatchedGlossary` stale
-**Location:**
-- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L112-L118)
-- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L1059-L1080)
-
-- **What this is:** Adding, editing, or importing glossary terms via **พจนานุกรมคำศัพท์ (Glossary)** (`RequestOpenGlossary`) or the floating **"เพิ่มเข้า Glossary"** selection popup (`OnAddSelectedToGlossaryClicked`).
-- **Problem:** `OnAddSelectedToGlossaryClicked` never calls `ViewModel.Editor.RefreshActiveGlossaryAsync` after `await win.ShowDialog(this)`, and neither handler calls `ViewModel.Editor.SyncParagraphPairs` when Paragraph Mode is active.
-- **Fix:** After `await win.ShowDialog(this)` in both `RequestOpenGlossary` and `OnAddSelectedToGlossaryClicked`, run:
-  ```csharp
-  await ViewModel.Editor.RefreshActiveGlossaryAsync(story.Id, ViewModel.OriginalText);
-  if (ViewModel.Editor.IsParagraphMode)
-      ViewModel.Editor.SyncParagraphPairs(ViewModel.OriginalText, ViewModel.TranslatedText);
-  ```
-- **If we skip it:** Terms added via the selection popup or Glossary window are missing from `Editor.ActiveGlossary` and `ParagraphPairViewModel.MatchedGlossary` until switching chapters.
-
----
-
-## 13. Overwriting the starter chapter in `ImportTxtFilesAsync` and `ImportWebChapterInternalAsync` misses timer, UI, and state sync
-**Location:**
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1778-L1818)
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1935-L1948)
-
-- **What this is:** Importing `.txt` files or web chapters into a brand-new story whose Chapter 1 is still the starter placeholder.
+- **What this is:** Paragraph splitting in `EditorViewModel` and chapter status badge text/color mapping in `MainViewModel`.
 - **Problem:**
-  1. In `ImportTxtFilesAsync`, when `ReferenceEquals(SelectedChapter, starter)` (`L1788`), `OriginalText` is set inside `_isLoadingChapter = true` and `SelectedChapter = firstImported` (`L1817`) is a no-op because `SelectedChapter` is already `starter`. As a result, `_autoSaveTimer` is not stopped, `UpdateWordAndParagraphCounts` relies on `OnOriginalTextChanged`, `Editor.SyncParagraphPairs` is skipped in Paragraph Mode, and `Editor.RefreshActiveGlossaryAsync` is not called.
-  2. In `ImportWebChapterInternalAsync` (`L1935`), overwriting `SelectedChapter` only checks `OriginalText` (not `TranslatedText`) and never resets `SelectedChapter.Status = ChapterStatus.NotTranslated` or calls `UpdateChapterStatusDisplay` / `UpdateStoryProgress()`.
+  1. `EditorViewModel.SplitParagraphs` (`L123`) only calls `text.Replace("\r\n", "\n")` without `.Replace('\r', '\n')`, unlike `Chunker.SplitIntoChunks`, `OutputValidator.CountParagraphs`, and `MobileExportService.SplitParagraphs`.
+  2. `MainViewModel.UpdateChapterStatusDisplay` (`L854-872`) duplicates the exact same `switch` tables already defined on `Chapter.StatusBadgeText` and `Chapter.StatusBadgeColor` in `DomainModels.cs` (`L104-120`).
 - **Fix:**
-  1. In `ImportTxtFilesAsync`, call `_autoSaveTimer.Stop();` before overwriting `starter`, and inside `if (ReferenceEquals(SelectedChapter, starter))`, call `if (Editor.IsParagraphMode) Editor.SyncParagraphPairs(OriginalText, TranslatedText);` and `_ = Editor.RefreshActiveGlossaryAsync(SelectedStory.Id, OriginalText);`.
-  2. In `ImportWebChapterInternalAsync`, require `string.IsNullOrWhiteSpace(TranslatedText)` before overwriting `SelectedChapter`, stop `_autoSaveTimer`, and reset `SelectedChapter.Status = ChapterStatus.NotTranslated` (plus refresh display/progress).
-- **If we skip it:** Importing `.txt` files into a new story while in Paragraph Mode leaves the placeholder text on screen, and importing from URL into a chapter with empty `OriginalText` but existing translation overwrites it.
+  1. Change `text.Replace("\r\n", "\n")` to `text.Replace("\r\n", "\n").Replace('\r', '\n')` in `EditorViewModel.SplitParagraphs` (`L123`) (and in `MainViewModel.UpdateWordAndParagraphCounts` at `L849`).
+  2. Expose static helpers `Chapter.GetStatusBadgeText(ChapterStatus)` and `Chapter.GetStatusBadgeColor(ChapterStatus)` on `Chapter` in `DomainModels.cs` and call them from both `Chapter.StatusBadgeText`/`Color` and `MainViewModel.UpdateChapterStatusDisplay`.
+- **If we skip it:** Text with bare `\r` line breaks splits differently in Paragraph Mode than in Chunker/Export, and status badge colors/text must be maintained in two places.
+
+---
+
+## 11. Delete leftover dead properties from removed UI (`ExtractedTerm.IsSelected`, `ParagraphPairViewModel.IsSelected`, `MainViewModel.IsHeaderVisible`)
+**Location:**
+- [GlossaryExtractor.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Glossary/GlossaryExtractor.cs#L16-L39)
+- [ParagraphPairViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/ParagraphPairViewModel.cs#L22-L23)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L116)
+- [GlossaryServiceTests.cs](file:///d:/Work/Other/ReadLator/tests/NovelTranslator.Tests/GlossaryServiceTests.cs#L43-L53)
+
+- **What this is:** Leftover selection and header-visibility properties whose UI bindings were removed in earlier versions.
+- **Problem:** Now that `AutoGlossaryDialog` and `AutoGlossaryViewModel` are deleted, nothing in `src/` reads or writes `ExtractedTerm.IsSelected` or subscribes to `ExtractedTerm.PropertyChanged`. Likewise, `ParagraphPairViewModel.IsSelected` (`_isSelected`) and `MainViewModel.IsHeaderVisible` have zero references in any XAML view, code file, or test.
+- **Fix:** Remove `INotifyPropertyChanged` and `IsSelected` from `ExtractedTerm` (and delete `ExtractedTerm_IsSelected_RaisesPropertyChanged` in `GlossaryServiceTests.cs`), remove `[ObservableProperty] private bool _isSelected;` from `ParagraphPairViewModel`, and remove `IsHeaderVisible` from `MainViewModel`.
+- **If we skip it:** ~35 lines of dead properties and unused `PropertyChanged` boilerplate remain in Core and ViewModels.

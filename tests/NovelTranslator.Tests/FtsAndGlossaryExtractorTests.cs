@@ -215,4 +215,22 @@ public class FtsAndGlossaryExtractorTests : IDisposable
         public Task<(bool Success, string Message)> TestConnectionAsync(CancellationToken cancellationToken = default)
             => Task.FromResult((true, "OK"));
     }
+
+    [Fact]
+    public async Task SearchFtsAsync_IncludesMidSentenceThaiMatchesAlongsideSpacePrefixedMatches()
+    {
+        var story = new Story { Title = "Thai FTS Story" };
+        long storyId = await _repository.InsertStoryAsync(story);
+
+        var ch1 = new Chapter { StoryId = storyId, Ordinal = 1, Title = "Ch 1", TranslatedText = "เขาหยิบ กระบี่ เล่มนี้ขึ้นมา", Status = ChapterStatus.Translated };
+        var ch2 = new Chapter { StoryId = storyId, Ordinal = 2, Title = "Ch 2", TranslatedText = "ศิษย์แห่งสำนักกระบี่เดินทางมาถึง", Status = ChapterStatus.Translated };
+        ch1.Id = await _repository.InsertChapterAsync(ch1);
+        ch2.Id = await _repository.InsertChapterAsync(ch2);
+
+        var results = await _repository.SearchFtsAsync(storyId, "กระบี่", searchTranslated: true, limit: 50);
+
+        Assert.Equal(2, results.Count);
+        Assert.Contains(results, r => r.ChapterId == ch1.Id);
+        Assert.Contains(results, r => r.ChapterId == ch2.Id);
+    }
 }

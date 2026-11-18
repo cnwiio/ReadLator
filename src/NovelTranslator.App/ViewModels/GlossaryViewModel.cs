@@ -42,8 +42,6 @@ public partial class GlossaryViewModel : ObservableObject
     private string _statusMessage = string.Empty;
 
     public Action? RequestClose { get; set; }
-    public bool SelectFirstOnLoad { get; set; }
-
     public GlossaryViewModel(NovelRepository repository, Story story, string? initialSource = null, string? initialTarget = null)
     {
         _repository = repository;
@@ -58,11 +56,6 @@ public partial class GlossaryViewModel : ObservableObject
         _allEntries.Clear();
         _allEntries.AddRange(list);
         ApplyFilter();
-        if (SelectFirstOnLoad && Entries.Count > 0)
-        {
-            SelectedEntry = Entries[0];
-            SelectFirstOnLoad = false;
-        }
     }
 
     partial void OnSearchFilterChanged(string value) => ApplyFilter();
@@ -139,14 +132,30 @@ public partial class GlossaryViewModel : ObservableObject
         }
         else
         {
-            // แก้ไข
-            SelectedEntry.SourceTerm = SourceTerm.Trim();
-            SelectedEntry.TargetTerm = TargetTerm.Trim();
-            SelectedEntry.Category = cat;
-            SelectedEntry.Notes = Notes.Trim();
-            await _repository.UpdateGlossaryEntryAsync(SelectedEntry);
-            StatusMessage = $"แก้ไขคำว่า \"{SelectedEntry.SourceTerm}\" สำเร็จ";
-            await LoadEntriesAsync();
+            string trimmedSource = SourceTerm.Trim();
+            var duplicate = _allEntries.FirstOrDefault(e => e.Id != SelectedEntry.Id && e.SourceTerm.Equals(trimmedSource, StringComparison.OrdinalIgnoreCase));
+            if (duplicate != null)
+            {
+                duplicate.SourceTerm = trimmedSource;
+                duplicate.TargetTerm = TargetTerm.Trim();
+                duplicate.Category = cat;
+                duplicate.Notes = Notes.Trim();
+                await _repository.UpdateGlossaryEntryAsync(duplicate);
+                await _repository.DeleteGlossaryEntryAsync(SelectedEntry.Id);
+                StatusMessage = $"รวมคำซ้ำและอัปเดต \"{duplicate.SourceTerm}\" สำเร็จ";
+                await LoadEntriesAsync();
+            }
+            else
+            {
+                // แก้ไข
+                SelectedEntry.SourceTerm = trimmedSource;
+                SelectedEntry.TargetTerm = TargetTerm.Trim();
+                SelectedEntry.Category = cat;
+                SelectedEntry.Notes = Notes.Trim();
+                await _repository.UpdateGlossaryEntryAsync(SelectedEntry);
+                StatusMessage = $"แก้ไขคำว่า \"{SelectedEntry.SourceTerm}\" สำเร็จ";
+                await LoadEntriesAsync();
+            }
         }
 
         ClearInputs();

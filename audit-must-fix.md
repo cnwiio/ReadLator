@@ -1,7 +1,7 @@
-# Ponytail Audit — Must Fix (v6.8)
+# Ponytail Audit — Must Fix (v7.1)
 
-> **Scope:** Bugs, data loss, silent state corruption, and broken core workflows verified in the v6.8 codebase.
-> **Target:** Agent-actionable specification. Each item below is numbered in priority order (1–7; continued in `audit-should-fix.md` items 8–13 and `audit-nice-to-have.md` items 14–15).
+> **Scope:** Bugs, data loss, concurrent translation collisions, and Search & Replace mismatches verified in the v7.1 codebase (`77bfdd4`).
+> **Target:** Agent-actionable specification. All 15 findings from the v6.8 audit were verified resolved in `e2f3128` (v6.9), `2e5342c` (v7.0), and `77bfdd4` (v7.1). Each item below is numbered in priority order (1–6; continued in `audit-should-fix.md` items 7–11 and `audit-nice-to-have.md` item 12).
 
 ---
 
@@ -9,136 +9,123 @@
 
 | # | Area | File | Core Issue |
 |---|---|---|---|
-| **1** | Translation Cancel / Error Status | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | Cancelling or failing a translation never saves the updated `Status` to SQLite (leaving it stuck as `Translating` in DB) and marks empty cancelled chapters as `Edited` |
-| **2** | Mid-Translation Chapter Switch | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `StartTranslationInternalAsync` uses the live `SelectedStory` / `SelectedChapter` properties instead of captured local references, overwriting the wrong chapter if the user switches chapters during translation |
-| **3** | Whole-Story Search & Replace | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `OpenSearchReplaceAsync` only reloads `SelectedChapter` after whole-story replace, leaving stale `TranslatedText` and `Status` in `Chapters` in memory |
-| **4** | Edited Translation Preservation on Append | `src/NovelTranslator.Core/Translation/TranslationPipeline.cs` | Appending new source paragraphs to an edited or Search-and-Replaced chapter sets `needsResplit = true`, which drops `preserveExistingTranslation` and overwrites earlier manual edits with raw `ChapterChunks` |
-| **5** | Settings Cancel Saves Unconfirmed Edits | `src/NovelTranslator.App/ViewModels/SettingsViewModel.cs` | Appearance/shortcut handlers, `OnBackendIndexChanged`, and `TestConnectionAsync` immediately mutate `_settings` and write `settings.json`, and `MainWindow` unconditionally calls `ReloadSettings()`, making Cancel/Esc keep changes |
-| **6** | Paragraph Retranslate Context | `src/NovelTranslator.Core/Translation/PromptBuilder.cs` / `TranslationPipeline.cs` | `PromptBuilder.BuildMessages` drops `previousSourceContext` whenever `previousTranslationContext` is `null`, so `RetranslateParagraphAsync` never sends `surroundingSourceContext` to the LLM |
-| **7** | Paragraph Mode Empty Slot Shift | `src/NovelTranslator.App/ViewModels/EditorViewModel.cs` | `CombineTranslatedParagraphs` / `CombineSourceParagraphs` filter out empty paragraphs on every keystroke, shifting translations onto the wrong source paragraphs when an earlier paragraph is untranslated |
+| **1** | Filtered Select-All Chapter Delete | `src/NovelTranslator.App/Views/MainWindow.axaml.cs` / `MainViewModel.cs` | `RequestSelectAllChapters` marks all `ViewModel.Chapters` as `IsSelected = true` instead of only `FilteredChapters`, and `DeleteChapterAsync` deletes hidden chapters outside the active filter |
+| **2** | Concurrent `Ctrl+Enter` Translation | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `StartTranslationInternalAsync`, `RetranslateAllAsync`, and `RetranslateParagraphInPlaceAsync` do not check `if (IsTranslating) return;`, allowing `Ctrl+Enter` to launch a second parallel translation on the same chapter |
+| **3** | Glossary Auto-Select Overwrite & Duplicate Edit | `src/NovelTranslator.App/Views/MainWindow.axaml.cs` / `GlossaryViewModel.cs` | Opening Glossary sets `SelectFirstOnLoad = true` (`SelectedEntry = Entries[0]`), so typing a new term overwrites `Entries[0]`, and editing `SelectedEntry.SourceTerm` does not check for duplicates against other rows |
+| **4** | Whole-Story Search & Replace Thai Preview Mismatch | `src/NovelTranslator.Core/Data/NovelRepository.cs` / `SearchReplaceViewModel.cs` | `SearchFtsAsync` skips `SearchFallbackLikeAsync` whenever FTS5 `unicode61` matches ≥1 space-prefixed token, causing `PreviewMatchesAsync` to hide chapters with mid-sentence Thai matches that `ApplyReplaceAsync` replaces |
+| **5** | Mid-Retranslate Chapter Switch | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `RetranslateParagraphInPlaceAsync` does not verify that `SelectedChapter` is still the same chapter when the LLM call completes, overwriting the newly selected chapter's text |
+| **6** | Stop Button in Glossary Scan & Batch Queue | `src/NovelTranslator.App/ViewModels/MainViewModel.cs` | `ScanNewTermsAsync` never creates `_translationCts` (so Stop does nothing) or sets `HasError = true` on error, and `StartTranslationInternalAsync` swallows cancellation during Auto-Glossary so `TranslateAllChaptersAsync` continues to the next chapter |
 
 ---
 
-## 1. Cancelling or failing a translation leaves `Chapters.Status` stuck as `Translating` in SQLite (and marks empty cancelled chapters as `Edited`)
+## 1. "เลือกทั้งหมด" (Select All) while a chapter filter is active marks hidden chapters as selected and deletes them
 **Location:**
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1054-L1068)
-- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L91-L94)
+- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L656-L666)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1440-L1476)
 
-- **What this is:** Stopping an active translation (`StopTranslationCommand` / `OperationCanceledException`) or handling an LLM/network error (`catch (Exception ex)`).
-- **Problem:** At the start of `TranslationPipeline.TranslateChapterAsync` (`L92-93`), `chapter.Status` is set to `ChapterStatus.Translating` and saved to SQLite (`await _repository.UpdateChapterAsync(chapter)`).
-  1. When an exception occurs (`MainViewModel.cs:L1061-1068`), `chapter.Status` is never restored in memory or SQLite—leaving the chapter permanently in `ChapterStatus.Translating` (`"กำลังแปล"`).
-  2. When the user cancels (`MainViewModel.cs:L1054-1060`), `SelectedChapter.Status` is set to `ChapterStatus.Edited` in memory (even when `TranslatedText` is completely empty, which causes `TranslateAllChaptersAsync` to skip the untranslated chapter!) and `_repository.UpdateChapterAsync` is **never called**, so in SQLite `Status` remains `ChapterStatus.Translating`.
-- **Fix:** Using the captured `chapter` reference (see item #2), in both `catch (OperationCanceledException)` and `catch (Exception ex)` in `StartTranslationInternalAsync`, compute the actual status from `chapter.TranslatedText`, persist it to SQLite, and refresh the UI:
-  ```csharp
-  chapter.Status = string.IsNullOrWhiteSpace(chapter.TranslatedText)
-      ? ChapterStatus.NotTranslated
-      : ChapterStatus.Edited;
-  await _repository.UpdateChapterAsync(chapter);
-  if (ReferenceEquals(SelectedChapter, chapter))
-  {
-      UpdateChapterStatusDisplay(chapter.Status);
-  }
-  UpdateStoryProgress();
-  ```
-- **If we skip it:** Cancelled empty chapters are skipped by "Translate All", and any cancelled or failed chapter reappears stuck as `"กำลังแปล"` in SQLite after restart.
-
----
-
-## 2. Switching chapters or stories while a translation is running overwrites the newly selected chapter's text and status
-**Location:**
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L951-L1079)
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1651-L1671)
-
-- **What this is:** Clicking another chapter in the sidebar or pressing `Alt+Left` / `Alt+Right` while `IsTranslating` is `true`.
-- **Problem:** `StartTranslationInternalAsync` references the live `SelectedStory` and `SelectedChapter` properties throughout the method, inside the `Progress<TranslationProgressInfo>` callback (`L986`: `TranslatedText = info.CombinedTranslatedTextSoFar;`), on completion (`L1020-1035`), and on cancellation (`L1058`). If the user clicks Chapter 2 while Chapter 1 is translating, streaming tokens from Chapter 1 overwrite `TranslatedText` while Chapter 2 is displayed, and completion/cancellation reads or mutates `SelectedChapter` (now Chapter 2) instead of Chapter 1.
-- **Fix:**
-  1. Capture `var story = SelectedStory; var chapter = SelectedChapter;` at the top of `StartTranslationInternalAsync` and pass `(story, chapter)` to `pipeline.TranslateChapterAsync` and `AutoExtractAndSaveGlossaryAsync`.
-  2. Guard UI-only property assignments (`TranslatedText`, `UpdateChapterStatusDisplay`, `Editor.SyncParagraphPairs`) in the `progress` callback, completion/error blocks, and `finally` with `if (ReferenceEquals(SelectedChapter, chapter))`.
-  3. Optionally guard `PreviousChapter()` and `NextChapter()` with `if (IsTranslating) return;` if chapter switching should be blocked while translating.
-- **If we skip it:** Clicking another chapter during translation streams Chapter 1's output into Chapter 2's editor and corrupts Chapter 2's status.
-
----
-
-## 3. Whole-story Search & Replace (`ScopeIndex == 1`) updates SQLite but leaves stale `TranslatedText` and `Status` in `MainViewModel.Chapters` in memory
-**Location:**
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L2221-L2256)
-- [SearchReplaceViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/SearchReplaceViewModel.cs#L107-L137)
-
-- **What this is:** Running Search & Replace (`ค้นหาและแทนที่คำแปล`) with scope set to **"ทั้งเรื่อง"** (`ScopeIndex == 1`).
-- **Problem:** `SearchReplaceViewModel.ApplyReplaceAsync` loads fresh `Chapter` instances via `_repository.GetChaptersByStoryAsync(_story.Id)` and updates them in SQLite. When the dialog closes, `MainViewModel.OpenSearchReplaceAsync` (`L2233-2254`) only reloads `SelectedChapter` via `_repository.GetChapterByIdAsync(SelectedChapter.Id)`. All other `Chapter` instances in `MainViewModel.Chapters` keep their **old un-replaced `TranslatedText` and old `Status`** in memory. Clicking any other chapter loads its stale in-memory text, and `ExportStoryAsync` / `ExportMobileHtmlAsync` / `ExportEpubAsync` export the un-replaced in-memory `Chapters`.
-- **Fix:** In `OpenSearchReplaceAsync`, reload all chapters for `SelectedStory.Id` (`var freshChapters = await _repository.GetChaptersByStoryAsync(SelectedStory.Id);`), sync `TranslatedText`, `Status`, and `UpdatedAt` onto matching items in `Chapters`, refresh `TranslatedText` and `Editor.SyncParagraphPairs` if `SelectedChapter` is present, and call `UpdateChapterStatusDisplay(SelectedChapter.Status)` and `UpdateStoryProgress()`.
-- **If we skip it:** Whole-story Search & Replace changes appear lost whenever the user clicks another chapter or exports the full story.
-
----
-
-## 4. Appending new paragraphs to a chapter whose translation was manually edited or Search-and-Replaced overwrites the edited translation with raw `ChapterChunks`
-**Location:**
-- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L52-L77)
-
-- **What this is:** Manually editing `TranslatedText` (or running Search & Replace) on a translated chapter, then appending new source paragraphs at the end of `OriginalText` and clicking **"แปลตอนนี้"** (`forceRetranslate: false`).
-- **Problem:** When the user edits `TranslatedText` in the editor or via Search & Replace, `Chapters.TranslatedText` is updated in SQLite, while `ChapterChunks.TranslatedText` still holds the unedited raw LLM output per chunk. If the user later appends new paragraphs to the end of `OriginalText` and clicks **"แปลตอนนี้"**, `needsResplit` is `true` (`chunks.Count != splitTexts.Count`). Because `preserveExistingTranslation` (`L67`) requires `!needsResplit`, it becomes `false` even when all previously existing chunks (`0..oldCount-1`) are still intact as an unchanged completed prefix. Line 76 then overwrites `chapter.TranslatedText` from `chunks.Select(c => c.TranslatedText)`, wiping out the user's manual edits in the first part of the chapter.
-- **Fix:** Before calling `SaveChunksAsync` when `needsResplit` is true, check whether existing chunks were all completed and form an exact prefix of `splitTexts`:
-  ```csharp
-  bool isPureAppend = !forceRetranslate
-      && chunks.Count > 0
-      && chunks.Count < splitTexts.Count
-      && chunks.All(c => c.IsCompleted && !string.IsNullOrEmpty(c.TranslatedText))
-      && chunks.Select(c => c.SourceText).SequenceEqual(splitTexts.Take(chunks.Count));
-  ```
-  Allow `preserveExistingTranslation` when `(!needsResplit || isPureAppend)`.
-- **If we skip it:** Polishing a translation and later appending more paragraphs to the end of the chapter reverts the polished translation back to the raw unedited chunk text.
-
----
-
-## 5. Clicking Cancel or pressing `Esc` in Settings still saves and applies unconfirmed changes
-**Location:**
-- [SettingsViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/SettingsViewModel.cs#L173-L294)
-- [SettingsViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/SettingsViewModel.cs#L447-L496)
-- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L101-L110)
-
-- **What this is:** Opening `SettingsWindow`, modifying settings (appearance, shortcuts, backend, or testing connection), and clicking **"ยกเลิก"** (Cancel) or pressing `Esc`.
+- **What this is:** Filtering the sidebar chapter list by search text or status (e.g. `"ยังไม่แปล"`), clicking **"เลือกทั้งหมด"** (`ToggleSelectAllChaptersCommand`), and clicking **"ลบตอนที่เลือก"** (`DeleteChapterCommand`).
 - **Problem:**
-  1. `ResetShortcut`, `ResetAllShortcuts`, `SetShortcut`, and every appearance `partial void On...Changed` handler (`L173-294`) call `SaveSettings()`, immediately writing **every** field on the form (including half-edited prompts, API keys, and temperatures) to `_settings` and `settings.json`.
-  2. `OnBackendIndexChanged` (`L464`) and `TestConnectionAsync` (`L474`) call `ApplyToSettings()`, mutating the live shared `_settings` object even before the user clicks Save.
-  3. `MainWindow.axaml.cs` (`L106-109`) calls `ViewModel.ReloadSettings()`, `ApplyEditorFont`, and `ApplyKeyBindings()` unconditionally after `await win.ShowDialog(this)` returns, even when cancelled.
+  1. `MainWindow.axaml.cs` (`L661`) implements `RequestSelectAllChapters` as:
+     ```csharp
+     ChapterListBox.SelectAll();
+     foreach (var c in ViewModel.Chapters) c.IsSelected = true;
+     ```
+     Even though `ChapterListBox.ItemsSource` is `ViewModel.FilteredChapters`, the loop sets `c.IsSelected = true` on **every chapter in `ViewModel.Chapters`**, including chapters hidden by the active filter.
+  2. `MainViewModel.DeleteChapterAsync` (`L1475`) collects `var checkedChapters = Chapters.Where(c => c.IsSelected).ToList();`, deleting hidden chapters that are not even in `FilteredChapters`.
 - **Fix:**
-  1. Remove `SaveSettings()` / `ApplyToSettings()` calls from property change handlers, shortcut methods, and `OnBackendIndexChanged`.
-  2. In `TestConnectionAsync`, build a temporary `AppSettings` copy from the ViewModel fields and pass that copy to `LlmClient` instead of mutating `_settings`.
-  3. Only call `SaveSettings()` in `SaveAndClose()` (and expose `public bool IsSaved { get; private set; }`). If the window closes without saving, restore `App.ApplyTheme(_settings.ThemeMode)` and skip `ReloadSettings()`.
-- **If we skip it:** Clicking Cancel in Settings silently persists and applies unconfirmed edits to `settings.json` and the live app.
+  1. In `MainWindow.axaml.cs` (`RequestSelectAllChapters`, `L661`), only mark chapters present in `ViewModel.FilteredChapters`:
+     ```csharp
+     var visible = ViewModel.FilteredChapters.ToHashSet();
+     foreach (var c in ViewModel.Chapters) c.IsSelected = visible.Contains(c);
+     ```
+  2. In `MainViewModel.RefreshFilteredChapters()` (`L711`), clear `IsSelected` on chapters not in `FilteredChapters` (`var visible = FilteredChapters.ToHashSet(); foreach (var c in Chapters) if (!visible.Contains(c)) c.IsSelected = false;`).
+  3. In `MainViewModel.DeleteChapterAsync()` (`L1475`), filter against visible chapters: `var checkedChapters = FilteredChapters.Where(c => c.IsSelected).ToList();`.
+- **If we skip it:** Filtering to "Not Translated", clicking "Select All", and clicking "Delete Selected" deletes every translated chapter in the story too.
 
 ---
 
-## 6. `RetranslateParagraphAsync` silently drops `surroundingSourceContext` because `PromptBuilder.BuildMessages` requires `previousTranslationContext` to be non-empty
+## 2. Pressing `Ctrl+Enter` during an active translation starts a second parallel translation on the same chapter
 **Location:**
-- [PromptBuilder.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/PromptBuilder.cs#L155-L164)
-- [TranslationPipeline.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Translation/TranslationPipeline.cs#L290-L309)
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1192-L1201)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L877-L881)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L918-L930)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L950-L977)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1151-L1161)
 
-- **What this is:** Re-translating a single paragraph in Paragraph Mode (**"แปลย่อหน้านี้ใหม่"** via `RetranslateParagraphInPlaceAsync`).
-- **Problem:** In `MainViewModel.RetranslateParagraphInPlaceAsync` (`L1192-1201`), the preceding paragraph's `SourceText` is passed as `surroundingSourceContext` to `pipeline.RetranslateParagraphAsync`, which calls:
-  ```csharp
-  PromptBuilder.BuildMessages(story, selectedSourceParagraph, matchedGlossary, surroundingSourceContext, null, null, _settings.CustomSystemPrompt, null, _settings.PovMode);
-  ```
-  However, `PromptBuilder.BuildMessages` (`L156`) checks:
-  ```csharp
-  if (!string.IsNullOrWhiteSpace(previousSourceContext) && !string.IsNullOrWhiteSpace(previousTranslationContext))
-  ```
-  Because `previousTranslationContext` is `null`, this condition is always `false`, so `surroundingSourceContext` is silently dropped and never sent to the LLM.
+- **What this is:** Pressing the translate shortcut (`Ctrl+Enter`) or triggering `RetranslateAllAsync` / `RetranslateParagraphInPlaceAsync` while `IsTranslating` is already `true`.
+- **Problem:** While the toolbar button binds `IsEnabled="{Binding !IsTranslating}"`, the window `KeyBinding` (`MainWindow.axaml.cs:L782`) invokes `StartTranslationCommand` directly, and neither `StartTranslationAsync`, `RetranslateAllAsync`, `StartTranslationInternalAsync`, nor `RetranslateParagraphInPlaceAsync` checks `if (IsTranslating) return;`. Pressing `Ctrl+Enter` mid-translation overwrites `_translationCts = new CancellationTokenSource();` without cancelling the running task and launches a second concurrent `TranslateChapterAsync` pipeline writing to the same chapter and SQLite chunks. In addition, `_autoSaveTimer` is not stopped when translation starts, so a pending auto-save tick can fire 1.5s later during streaming.
 - **Fix:**
-  1. In `PromptBuilder.BuildMessages` (`L156-164`), emit the `### บริบทย่อหน้าก่อนหน้า` block whenever `!string.IsNullOrWhiteSpace(previousSourceContext)` is true, and append `[คำแปลก่อนหน้า]` inside it when `!string.IsNullOrWhiteSpace(previousTranslationContext)` is also true.
-  2. Pass the preceding paragraph's `TranslatedText` (`Editor.ParagraphPairs[pair.Index - 2].TranslatedText`) into `RetranslateParagraphAsync` (via an optional parameter) so both source and translated context are available.
-  3. Add a unit test in `PromptBuilderTests.cs` / `TranslationPipelineTests.cs` verifying that `RetranslateParagraphAsync` includes `surroundingSourceContext` in the built prompt.
-- **If we skip it:** Single-paragraph retranslation receives zero context from the preceding paragraph despite `MainViewModel` passing `surroundingContext`.
+  1. Add `if (IsTranslating) return;` at the top of `StartTranslationInternalAsync` (`L952`), `RetranslateAllAsync` (`L920`), and `RetranslateParagraphInPlaceAsync` (`L1153`).
+  2. Call `_autoSaveTimer.Stop();` at the start of `StartTranslationInternalAsync` before mutating `chapter.OriginalText` / `chapter.TranslatedText`.
+- **If we skip it:** Pressing `Ctrl+Enter` while a translation is running starts a second AI stream that collides with the first in the editor and database.
 
 ---
 
-## 7. Editing in Paragraph Mode shifts translations onto the wrong paragraphs when any earlier paragraph is empty
+## 3. Opening the Glossary window pre-selects the first row, so typing a new term overwrites the newest existing entry
 **Location:**
-- [EditorViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/EditorViewModel.cs#L107-L115)
-- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L374-L378)
+- [MainWindow.axaml.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/Views/MainWindow.axaml.cs#L119-L129)
+- [GlossaryViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/GlossaryViewModel.cs#L55-L66)
+- [GlossaryViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/GlossaryViewModel.cs#L99-L153)
 
-- **What this is:** Typing or retranslating paragraphs in Paragraph Mode (`จับคู่รายย่อหน้า`), where each source paragraph is paired by index with its translated paragraph.
-- **Problem:** Every keystroke inside a paragraph triggers `OnParagraphContentChanged`, which sets `TranslatedText = Editor.CombineTranslatedParagraphs()`. `CombineTranslatedParagraphs()` (`L109`) calls `.Where(t => !string.IsNullOrEmpty(t))`, stripping all empty slots—including empty slots in the middle. If Paragraph 2 is empty (untranslated) and the user edits Paragraph 3, joining drops slot 2 so Paragraph 3's translation shifts up to slot 2 on the next `SyncParagraphPairs`.
-- **Fix:** Preserve intermediate paragraph slots when combining (trim only trailing empty paragraphs, or keep empty slots up to the last non-empty translated index so `SplitParagraphs` / pairing stays aligned; only strip completely empty slots if the chapter has no trailing non-empty paragraphs). Add a unit test in `ParagraphAndEditorTests.cs`.
-- **If we skip it:** Editing any partially translated chapter in Paragraph Mode shifts subsequent translations onto the wrong source paragraphs.
+- **What this is:** Opening **พจนานุกรมคำศัพท์ (Glossary)** from the menu or notification banner and clicking **"บันทึกคำศัพท์"** (`SaveEntryAsync`).
+- **Problem:**
+  1. `MainWindow.axaml.cs` (`L121`) creates `new GlossaryViewModel(ViewModel.Repository, story) { SelectFirstOnLoad = true }`, which automatically sets `SelectedEntry = Entries[0]` on open and populates the bottom form with the newest entry. Because the save button always says **"บันทึกคำศัพท์"**, a user who opens Glossary, types a new term into the form without clicking **"ล้างฟอร์ม"** first, and clicks **"บันทึกคำศัพท์"** overwrites `Entries[0]` instead of inserting a new term.
+  2. When editing an existing entry (`SelectedEntry != null`, `GlossaryViewModel.cs:L140-150`), if the user changes `SourceTerm` to match another existing entry in `_allEntries` (`e.Id != SelectedEntry.Id`), `SaveEntryAsync` updates the row in SQLite without checking for duplicates, creating two rows with the same `SourceTerm`.
+- **Fix:**
+  1. Remove `SelectFirstOnLoad = true` in `MainWindow.axaml.cs` (`L121`) (and remove the unused `SelectFirstOnLoad` property from `GlossaryViewModel`) so the bottom form opens empty and ready to add a new term unless the user clicks a row in the table.
+  2. In `GlossaryViewModel.SaveEntryAsync` (`else` branch, `L140-150`), check if another entry (`e.Id != SelectedEntry.Id && e.SourceTerm.Equals(trimmedSource, StringComparison.OrdinalIgnoreCase)`) already exists: if so, update that entry (or merge and delete the duplicate row) instead of creating duplicate `SourceTerm` rows.
+- **If we skip it:** Users opening the Glossary to add a word overwrite their most recent glossary entry, or create duplicate terms when renaming an entry.
+
+---
+
+## 4. Whole-story Search & Replace preview misses Thai words inside sentences whenever FTS5 matches at least one space-prefixed token
+**Location:**
+- [NovelRepository.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.Core/Data/NovelRepository.cs#L303-L340)
+- [SearchReplaceViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/SearchReplaceViewModel.cs#L52-L114)
+
+- **What this is:** Clicking **"ดูตัวอย่างจุดที่พบ"** (`PreviewMatchesAsync`) with scope set to **"ทั้งเรื่อง"** (`ScopeIndex == 1`).
+- **Problem:**
+  1. `NovelRepository.SearchFtsAsync` queries `Chapters_Fts` (`tokenize = 'unicode61'`, which only splits tokens on whitespace/punctuation) and only falls back to `SearchFallbackLikeAsync` (`LIKE '%query%'`) when `list.Count == 0` (`NovelRepository.cs:L331`). Because Thai text does not use spaces between words, if a search term like `"กระบี่"` appears after a space in Chapter 1 (`"กระบี่ เล่มนี้"`) and mid-sentence in Chapter 2 (`"สำนักกระบี่"`), FTS5 returns only Chapter 1 (`list.Count == 1`), skipping the `LIKE` fallback and omitting Chapter 2 from the preview—even though clicking **"แทนที่ทั้งหมด"** (`ApplyReplaceAsync`, which uses `GetChaptersByStoryAsync`) replaces both Chapter 1 and Chapter 2.
+  2. In both `PreviewMatchesAsync` (`L63`) and `ApplyReplaceAsync` (`L111`), `if (ScopeIndex == 0 && _currentChapter != null)` falls through to the whole-story branch if `_currentChapter` is `null` while `ScopeIndex == 0` ("เฉพาะตอนนี้").
+- **Fix:**
+  1. In `SearchReplaceViewModel.PreviewMatchesAsync` and `ApplyReplaceAsync`, if `ScopeIndex == 0`, return early when `_currentChapter == null` instead of falling through to all chapters; when `ScopeIndex == 1`, use `await _repository.GetChaptersByStoryAsync(_story.Id)` in `PreviewMatchesAsync` just like `ApplyReplaceAsync` does (1 SQLite query instead of 1 FTS query + N `GetChapterByIdAsync` queries, and 100% consistent substring matching).
+  2. In `NovelRepository.SearchFtsAsync` (`L330-335`), when `list.Count < limit`, also query `SearchFallbackLikeAsync` and append any non-duplicate `ChapterId` matches up to `limit` so mid-sentence Thai matches are never dropped when another chapter happens to match a token prefix.
+- **If we skip it:** Whole-story Search & Replace preview hides chapters where a Thai word sits inside a sentence without a space before it, disagreeing with what "Replace All" actually modifies.
+
+---
+
+## 5. Switching chapters while a single paragraph is retranslating corrupts the newly selected chapter's text
+**Location:**
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1151-L1205)
+
+- **What this is:** Right-clicking a paragraph in Paragraph Mode and clicking **"แปลย่อหน้านี้ใหม่"** (`RetranslateParagraphInPlaceAsync`), then selecting another chapter before the AI finishes.
+- **Problem:** `RetranslateParagraphInPlaceAsync` does not capture `var story = SelectedStory; var chapter = SelectedChapter;` or verify that `SelectedChapter` is still `chapter` after `await Task.Run(...)` completes (`L1183-1189`). If the user switched to Chapter 2 while Paragraph 1 of Chapter 1 was retranslating, setting `pair.TranslatedText = newTranslation.Trim()` and `TranslatedText = Editor.CombineTranslatedParagraphs()` overwrites `TranslatedText` and calls `MarkUnsavedChanges()` while Chapter 2 is active.
+- **Fix:** Capture `var story = SelectedStory; var chapter = SelectedChapter;` at the top of `RetranslateParagraphInPlaceAsync`, pass `story` to `pipeline.RetranslateParagraphAsync`, and when it returns:
+  ```csharp
+  if (!string.IsNullOrWhiteSpace(newTranslation) &&
+      ReferenceEquals(SelectedChapter, chapter) &&
+      Editor.ParagraphPairs.Contains(pair))
+  {
+      pair.TranslatedText = newTranslation.Trim();
+      TranslatedText = Editor.CombineTranslatedParagraphs();
+      ProgressText = $"แปลใหม่ย่อหน้าที่ {pair.Index} สำเร็จแล้ว";
+      MarkUnsavedChanges();
+  }
+  ```
+- **If we skip it:** Switching chapters during a single-paragraph retranslation overwrites the newly selected chapter's translation.
+
+---
+
+## 6. Clicking "หยุด" (Stop) does nothing during manual AI Glossary scans and fails to stop "Translate All" during the Auto-Glossary step
+**Location:**
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L883-L915)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L1033-L1053)
+- [MainViewModel.cs](file:///d:/Work/Other/ReadLator/src/NovelTranslator.App/ViewModels/MainViewModel.cs#L2131-L2179)
+
+- **What this is:** Clicking the **"หยุด"** button during **"สแกนหาศัพท์ใหม่ในตอนนี้ (AI)"** (`ScanNewTermsAsync`) or during the Auto-Glossary phase of **"แปลทุกตอนที่เหลือ"** (`TranslateAllChaptersAsync`).
+- **Problem:**
+  1. `ScanNewTermsAsync` (`L2149`) sets `IsTranslating = true` (which displays the **"หยุด"** button) but never creates `_translationCts` or passes a `CancellationToken` to `AutoExtractAndSaveGlossaryAsync`. Clicking **"หยุด"** does nothing. Furthermore, in `catch (Exception ex)` (`L2168`), it sets `LastErrorDetails` without setting `HasError = true` (and never clears `HasError = false` on start), so the **"คัดลอกข้อผิดพลาด"** and **"ดูรายละเอียด"** buttons remain hidden.
+  2. In `StartTranslationInternalAsync` (`L1045`), `OperationCanceledException` during `AutoExtractAndSaveGlossaryAsync` is caught and swallowed after `chapter.Status` is already set to `ChapterStatus.Translated`. Consequently, `TranslateAllChaptersAsync` (`L909`: `if (HasError || SelectedChapter.Status != ChapterStatus.Translated)`) does not detect that the user clicked Stop and immediately starts translating the next chapter in the queue.
+- **Fix:**
+  1. In `ScanNewTermsAsync`, initialize `_translationCts = new CancellationTokenSource()`, set `HasError = false`, pass `_translationCts.Token` to `AutoExtractAndSaveGlossaryAsync`, handle `OperationCanceledException` (`ProgressText = "ยกเลิกการสแกนคำศัพท์แล้ว";`), set `HasError = true` in `catch (Exception ex)`, and dispose/clear `_translationCts` in `finally`.
+  2. In `TranslateAllChaptersAsync` (`L909`), check `if (HasError || _translationCts?.IsCancellationRequested == true || pending[i].Status != ChapterStatus.Translated) break;`.
+- **If we skip it:** Users cannot cancel a slow AI glossary scan, cannot view its error details, and clicking Stop during the glossary-scan phase of "Translate All" fails to stop the batch.

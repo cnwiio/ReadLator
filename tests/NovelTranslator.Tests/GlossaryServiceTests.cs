@@ -147,4 +147,38 @@ public class GlossaryServiceTests
             if (File.Exists(csvPath)) File.Delete(csvPath);
         }
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task GlossaryViewModel_EditEntry_MergesWhenRenamedToExistingSourceTerm()
+    {
+        string dbPath = Path.Combine(Path.GetTempPath(), $"test_gl_dup_{Path.GetRandomFileName()}.db");
+        try
+        {
+            var db = new NovelTranslator.Core.Data.NovelDatabase(dbPath);
+            db.Initialize();
+            var repo = new NovelTranslator.Core.Data.NovelRepository(db);
+            var story = new Story { Title = "Dup Story" };
+            story.Id = await repo.InsertStoryAsync(story);
+
+            await repo.InsertGlossaryEntryAsync(new GlossaryEntry { StoryId = story.Id, SourceTerm = "Arthur", TargetTerm = "อาเธอร์เดิม", Category = GlossaryCategory.Person });
+            await repo.InsertGlossaryEntryAsync(new GlossaryEntry { StoryId = story.Id, SourceTerm = "Artoria", TargetTerm = "อาเธอเรีย", Category = GlossaryCategory.Person });
+
+            var vm = new NovelTranslator.App.ViewModels.GlossaryViewModel(repo, story);
+            await vm.LoadEntriesAsync();
+
+            vm.SelectedEntry = System.Linq.Enumerable.First(vm.Entries, e => e.SourceTerm == "Artoria");
+            vm.SourceTerm = "Arthur";
+            vm.TargetTerm = "อาเธอร์ที่แก้แล้ว";
+            await vm.SaveEntryCommand.ExecuteAsync(null);
+
+            var all = await repo.GetGlossaryByStoryAsync(story.Id);
+            Assert.Single(all);
+            Assert.Equal("อาเธอร์ที่แก้แล้ว", all[0].TargetTerm);
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            if (File.Exists(dbPath)) File.Delete(dbPath);
+        }
+    }
 }

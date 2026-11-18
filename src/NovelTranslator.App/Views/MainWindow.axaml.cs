@@ -118,7 +118,7 @@ public partial class MainWindow : Window
 
         ViewModel.RequestOpenGlossary = async (story) =>
         {
-            var vm = new GlossaryViewModel(ViewModel.Repository, story) { SelectFirstOnLoad = true };
+            var vm = new GlossaryViewModel(ViewModel.Repository, story);
             var win = new GlossaryWindow(vm);
             await win.ShowDialog(this);
             await ViewModel.Editor.RefreshActiveGlossaryAsync(story.Id, ViewModel.OriginalText);
@@ -658,7 +658,8 @@ public partial class MainWindow : Window
             try
             {
                 ChapterListBox.SelectAll();
-                foreach (var c in ViewModel.Chapters) c.IsSelected = true;
+                var visible = ViewModel.FilteredChapters.ToHashSet();
+                foreach (var c in ViewModel.Chapters) c.IsSelected = visible.Contains(c);
             }
             finally
             {

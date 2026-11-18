@@ -712,6 +712,11 @@ public partial class MainViewModel : ObservableObject
     {
         var current = SelectedChapter;
         StoryList.RefreshFiltered(current);
+        var visible = FilteredChapters.ToHashSet();
+        foreach (var c in Chapters)
+        {
+            if (!visible.Contains(c)) c.IsSelected = false;
+        }
         OnPropertyChanged(nameof(StoryProgressText));
         OnPropertyChanged(nameof(StoryProgressPercentage));
 
@@ -906,7 +911,7 @@ public partial class MainViewModel : ObservableObject
             await StartTranslationInternalAsync(forceRetranslate: false);
 
             // หากถูกกดหยุดหรือเกิด Error ให้หยุดคิวทันที
-            if (HasError || SelectedChapter.Status != ChapterStatus.Translated)
+            if (HasError || _translationCts?.IsCancellationRequested == true || pending[i].Status != ChapterStatus.Translated)
             {
                 break;
             }
@@ -917,7 +922,7 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task RetranslateAllAsync()
     {
-        if (SelectedChapter == null || string.IsNullOrWhiteSpace(OriginalText)) return;
+        if (IsTranslating || SelectedChapter == null || string.IsNullOrWhiteSpace(OriginalText)) return;
 
         if (RequestConfirmDialog != null)
         {
@@ -949,9 +954,10 @@ public partial class MainViewModel : ObservableObject
 
     private async Task StartTranslationInternalAsync(bool forceRetranslate)
     {
-        if (SelectedStory == null || SelectedChapter == null) return;
+        if (IsTranslating || SelectedStory == null || SelectedChapter == null) return;
         if (string.IsNullOrWhiteSpace(OriginalText)) return;
 
+        _autoSaveTimer.Stop();
         var story = SelectedStory;
         var chapter = SelectedChapter;
 
@@ -1150,7 +1156,10 @@ public partial class MainViewModel : ObservableObject
 
     public async Task RetranslateParagraphInPlaceAsync(ParagraphPairViewModel pair)
     {
-        if (SelectedStory == null || SelectedChapter == null || string.IsNullOrWhiteSpace(pair.SourceText)) return;
+        if (IsTranslating || SelectedStory == null || SelectedChapter == null || string.IsNullOrWhiteSpace(pair.SourceText)) return;
+
+        var story = SelectedStory;
+        var chapter = SelectedChapter;
 
         _translationCts?.Cancel();
         _translationCts?.Dispose();
@@ -1173,14 +1182,16 @@ public partial class MainViewModel : ObservableObject
             string newTranslation = await Task.Run(async () =>
             {
                 return await pipeline.RetranslateParagraphAsync(
-                    SelectedStory,
+                    story,
                     pair.SourceText,
                     surroundingContext,
                     ct,
                     surroundingTranslationContext);
             }, ct);
 
-            if (!string.IsNullOrWhiteSpace(newTranslation))
+            if (!string.IsNullOrWhiteSpace(newTranslation) &&
+                ReferenceEquals(SelectedChapter, chapter) &&
+                Editor.ParagraphPairs.Contains(pair))
             {
                 pair.TranslatedText = newTranslation.Trim();
                 TranslatedText = Editor.CombineTranslatedParagraphs();
@@ -1472,7 +1483,7 @@ public partial class MainViewModel : ObservableObject
     {
         if (RequestConfirmDialog == null) return;
 
-        var checkedChapters = Chapters.Where(c => c.IsSelected).ToList();
+        var checkedChapters = FilteredChapters.Where(c => c.IsSelected).ToList();
         if (checkedChapters.Count > 1)
         {
             bool ok = await RequestConfirmDialog($"คุณแน่ใจหรือไม่ว่าต้องการลบตอนที่เลือกทั้งหมด {checkedChapters.Count} ตอน?");
@@ -2146,14 +2157,20 @@ public partial class MainViewModel : ObservableObject
         SelectedChapter.OriginalText = OriginalText;
         SelectedChapter.TranslatedText = TranslatedText;
 
+        _translationCts?.Cancel();
+        _translationCts?.Dispose();
+        _translationCts = new CancellationTokenSource();
+        var ct = _translationCts.Token;
+
         IsTranslating = true;
         IsTranslatingIndeterminate = true;
+        HasError = false;
         LastErrorDetails = string.Empty;
         ProgressText = "กำลังสแกนและบันทึกชื่อเฉพาะใหม่ด้วย AI...";
 
         try
         {
-            var added = await AutoExtractAndSaveGlossaryAsync(SelectedStory, SelectedChapter);
+            var added = await AutoExtractAndSaveGlossaryAsync(SelectedStory, SelectedChapter, ct);
             if (added.Count == 0)
             {
                 ProgressText = "ไม่พบชื่อเฉพาะใหม่ในตอนนี้";
@@ -2165,8 +2182,13 @@ public partial class MainViewModel : ObservableObject
                 SaveStatusText = $"เพิ่ม {added.Count} คำเข้า Glossary แล้ว";
             }
         }
+        catch (OperationCanceledException)
+        {
+            ProgressText = "ยกเลิกการสแกนคำศัพท์แล้ว";
+        }
         catch (Exception ex)
         {
+            HasError = true;
             LastErrorDetails = ex.ToString();
             string firstLine = ex.Message.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? ex.Message;
             ProgressText = $"สแกนศัพท์ไม่สำเร็จ · {firstLine}";
@@ -2175,6 +2197,8 @@ public partial class MainViewModel : ObservableObject
         {
             IsTranslating = false;
             IsTranslatingIndeterminate = false;
+            _translationCts?.Dispose();
+            _translationCts = null;
         }
     }
 

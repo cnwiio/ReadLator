@@ -328,10 +328,22 @@ public class NovelRepository
             });
 
             var list = results.ToList();
-            if (list.Count > 0) return list;
+            if (list.Count >= limit) return list;
 
-            // ถ้า FTS5 standard unicode tokenizer ค้นหาข้อความแบบไม่มีช่องว่าง (เช่น ภาษาไทย) ไม่เจอ ให้ fallback ไป LIKE อัตโนมัติ
-            return await SearchFallbackLikeAsync(conn, storyId, cleanQuery, columnTarget, limit);
+            // เสริมด้วย LIKE เสมอเมื่อยังไม่เต็ม limit เพื่อให้คำภาษาไทยกลางประโยค (ไม่มีช่องว่างคั่น) ไม่ตกหล่น
+            var fallback = await SearchFallbackLikeAsync(conn, storyId, cleanQuery, columnTarget, limit);
+            if (list.Count == 0) return fallback;
+
+            var seenIds = list.Select(r => r.ChapterId).ToHashSet();
+            foreach (var item in fallback)
+            {
+                if (seenIds.Add(item.ChapterId))
+                {
+                    list.Add(item);
+                    if (list.Count >= limit) break;
+                }
+            }
+            return list;
         }
         catch
         {

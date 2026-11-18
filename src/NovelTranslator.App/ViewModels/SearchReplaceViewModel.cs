@@ -60,20 +60,18 @@ public partial class SearchReplaceViewModel : ObservableObject
         }
 
         List<Chapter> chapters;
-        if (ScopeIndex == 0 && _currentChapter != null)
+        if (ScopeIndex == 0)
         {
+            if (_currentChapter == null)
+            {
+                StatusMessage = "ไม่พบตอนที่กำลังเปิดอยู่";
+                return;
+            }
             chapters = new List<Chapter> { _currentChapter };
         }
         else
         {
-            // ใช้ FTS5 กรองเฉพาะตอนที่มีคำค้นหาก่อน เพื่อไม่ต้องโหลดทั้งเรื่องเข้า RAM
-            var ftsResults = await _repository.SearchFtsAsync(_story.Id, SearchText, searchTranslated: true, limit: 10000);
-            chapters = new List<Chapter>(ftsResults.Count);
-            foreach (var r in ftsResults)
-            {
-                var chap = await _repository.GetChapterByIdAsync(r.ChapterId);
-                if (chap != null) chapters.Add(chap);
-            }
+            chapters = await _repository.GetChaptersByStoryAsync(_story.Id);
         }
 
         int count = 0;
@@ -108,9 +106,20 @@ public partial class SearchReplaceViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(SearchText)) return;
 
-        var chapters = ScopeIndex == 0 && _currentChapter != null
-            ? new List<Chapter> { _currentChapter }
-            : await _repository.GetChaptersByStoryAsync(_story.Id);
+        List<Chapter> chapters;
+        if (ScopeIndex == 0)
+        {
+            if (_currentChapter == null)
+            {
+                StatusMessage = "ไม่พบตอนที่กำลังเปิดอยู่";
+                return;
+            }
+            chapters = new List<Chapter> { _currentChapter };
+        }
+        else
+        {
+            chapters = await _repository.GetChaptersByStoryAsync(_story.Id);
+        }
 
         int replacedCount = 0;
         foreach (var chap in chapters)
