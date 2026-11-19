@@ -175,7 +175,18 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    public ObservableCollection<string> AvailableEditorFonts { get; } = new(AppSettings.DefaultEditorFonts);
+    public ObservableCollection<string> AvailableEditorFonts { get; } = new(AppSettings.GetAllEditorFonts());
+
+    public void RefreshAvailableFonts(string? fontsDirectory = null)
+    {
+        var updated = AppSettings.GetAllEditorFonts(fontsDirectory);
+        string current = string.IsNullOrWhiteSpace(EditorFontFamily) ? "Tahoma" : EditorFontFamily;
+        if (!updated.Contains(current, StringComparer.OrdinalIgnoreCase))
+        {
+            EditorFontFamily = "Tahoma";
+        }
+        CustomFontService.SyncFontList(AvailableEditorFonts, updated);
+    }
 
     [ObservableProperty]
     private string _editorFontFamily = "Tahoma";
@@ -358,7 +369,8 @@ public partial class MainViewModel : ObservableObject
     {
         _settings = settings;
         _editorFontSize = Math.Clamp(_settings.EditorFontSize > 0 ? _settings.EditorFontSize : 20, 12, 32);
-        if (!string.IsNullOrWhiteSpace(_settings.EditorFontFamily))
+        if (!string.IsNullOrWhiteSpace(_settings.EditorFontFamily) &&
+            AvailableEditorFonts.Contains(_settings.EditorFontFamily, StringComparer.OrdinalIgnoreCase))
         {
             _editorFontFamily = _settings.EditorFontFamily;
         }
@@ -465,9 +477,15 @@ public partial class MainViewModel : ObservableObject
             BrightnessLevel = fresh.BrightnessLevel;
         }
 
-        if (!string.IsNullOrWhiteSpace(fresh.EditorFontFamily))
+        RefreshAvailableFonts();
+        if (!string.IsNullOrWhiteSpace(fresh.EditorFontFamily) &&
+            AvailableEditorFonts.Contains(fresh.EditorFontFamily, StringComparer.OrdinalIgnoreCase))
         {
             EditorFontFamily = fresh.EditorFontFamily;
+        }
+        else if (!AvailableEditorFonts.Contains(EditorFontFamily, StringComparer.OrdinalIgnoreCase))
+        {
+            EditorFontFamily = "Tahoma";
         }
         if (fresh.EditorFontSize > 0)
         {

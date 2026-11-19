@@ -1,5 +1,7 @@
 using System;
+using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Text.Json;
 
 namespace NovelTranslator.Core.Settings;
@@ -53,9 +55,78 @@ public class AppSettings
         "Arial"
     };
 
+    public static IReadOnlyList<string> GetAllEditorFonts(string? fontsDirectory = null)
+    {
+        var list = new List<string>(DefaultEditorFonts);
+        var seen = new HashSet<string>(DefaultEditorFonts, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var custom in CustomFontService.GetCustomFonts(fontsDirectory))
+        {
+            if (seen.Add(custom.FamilyName))
+            {
+                list.Add(custom.FamilyName);
+            }
+        }
+
+        return list;
+    }
+
     public BackendType Backend { get; set; } = BackendType.Ollama;
     public string BaseUrl { get; set; } = "http://localhost:11434/v1";
     public string ApiKey { get; set; } = string.Empty;
+
+    public static string SanitizeApiKey(
+        string? raw,
+        out bool removedWhitespaceOrInvisible,
+        out bool hasUnsupportedCharacters)
+    {
+        removedWhitespaceOrInvisible = false;
+        hasUnsupportedCharacters = false;
+        if (string.IsNullOrEmpty(raw))
+        {
+            return string.Empty;
+        }
+
+        string input = raw;
+        string trimmedStart = input.TrimStart();
+        if (trimmedStart.Length < input.Length)
+        {
+            removedWhitespaceOrInvisible = true;
+        }
+        if (trimmedStart.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+        {
+            input = trimmedStart.Substring("Bearer ".Length);
+            removedWhitespaceOrInvisible = true;
+        }
+
+        var sb = new StringBuilder(input.Length);
+        foreach (var rune in input.EnumerateRunes())
+        {
+            var category = Rune.GetUnicodeCategory(rune);
+            if (Rune.IsWhiteSpace(rune) ||
+                category is UnicodeCategory.Format
+                    or UnicodeCategory.Control
+                    or UnicodeCategory.LineSeparator
+                    or UnicodeCategory.ParagraphSeparator
+                    or UnicodeCategory.SpaceSeparator)
+            {
+                removedWhitespaceOrInvisible = true;
+                continue;
+            }
+
+            if (rune.Value is >= 0x21 and <= 0x7E)
+            {
+                sb.Append((char)rune.Value);
+            }
+            else
+            {
+                hasUnsupportedCharacters = true;
+                sb.Append(rune.ToString());
+            }
+        }
+
+        return sb.ToString();
+    }
     public string ModelName { get; set; } = string.Empty;
     public float Temperature { get; set; } = 0.3f;
     public int MaxChunkWords { get; set; } = 600;
@@ -122,6 +193,7 @@ public class AppSettings
                         var settings = JsonSerializer.Deserialize<AppSettings>(json);
                         if (settings != null)
                         {
+                            settings.ApiKey = SanitizeApiKey(settings.ApiKey, out _, out _);
                             return settings;
                         }
                     }

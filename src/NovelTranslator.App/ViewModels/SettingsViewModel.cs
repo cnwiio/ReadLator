@@ -1,8 +1,10 @@
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -16,7 +18,9 @@ namespace NovelTranslator.App.ViewModels;
 public partial class SettingsViewModel : ObservableObject
 {
     private readonly AppSettings _settings;
+    private readonly string? _customFontsDirectory;
     private bool _isInitializing;
+    private bool _isSanitizingApiKey;
 
     [ObservableProperty]
     private int _backendIndex; // 0: Ollama, 1: LM Studio, 2: Custom
@@ -26,6 +30,56 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty]
     private string _apiKey = string.Empty;
+
+    [ObservableProperty]
+    private string _apiKeyErrorMessage = string.Empty;
+
+    [ObservableProperty]
+    private string _apiKeyInfoMessage = string.Empty;
+
+    public bool HasApiKeyError => !string.IsNullOrWhiteSpace(ApiKeyErrorMessage);
+    public bool HasApiKeyInfo => !string.IsNullOrWhiteSpace(ApiKeyInfoMessage);
+
+    partial void OnApiKeyErrorMessageChanged(string value) => OnPropertyChanged(nameof(HasApiKeyError));
+    partial void OnApiKeyInfoMessageChanged(string value) => OnPropertyChanged(nameof(HasApiKeyInfo));
+
+    partial void OnApiKeyChanged(string value)
+    {
+        if (_isSanitizingApiKey) return;
+
+        string sanitized = AppSettings.SanitizeApiKey(value, out bool removedInvisible, out bool hasUnsupported);
+        if (!string.Equals(sanitized, value, StringComparison.Ordinal))
+        {
+            _isSanitizingApiKey = true;
+            ApiKey = sanitized;
+            _isSanitizingApiKey = false;
+        }
+
+        if (_isInitializing)
+        {
+            ApiKeyErrorMessage = hasUnsupported
+                ? "API Key มีอักขระที่ไม่รองรับ (ต้องเป็นตัวอักษรภาษาอังกฤษ/ASCII เท่านั้น) กรุณาตรวจสอบอีกครั้ง"
+                : string.Empty;
+            ApiKeyInfoMessage = string.Empty;
+            return;
+        }
+
+        if (hasUnsupported)
+        {
+            ApiKeyErrorMessage = "API Key มีอักขระที่ไม่รองรับ (เช่น ภาษาไทยหรืออักขระพิเศษนอก ASCII) กรุณาตรวจสอบก่อนใช้งาน";
+            ApiKeyInfoMessage = string.Empty;
+        }
+        else if (removedInvisible)
+        {
+            ApiKeyErrorMessage = string.Empty;
+            ApiKeyInfoMessage = "ระบบตัดช่องว่างและอักขระซ่อนเร้นออกจาก API Key อัตโนมัติแล้ว";
+        }
+        else
+        {
+            ApiKeyErrorMessage = string.Empty;
+            ApiKeyInfoMessage = string.Empty;
+        }
+    }
 
     [ObservableProperty]
     private string _modelName = string.Empty;
@@ -273,6 +327,12 @@ public partial class SettingsViewModel : ObservableObject
     }
 
     public ObservableCollection<string> AvailableEditorFonts { get; } = new(AppSettings.DefaultEditorFonts);
+    public ObservableCollection<CustomFontInfo> UploadedCustomFonts { get; } = new();
+    public bool HasUploadedCustomFonts => UploadedCustomFonts.Count > 0;
+
+    [ObservableProperty] private string _fontStatusMessage = string.Empty;
+    public bool HasFontStatusMessage => !string.IsNullOrWhiteSpace(FontStatusMessage);
+    partial void OnFontStatusMessageChanged(string value) => OnPropertyChanged(nameof(HasFontStatusMessage));
 
     [ObservableProperty]
     private bool _isApiKeyVisible;
@@ -292,10 +352,14 @@ public partial class SettingsViewModel : ObservableObject
     public Action? RequestClose { get; set; }
     public bool IsSaved { get; private set; }
 
-    public SettingsViewModel(AppSettings settings)
+    public SettingsViewModel(AppSettings settings) : this(settings, null) { }
+
+    internal SettingsViewModel(AppSettings settings, string? customFontsDirectory)
     {
         _isInitializing = true;
         _settings = settings;
+        _customFontsDirectory = customFontsDirectory;
+        RefreshCustomFonts();
 
         // โหลดค่า Shortkeys ก่อนเสมอ
         TranslateKey = settings.Shortkeys.TranslateKey;
@@ -317,7 +381,8 @@ public partial class SettingsViewModel : ObservableObject
             _ => 0
         };
         BrightnessLevel = settings.BrightnessLevel is >= 30.0 and <= 100.0 ? settings.BrightnessLevel : 100.0;
-        EditorFontFamily = string.IsNullOrWhiteSpace(settings.EditorFontFamily) ? "Tahoma" : settings.EditorFontFamily;
+        string requestedFont = string.IsNullOrWhiteSpace(settings.EditorFontFamily) ? "Tahoma" : settings.EditorFontFamily;
+        EditorFontFamily = AvailableEditorFonts.Contains(requestedFont, StringComparer.OrdinalIgnoreCase) ? requestedFont : "Tahoma";
         EditorFontSize = settings.EditorFontSize > 0 ? settings.EditorFontSize : 20;
         AutoSaveDelaySeconds = settings.AutoSaveDelaySeconds > 0 ? settings.AutoSaveDelaySeconds : 1.5;
         MmbScrollSensitivity = settings.MmbScrollSensitivity is >= 0.2 and <= 5.0 ? settings.MmbScrollSensitivity : 1.0;
@@ -350,6 +415,7 @@ public partial class SettingsViewModel : ObservableObject
         EnableAutoGlossaryScan = settings.EnableAutoGlossaryScan;
         EnablePolishMode = settings.EnablePolishMode;
         PolishModelName = settings.PolishModelName ?? string.Empty;
+        CommitTypedModelNames();
 
         _isInitializing = false;
         _ = RefreshModelsSilentAsync();
@@ -397,6 +463,79 @@ public partial class SettingsViewModel : ObservableObject
 
     [RelayCommand]
     public void ToggleApiKeyVisibility() => IsApiKeyVisible = !IsApiKeyVisible;
+
+    public void RefreshCustomFonts(string? preferSelectFamily = null)
+    {
+        var customFonts = CustomFontService.GetCustomFonts(_customFontsDirectory);
+        UploadedCustomFonts.Clear();
+        foreach (var font in customFonts)
+        {
+            UploadedCustomFonts.Add(font);
+        }
+        OnPropertyChanged(nameof(HasUploadedCustomFonts));
+
+        var updated = AppSettings.GetAllEditorFonts(_customFontsDirectory);
+        if (!string.IsNullOrWhiteSpace(preferSelectFamily) &&
+            updated.Contains(preferSelectFamily, StringComparer.OrdinalIgnoreCase))
+        {
+            string matched = updated.First(f => string.Equals(f, preferSelectFamily, StringComparison.OrdinalIgnoreCase));
+            CustomFontService.SyncFontList(AvailableEditorFonts, updated);
+            EditorFontFamily = matched;
+        }
+        else
+        {
+            string current = string.IsNullOrWhiteSpace(EditorFontFamily) ? "Tahoma" : EditorFontFamily;
+            if (!updated.Contains(current, StringComparer.OrdinalIgnoreCase))
+            {
+                EditorFontFamily = "Tahoma";
+            }
+            CustomFontService.SyncFontList(AvailableEditorFonts, updated);
+        }
+
+        OnPropertyChanged(nameof(CurrentFontFamily));
+    }
+
+    public bool AddCustomFontFromFile(string filePath)
+    {
+        try
+        {
+            var (familyName, installedPath) = CustomFontService.InstallFontFile(filePath, _customFontsDirectory);
+            if (Application.Current != null && !CustomFontRegistry.TryRegisterFontFile(installedPath, out _))
+            {
+                if (File.Exists(installedPath)) File.Delete(installedPath);
+                FontStatusMessage = $"ไม่สามารถโหลดฟอนต์ \"{Path.GetFileName(filePath)}\" ได้ กรุณาตรวจสอบว่าไฟล์ไม่เสียหาย";
+                return false;
+            }
+
+            RefreshCustomFonts(preferSelectFamily: familyName);
+            FontStatusMessage = $"เพิ่มฟอนต์ \"{familyName}\" แล้ว";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            FontStatusMessage = $"อัปโหลดฟอนต์ไม่สำเร็จ: {ex.Message}";
+            return false;
+        }
+    }
+
+    [RelayCommand]
+    public void DeleteCustomFont(CustomFontInfo? font)
+    {
+        if (font == null) return;
+
+        CustomFontService.DeleteCustomFontFamily(font.FamilyName, _customFontsDirectory);
+        if (string.Equals(_settings.EditorFontFamily, font.FamilyName, StringComparison.OrdinalIgnoreCase))
+        {
+            _settings.EditorFontFamily = "Tahoma";
+            if (_customFontsDirectory == null)
+            {
+                _settings.Save();
+            }
+        }
+
+        RefreshCustomFonts();
+        FontStatusMessage = $"ลบฟอนต์ \"{font.FamilyName}\" แล้ว";
+    }
 
     public async Task RefreshModelsSilentAsync()
     {
@@ -464,46 +603,89 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    public void CommitTypedModelNames()
+    {
+        ModelName = CommitSingleModelName(ModelName);
+        PolishModelName = CommitSingleModelName(PolishModelName);
+        GlossaryModelName = CommitSingleModelName(GlossaryModelName);
+    }
+
+    private string CommitSingleModelName(string? rawName)
+    {
+        string trimmed = rawName?.Trim() ?? string.Empty;
+        if (!string.IsNullOrEmpty(trimmed) && !AvailableModels.Contains(trimmed))
+        {
+            AvailableModels.Add(trimmed);
+        }
+        return trimmed;
+    }
+
     internal void PopulateAvailableModels(System.Collections.Generic.List<ModelInfo> models)
     {
-        string currentModel = ModelName ?? string.Empty;
-        string currentPolishModel = PolishModelName ?? string.Empty;
-        string currentGlossaryModel = GlossaryModelName ?? string.Empty;
-        AvailableModels.Clear();
+        string currentModel = (ModelName ?? string.Empty).Trim();
+        string currentPolishModel = (PolishModelName ?? string.Empty).Trim();
+        string currentGlossaryModel = (GlossaryModelName ?? string.Empty).Trim();
+
+        var ordered = new System.Collections.Generic.List<string>();
         foreach (var m in models)
         {
-            if (!string.IsNullOrWhiteSpace(m.Id) && !AvailableModels.Contains(m.Id))
+            string id = m.Id?.Trim() ?? string.Empty;
+            if (!string.IsNullOrEmpty(id) && !ordered.Contains(id))
             {
-                AvailableModels.Add(m.Id);
+                ordered.Add(id);
             }
         }
 
-        string? defaultServerModel = models
-            .Select(m => m.Id)
-            .FirstOrDefault(id => !string.IsNullOrWhiteSpace(id)
-                && !id.Contains("embed", StringComparison.OrdinalIgnoreCase)
+        string? defaultServerModel = ordered
+            .FirstOrDefault(id => !id.Contains("embed", StringComparison.OrdinalIgnoreCase)
                 && !id.Contains("rerank", StringComparison.OrdinalIgnoreCase)
                 && !id.Contains("whisper", StringComparison.OrdinalIgnoreCase))
-            ?? AvailableModels.FirstOrDefault();
+            ?? ordered.FirstOrDefault();
 
-        if (!string.IsNullOrEmpty(currentModel) && !AvailableModels.Contains(currentModel))
-        {
-            AvailableModels.Insert(0, currentModel);
-        }
-        if (!string.IsNullOrEmpty(currentPolishModel) && !AvailableModels.Contains(currentPolishModel))
-        {
-            AvailableModels.Add(currentPolishModel);
-        }
-        if (!string.IsNullOrEmpty(currentGlossaryModel) && !AvailableModels.Contains(currentGlossaryModel))
-        {
-            AvailableModels.Add(currentGlossaryModel);
-        }
-
-        ModelName = string.IsNullOrEmpty(currentModel)
+        string resolvedModel = string.IsNullOrEmpty(currentModel)
             ? (defaultServerModel ?? string.Empty)
             : currentModel;
-        PolishModelName = currentPolishModel;
-        GlossaryModelName = currentGlossaryModel;
+
+        if (!string.IsNullOrEmpty(resolvedModel) && !ordered.Contains(resolvedModel))
+        {
+            ordered.Insert(0, resolvedModel);
+        }
+        if (!string.IsNullOrEmpty(currentPolishModel) && !ordered.Contains(currentPolishModel))
+        {
+            ordered.Add(currentPolishModel);
+        }
+        if (!string.IsNullOrEmpty(currentGlossaryModel) && !ordered.Contains(currentGlossaryModel))
+        {
+            ordered.Add(currentGlossaryModel);
+        }
+
+        for (int i = AvailableModels.Count - 1; i >= 0; i--)
+        {
+            if (!ordered.Contains(AvailableModels[i]))
+            {
+                AvailableModels.RemoveAt(i);
+            }
+        }
+        for (int i = 0; i < ordered.Count; i++)
+        {
+            if (!AvailableModels.Contains(ordered[i]))
+            {
+                AvailableModels.Insert(Math.Min(i, AvailableModels.Count), ordered[i]);
+            }
+        }
+
+        if (!string.Equals(ModelName, resolvedModel, StringComparison.Ordinal))
+        {
+            ModelName = resolvedModel;
+        }
+        if (!string.Equals(PolishModelName, currentPolishModel, StringComparison.Ordinal))
+        {
+            PolishModelName = currentPolishModel;
+        }
+        if (!string.Equals(GlossaryModelName, currentGlossaryModel, StringComparison.Ordinal))
+        {
+            GlossaryModelName = currentGlossaryModel;
+        }
     }
 
     [RelayCommand]
@@ -542,9 +724,10 @@ public partial class SettingsViewModel : ObservableObject
 
     private void ApplyTo(AppSettings target)
     {
+        CommitTypedModelNames();
         target.Backend = (BackendType)BackendIndex;
         target.BaseUrl = BaseUrl?.Trim() ?? string.Empty;
-        target.ApiKey = ApiKey;
+        target.ApiKey = AppSettings.SanitizeApiKey(ApiKey, out _, out _);
         target.ModelName = ModelName?.Trim() ?? string.Empty;
         target.Temperature = (float)Math.Round(Temperature, 2);
         target.TopP = (float)Math.Round(Math.Clamp(TopP, 0.05f, 1.0f), 2);

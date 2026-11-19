@@ -354,6 +354,53 @@ public class WebChapterImportServiceTests
         Assert.DoesNotContain("ข้อความลวงตา", result.Content);
     }
 
+    [Fact]
+    public void ExtractFromHtml_ThrowsNotSupportedWhenContentUsesGlyphShieldPuaCipher()
+    {
+        string cipherBody = string.Concat(Enumerable.Repeat("\uE012\uE035\uE07A\uE09B\uE104\uE120 ", 20));
+        string html = $$"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <style>@font-face { font-family: 'MadaraGlyphShield-032'; src: url('/mgs-032.woff2'); }</style>
+                <title>บทที่ 1 การข้ามเวลาที่น่า - Example</title>
+            </head>
+            <body>
+                <div class="reading-content">
+                    <div class="text-left" style="font-family: 'MadaraGlyphShield-032'">
+                        <p>{{cipherBody}}</p>
+                    </div>
+                </div>
+            </body>
+            </html>
+            """;
+
+        var ex = Assert.Throws<NotSupportedException>(() =>
+            WebChapterImportService.ExtractFromHtml("https://example.com/novel/ch-1", html));
+        Assert.Contains("GlyphShield", ex.Message);
+    }
+
+    [Fact]
+    public void ExtractFromHtml_AllowsNormalChapterWithStrayIconPuaCharacter()
+    {
+        const string html = """
+            <!DOCTYPE html>
+            <html>
+            <head><title>บทที่ 3 ทดสอบ - Example</title></head>
+            <body>
+                <article>
+                    <h1>บทที่ 3: ทดสอบ</h1>
+                    <p>&#xE001; สายลมหนาวพัดผ่านหุบเขาอันเงียบสงัดในยามค่ำคืนขณะที่ชายหนุ่มยืนจ้องมองแสงไฟที่ปลายขอบฟ้า</p>
+                    <p>เสียงฝีเท้าม้าดังก้องใกล้เข้ามาตามทางเดินหินเก่าแก่ที่ปกคลุมไปด้วยหมอกขาวในหุบเขาแห่งความมืด</p>
+                </article>
+            </body>
+            </html>
+            """;
+
+        var result = WebChapterImportService.ExtractFromHtml("https://example.com/novel/ch-3", html);
+        Assert.Contains("สายลมหนาวพัดผ่านหุบเขา", result.Content);
+    }
+
     private sealed class StubHttpMessageHandler : HttpMessageHandler
     {
         private readonly Func<HttpRequestMessage, HttpResponseMessage> _handler;

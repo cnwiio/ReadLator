@@ -372,7 +372,16 @@ public static class WebChapterImportService
         }
         else
         {
+            if (ContainsFontCipherObfuscation(html, checkRawHtmlBody: true))
+            {
+                throw CreateFontCipherNotSupportedException();
+            }
             return false;
+        }
+
+        if (ContainsFontCipherObfuscation(normalized, htmlHint: html))
+        {
+            throw CreateFontCipherNotSupportedException();
         }
 
         int spaceWords = normalized.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries).Length;
@@ -384,6 +393,49 @@ public static class WebChapterImportService
         result = new WebChapterResult(title, normalized, nextUrl, rawTitle, url);
         return true;
     }
+
+    internal static bool ContainsFontCipherObfuscation(string text, string? htmlHint = null, bool checkRawHtmlBody = false)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+
+        string inspectText = text;
+        string? rawHtml = htmlHint ?? (checkRawHtmlBody ? text : null);
+        bool mentionsGlyphShield = rawHtml != null &&
+            rawHtml.Contains("GlyphShield", StringComparison.OrdinalIgnoreCase);
+
+        if (checkRawHtmlBody)
+        {
+            if (!mentionsGlyphShield) return false;
+            var doc = new HtmlParser().ParseDocument(text);
+            foreach (var el in doc.QuerySelectorAll("script, style, noscript").ToList())
+            {
+                el.Remove();
+            }
+            inspectText = doc.Body?.TextContent ?? string.Empty;
+        }
+
+        int puaCount = 0;
+        int visibleCount = 0;
+        foreach (var rune in inspectText.EnumerateRunes())
+        {
+            if (Rune.IsWhiteSpace(rune)) continue;
+            visibleCount++;
+            int cp = rune.Value;
+            if ((cp >= 0xE000 && cp <= 0xF8FF) ||
+                (cp >= 0xF0000 && cp <= 0xFFFFD) ||
+                (cp >= 0x100000 && cp <= 0x10FFFD))
+            {
+                puaCount++;
+            }
+        }
+
+        if (mentionsGlyphShield && puaCount >= 3) return true;
+        if (puaCount >= 20) return true;
+        return puaCount >= 5 && visibleCount > 0 && (double)puaCount / visibleCount >= 0.15;
+    }
+
+    private static NotSupportedException CreateFontCipherNotSupportedException()
+        => new("เว็บนี้ใช้ระบบเข้ารหัสฟอนต์ป้องกันการคัดลอก (Font Cipher / GlyphShield) ซึ่งทำให้อักษรที่ดึงมาเป็นรหัสเพี้ยนและไม่สามารถถอดรหัสอัตโนมัติได้");
 
     private static readonly string[] NovelDomSelectors =
     {

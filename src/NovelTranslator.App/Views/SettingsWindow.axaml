@@ -1,6 +1,7 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="using:NovelTranslator.App.ViewModels"
+        xmlns:settings="using:NovelTranslator.Core.Settings"
         x:Class="NovelTranslator.App.Views.SettingsWindow"
         x:DataType="vm:SettingsViewModel"
         Title="การตั้งค่า (Settings)"
@@ -132,12 +133,18 @@
                                     <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding BaseUrl}" Height="32" VerticalContentAlignment="Center" PlaceholderText="เช่น http://localhost:11434/v1" />
 
                                     <TextBlock Grid.Row="2" Text="API Key" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                    <Grid Grid.Row="2" Grid.Column="1" ColumnDefinitions="*, Auto">
-                                        <TextBox Text="{Binding ApiKey}" PasswordChar="{Binding ApiKeyPasswordChar}" Height="32" VerticalContentAlignment="Center"
-                                                 PlaceholderText="เว้นว่างได้หากใช้ Ollama หรือ LM Studio ในเครื่อง" />
-                                        <Button Grid.Column="1" Content="แสดง/ซ่อน" Command="{Binding ToggleApiKeyVisibilityCommand}"
-                                                Height="32" FontSize="12" Margin="8,0,0,0" />
-                                    </Grid>
+                                    <StackPanel Grid.Row="2" Grid.Column="1" Spacing="4">
+                                        <Grid ColumnDefinitions="*, Auto">
+                                            <TextBox Text="{Binding ApiKey}" PasswordChar="{Binding ApiKeyPasswordChar}" Height="32" VerticalContentAlignment="Center"
+                                                     PlaceholderText="เว้นว่างได้หากใช้ Ollama หรือ LM Studio ในเครื่อง" />
+                                            <Button Grid.Column="1" Content="แสดง/ซ่อน" Command="{Binding ToggleApiKeyVisibilityCommand}"
+                                                    Height="32" FontSize="12" Margin="8,0,0,0" />
+                                        </Grid>
+                                        <TextBlock Text="{Binding ApiKeyErrorMessage}" IsVisible="{Binding HasApiKeyError}"
+                                                   FontSize="11.5" Foreground="#E5484D" TextWrapping="Wrap" />
+                                        <TextBlock Text="{Binding ApiKeyInfoMessage}" IsVisible="{Binding HasApiKeyInfo}"
+                                                   FontSize="11.5" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
                                 </Grid>
 
                                 <StackPanel Orientation="Horizontal" Spacing="12" Margin="0,4,0,0">
@@ -152,13 +159,14 @@
                                 BorderThickness="1" CornerRadius="12" Padding="20">
                             <StackPanel Spacing="12">
                                 <TextBlock Text="โมเดล AI" FontSize="15" FontWeight="SemiBold" />
-                                <Grid ColumnDefinitions="136, *" RowDefinitions="Auto, Auto" RowSpacing="12">
-                                    <TextBlock Text="เลือกจากรายการ" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                    <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding ModelName}"
-                                              Height="32" PlaceholderText="เลือกโมเดลที่ตรวจพบในระบบ" HorizontalAlignment="Stretch" />
-
-                                    <TextBlock Grid.Row="1" Text="หรือระบุชื่อโมเดล" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding ModelName}" Height="32" VerticalContentAlignment="Center" PlaceholderText="เช่น qwen2.5:7b, llama3.2, google/gemma-4-e4b" />
+                                <Grid ColumnDefinitions="136, *">
+                                    <TextBlock Text="เลือกหรือระบุโมเดล" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="1" IsEditable="True"
+                                              ItemsSource="{Binding AvailableModels}" Text="{Binding ModelName, Mode=TwoWay}"
+                                              LostFocus="OnModelComboBoxLostFocus"
+                                              Height="32" VerticalContentAlignment="Center"
+                                              PlaceholderText="เลือกจากรายการ หรือพิมพ์ชื่อโมเดล เช่น qwen2.5:7b"
+                                              HorizontalAlignment="Stretch" />
                                 </Grid>
 
                                 <Separator Background="{DynamicResource BorderSubtleBrush}" Margin="0,4" />
@@ -173,17 +181,15 @@
                                                       OnContent="เปิด" OffContent="ปิด" VerticalAlignment="Center" />
                                     </Grid>
 
-                                    <StackPanel Spacing="10" IsVisible="{Binding EnablePolishMode}">
-                                        <Grid ColumnDefinitions="136, *" RowDefinitions="Auto, Auto" RowSpacing="10">
-                                            <TextBlock Text="เลือกโมเดลเกลาคำ" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                            <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding PolishModelName}"
-                                                      Height="32" PlaceholderText="เว้นว่างเพื่อใช้โมเดลเดียวกับการแปลหลัก" HorizontalAlignment="Stretch" />
-
-                                            <TextBlock Grid.Row="1" Text="หรือระบุชื่อโมเดล" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding PolishModelName}" Height="32" VerticalContentAlignment="Center"
-                                                     PlaceholderText="เว้นว่างเพื่อใช้โมเดลเดียวกับการแปลหลัก" />
-                                        </Grid>
-                                    </StackPanel>
+                                    <Grid ColumnDefinitions="136, *" IsVisible="{Binding EnablePolishMode}">
+                                        <TextBlock Text="โมเดลเกลาคำ" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                        <ComboBox Grid.Column="1" IsEditable="True"
+                                                  ItemsSource="{Binding AvailableModels}" Text="{Binding PolishModelName, Mode=TwoWay}"
+                                                  LostFocus="OnModelComboBoxLostFocus"
+                                                  Height="32" VerticalContentAlignment="Center"
+                                                  PlaceholderText="เลือก หรือพิมพ์ชื่อโมเดล (เว้นว่างเพื่อใช้โมเดลหลัก)"
+                                                  HorizontalAlignment="Stretch" />
+                                    </Grid>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -402,14 +408,14 @@
                                                   OnContent="เปิด" OffContent="ปิด" VerticalAlignment="Center" />
                                 </Grid>
 
-                                <Grid ColumnDefinitions="136, *" RowDefinitions="Auto, Auto" RowSpacing="10">
-                                    <TextBlock Text="เลือกโมเดลสแกน" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                    <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableModels}" SelectedItem="{Binding GlossaryModelName}"
-                                              Height="32" PlaceholderText="เว้นว่างเพื่อใช้โมเดลเดียวกับการแปลหลัก" HorizontalAlignment="Stretch" />
-
-                                    <TextBlock Grid.Row="1" Text="หรือระบุชื่อโมเดล" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                    <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding GlossaryModelName}" Height="32" VerticalContentAlignment="Center"
-                                             PlaceholderText="เว้นว่างเพื่อใช้โมเดลเดียวกับการแปลหลัก" />
+                                <Grid ColumnDefinitions="136, *">
+                                    <TextBlock Text="โมเดลสแกนคำศัพท์" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                    <ComboBox Grid.Column="1" IsEditable="True"
+                                              ItemsSource="{Binding AvailableModels}" Text="{Binding GlossaryModelName, Mode=TwoWay}"
+                                              LostFocus="OnModelComboBoxLostFocus"
+                                              Height="32" VerticalContentAlignment="Center"
+                                              PlaceholderText="เลือก หรือพิมพ์ชื่อโมเดล (เว้นว่างเพื่อใช้โมเดลหลัก)"
+                                              HorizontalAlignment="Stretch" />
                                 </Grid>
 
                                 <Grid ColumnDefinitions="*, 88">
@@ -640,8 +646,14 @@
                                 <!-- เลือกฟอนต์ -->
                                 <Grid ColumnDefinitions="140, *" RowDefinitions="Auto, Auto" RowSpacing="12">
                                     <TextBlock Text="แบบอักษร (Font)" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                    <ComboBox Grid.Column="1" ItemsSource="{Binding AvailableEditorFonts}" SelectedItem="{Binding EditorFontFamily, Mode=TwoWay}"
-                                              Height="32" HorizontalAlignment="Stretch" />
+                                    <Grid Grid.Column="1" ColumnDefinitions="*, Auto" ColumnSpacing="8">
+                                        <ComboBox ItemsSource="{Binding AvailableEditorFonts}" SelectedItem="{Binding EditorFontFamily, Mode=TwoWay}"
+                                                  Height="32" HorizontalAlignment="Stretch" />
+                                        <Button Grid.Column="1" Content="+ เพิ่มฟอนต์" Classes="ghost"
+                                                Click="OnUploadFontClicked"
+                                                Height="32" Padding="12,0" VerticalContentAlignment="Center"
+                                                ToolTip.Tip="อัปโหลดไฟล์ฟอนต์ (.ttf หรือ .otf) จากเครื่อง" />
+                                    </Grid>
 
                                     <TextBlock Grid.Row="1" Text="ขนาดตัวอักษร" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
                                     <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="*, 64">
@@ -650,6 +662,37 @@
                                         <TextBox Grid.Column="1" Text="{Binding EditorFontSize}" Height="32" VerticalAlignment="Center" VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
                                     </Grid>
                                 </Grid>
+
+                                <!-- รายการฟอนต์ที่อัปโหลดเอง + ปุ่มลบ -->
+                                <StackPanel Spacing="8" IsVisible="{Binding HasUploadedCustomFonts}">
+                                    <TextBlock Text="ฟอนต์ที่อัปโหลดเอง (.ttf / .otf)" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}" />
+                                    <ItemsControl ItemsSource="{Binding UploadedCustomFonts}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel Orientation="Horizontal" ItemSpacing="8" LineSpacing="8" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="settings:CustomFontInfo">
+                                                <Border Background="{DynamicResource MainBgBrush}" BorderBrush="{DynamicResource BorderSubtleBrush}"
+                                                        BorderThickness="1" CornerRadius="6" Padding="10,4,6,4">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding DisplayLabel}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                                                        <Button Content="ลบ" Classes="ghost"
+                                                                Command="{Binding $parent[Window].((vm:SettingsViewModel)DataContext).DeleteCustomFontCommand}"
+                                                                CommandParameter="{Binding}"
+                                                                FontSize="11" Height="22" Padding="8,0" VerticalContentAlignment="Center"
+                                                                Foreground="{DynamicResource TextMutedBrush}"
+                                                                ToolTip.Tip="ลบฟอนต์นี้ออกจากโปรแกรม" />
+                                                    </StackPanel>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
+
+                                <TextBlock Text="{Binding FontStatusMessage}" IsVisible="{Binding HasFontStatusMessage}"
+                                           FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
 
                                 <!-- Live Preview Box -->
                                 <TextBlock Text="ตัวอย่างการแสดงผล (Preview)" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource TextMutedBrush}" Margin="0,8,0,0" />

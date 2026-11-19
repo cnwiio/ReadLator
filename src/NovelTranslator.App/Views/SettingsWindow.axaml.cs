@@ -2,6 +2,7 @@ using System.Text;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Platform.Storage;
 using NovelTranslator.App.ViewModels;
 
 namespace NovelTranslator.App.Views;
@@ -114,5 +115,36 @@ public partial class SettingsWindow : Window
     private void OnCancelClicked(object? sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private void OnModelComboBoxLostFocus(object? sender, RoutedEventArgs e)
+    {
+        ViewModel?.CommitTypedModelNames();
+    }
+
+    private async void OnUploadFontClicked(object? sender, RoutedEventArgs e)
+    {
+        if (ViewModel == null) return;
+        var topLevel = GetTopLevel(this);
+        if (topLevel == null) return;
+
+        var files = await topLevel.StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "เลือกไฟล์ฟอนต์ (.ttf หรือ .otf)",
+            AllowMultiple = true,
+            FileTypeFilter = new[]
+            {
+                new FilePickerFileType("Font Files") { Patterns = new[] { "*.ttf", "*.otf" } }
+            }
+        });
+
+        foreach (var file in files)
+        {
+            string? path = file.TryGetLocalPath();
+            if (!string.IsNullOrWhiteSpace(path))
+            {
+                ViewModel.AddCustomFontFromFile(path);
+            }
+        }
     }
 }

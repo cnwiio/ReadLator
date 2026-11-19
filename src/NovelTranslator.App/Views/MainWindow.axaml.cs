@@ -105,6 +105,7 @@ public partial class MainWindow : Window
             var vm = new SettingsViewModel(settings);
             var win = new SettingsWindow(vm);
             await win.ShowDialog(this);
+            ViewModel.RefreshAvailableFonts();
             if (vm.IsSaved)
             {
                 ViewModel.ReloadSettings();
@@ -114,6 +115,7 @@ public partial class MainWindow : Window
             else
             {
                 vm.RevertLiveThemePreview();
+                ApplyEditorFont(ViewModel.EditorFontFamily);
             }
         };
 

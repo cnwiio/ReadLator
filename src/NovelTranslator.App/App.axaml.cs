@@ -28,6 +28,7 @@ public partial class App : Application
     {
         var settings = AppSettings.Load();
         ApplyTheme(settings.ThemeMode);
+        CustomFontRegistry.RegisterAllInstalledFonts();
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {

@@ -51,9 +51,16 @@ public class LlmClient : ILlmClient
 
     private void ApplyHeaders(HttpRequestMessage request)
     {
-        if (!string.IsNullOrWhiteSpace(_settings.ApiKey))
+        string apiKey = AppSettings.SanitizeApiKey(_settings.ApiKey, out _, out bool hasUnsupported);
+        if (hasUnsupported)
         {
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _settings.ApiKey);
+            throw new InvalidOperationException(
+                "API Key มีอักขระที่ไม่รองรับ (ต้องเป็นตัวอักษรภาษาอังกฤษ/ASCII ที่ถูกต้องเท่านั้น) กรุณาตรวจสอบ API Key ในหน้าตั้งค่า");
+        }
+
+        if (!string.IsNullOrEmpty(apiKey))
+        {
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
         }
     }
 

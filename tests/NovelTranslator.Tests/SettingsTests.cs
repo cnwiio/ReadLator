@@ -315,4 +315,229 @@ public class SettingsTests
         Assert.Equal(1.0, settings.MmbScrollSensitivity);
         Assert.Equal("Ctrl+Enter", settings.Shortkeys.TranslateKey);
     }
+
+    [Fact]
+    public void CustomFontService_ReadsRealTtfAndManagesInstallAndDelete()
+    {
+        string fontsAssetDir = Path.GetFullPath(Path.Combine(
+            AppContext.BaseDirectory, "..", "..", "..", "..", "..", "src", "NovelTranslator.App", "Assets", "Fonts"));
+        string regularTtf = Path.Combine(fontsAssetDir, "tahoma.ttf");
+        string boldTtf = Path.Combine(fontsAssetDir, "tahomabd.ttf");
+        Assert.True(File.Exists(regularTtf));
+        Assert.True(File.Exists(boldTtf));
+
+        string tempDir = Path.Combine(Path.GetTempPath(), $"nt_fonts_{Path.GetRandomFileName()}");
+        try
+        {
+            var (fam1, _) = CustomFontService.InstallFontFile(regularTtf, tempDir);
+            var (fam2, _) = CustomFontService.InstallFontFile(boldTtf, tempDir);
+            Assert.Equal("Tahoma", fam1);
+            Assert.Equal("Tahoma", fam2);
+
+            var groups = CustomFontService.GetCustomFonts(tempDir);
+            Assert.Single(groups);
+            Assert.Equal("Tahoma", groups[0].FamilyName);
+            Assert.Equal(2, groups[0].FileCount);
+
+            int deleted = CustomFontService.DeleteCustomFontFamily("Tahoma", tempDir);
+            Assert.Equal(2, deleted);
+            Assert.Empty(CustomFontService.GetCustomFonts(tempDir));
+
+            string badFile = Path.Combine(tempDir, "broken.ttf");
+            File.WriteAllBytes(badFile, new byte[] { 1, 2, 3, 4 });
+            Assert.Throws<InvalidDataException>(() => CustomFontService.InstallFontFile(badFile, tempDir));
+
+            string txtFile = Path.Combine(tempDir, "notes.txt");
+            File.WriteAllText(txtFile, "not a font");
+            Assert.Throws<InvalidDataException>(() => CustomFontService.InstallFontFile(txtFile, tempDir));
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SettingsViewModel_UploadAndDeleteCustomFont_UpdatesListsAndFallsBackToTahoma()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), $"nt_vmfonts_{Path.GetRandomFileName()}");
+        string sourceDir = Path.Combine(Path.GetTempPath(), $"nt_srcfonts_{Path.GetRandomFileName()}");
+        Directory.CreateDirectory(sourceDir);
+        try
+        {
+            string testFontPath = Path.Combine(sourceDir, "CustomNovelFont.otf");
+            File.WriteAllBytes(testFontPath, CreateMinimalOpenTypeNameFont("CustomNovelFont"));
+
+            var settings = new AppSettings { EditorFontFamily = "Tahoma" };
+            var vm = new SettingsViewModel(settings, tempDir);
+
+            Assert.Empty(vm.UploadedCustomFonts);
+            Assert.True(vm.AddCustomFontFromFile(testFontPath));
+
+            Assert.True(vm.HasUploadedCustomFonts);
+            Assert.Single(vm.UploadedCustomFonts);
+            Assert.Equal("CustomNovelFont", vm.UploadedCustomFonts[0].FamilyName);
+            Assert.Contains("CustomNovelFont", vm.AvailableEditorFonts);
+            Assert.Contains("CustomNovelFont", AppSettings.GetAllEditorFonts(tempDir));
+            Assert.Equal("CustomNovelFont", vm.EditorFontFamily);
+
+            vm.ApplyToSettings();
+            Assert.Equal("CustomNovelFont", settings.EditorFontFamily);
+
+            vm.DeleteCustomFont(vm.UploadedCustomFonts[0]);
+            Assert.False(vm.HasUploadedCustomFonts);
+            Assert.DoesNotContain("CustomNovelFont", vm.AvailableEditorFonts);
+            Assert.Equal("Tahoma", vm.EditorFontFamily);
+            Assert.Equal("Tahoma", settings.EditorFontFamily);
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true);
+            if (Directory.Exists(sourceDir)) Directory.Delete(sourceDir, recursive: true);
+        }
+    }
+
+    private static byte[] CreateMinimalOpenTypeNameFont(string familyName)
+    {
+        byte[] strBytes = System.Text.Encoding.BigEndianUnicode.GetBytes(familyName);
+        int nameTableOffset = 12 + 16; // header + 1 table record
+        int nameTableLength = 6 + 12 + strBytes.Length;
+        using var ms = new MemoryStream();
+        using var bw = new BinaryWriter(ms);
+
+        static void WriteU16BE(BinaryWriter w, ushort v) { w.Write((byte)(v >> 8)); w.Write((byte)v); }
+        static void WriteU32BE(BinaryWriter w, uint v)
+        {
+            w.Write((byte)(v >> 24)); w.Write((byte)(v >> 16));
+            w.Write((byte)(v >> 8)); w.Write((byte)v);
+        }
+
+        WriteU32BE(bw, 0x4F54544F); // OTTO
+        WriteU16BE(bw, 1); // numTables
+        WriteU16BE(bw, 16); WriteU16BE(bw, 0); WriteU16BE(bw, 0);
+
+        WriteU32BE(bw, 0x6E616D65); // 'name'
+        WriteU32BE(bw, 0);
+        WriteU32BE(bw, (uint)nameTableOffset);
+        WriteU32BE(bw, (uint)nameTableLength);
+
+        WriteU16BE(bw, 0); // format
+        WriteU16BE(bw, 1); // count
+        WriteU16BE(bw, 18); // stringOffset
+        WriteU16BE(bw, 3); WriteU16BE(bw, 1); WriteU16BE(bw, 1033); WriteU16BE(bw, 1);
+        WriteU16BE(bw, (ushort)strBytes.Length); WriteU16BE(bw, 0);
+        bw.Write(strBytes);
+
+        return ms.ToArray();
+    }
+
+    [Fact]
+    public void AppSettings_SanitizeApiKey_RemovesWhitespaceInvisibleCharsAndFlagsNonAscii()
+    {
+        string clean = AppSettings.SanitizeApiKey(" \t\r\nBearer sk-proj\u200B-\uFEFF123\u00A0abc\n", out bool removed, out bool hasUnsupported);
+        Assert.Equal("sk-proj-123abc", clean);
+        Assert.True(removed);
+        Assert.False(hasUnsupported);
+
+        string alreadyClean = AppSettings.SanitizeApiKey("AIzaSyD-12345_xyz", out removed, out hasUnsupported);
+        Assert.Equal("AIzaSyD-12345_xyz", alreadyClean);
+        Assert.False(removed);
+        Assert.False(hasUnsupported);
+
+        string withThai = AppSettings.SanitizeApiKey(" sk-กข123\u200B ", out removed, out hasUnsupported);
+        Assert.Equal("sk-กข123", withThai);
+        Assert.True(removed);
+        Assert.True(hasUnsupported);
+    }
+
+    [Fact]
+    public void SettingsViewModel_ApiKey_AutoCleansAndFlagsUnsupportedChars()
+    {
+        var vm = new SettingsViewModel(new AppSettings());
+
+        vm.ApiKey = "  sk-test\u200B\r\n999  ";
+        Assert.Equal("sk-test999", vm.ApiKey);
+        Assert.True(vm.HasApiKeyInfo);
+        Assert.False(vm.HasApiKeyError);
+
+        vm.ApiKey = "sk-ทดสอบ";
+        Assert.True(vm.HasApiKeyError);
+        Assert.False(vm.HasApiKeyInfo);
+
+        vm.ApiKey = "sk-clean-key";
+        Assert.False(vm.HasApiKeyError);
+        Assert.False(vm.HasApiKeyInfo);
+    }
+
+    [Fact]
+    public void SettingsViewModel_ModelSelection_AutoAddsTypedModelsToDropdownWithoutResetting()
+    {
+        var settings = new AppSettings
+        {
+            ModelName = "custom/main-model",
+            PolishModelName = "custom/polish-model",
+            GlossaryModelName = "custom/glossary-model"
+        };
+        var vm = new SettingsViewModel(settings);
+
+        Assert.Contains("custom/main-model", vm.AvailableModels);
+        Assert.Contains("custom/polish-model", vm.AvailableModels);
+        Assert.Contains("custom/glossary-model", vm.AvailableModels);
+
+        vm.ModelName = "  new-typed/model-v2  ";
+        vm.CommitTypedModelNames();
+        Assert.Equal("new-typed/model-v2", vm.ModelName);
+        Assert.Contains("new-typed/model-v2", vm.AvailableModels);
+
+        vm.PopulateAvailableModels(new System.Collections.Generic.List<NovelTranslator.Core.Llm.ModelInfo>
+        {
+            new() { Id = "server-model-a" },
+            new() { Id = "server-model-b" }
+        });
+
+        Assert.Equal("new-typed/model-v2", vm.ModelName);
+        Assert.Equal("custom/polish-model", vm.PolishModelName);
+        Assert.Equal("custom/glossary-model", vm.GlossaryModelName);
+        Assert.Contains("new-typed/model-v2", vm.AvailableModels);
+        Assert.Contains("server-model-a", vm.AvailableModels);
+    }
+
+    [Fact]
+    public async System.Threading.Tasks.Task LlmClient_SanitizesDirtyApiKeyAndRejectsNonAsciiWithoutCrashing()
+    {
+        string? capturedAuthHeader = null;
+        using var okHttpClient = new System.Net.Http.HttpClient(new StubModelHandler(req =>
+        {
+            capturedAuthHeader = req.Headers.Authorization?.ToString();
+            return new System.Net.Http.HttpResponseMessage(System.Net.HttpStatusCode.OK)
+            {
+                Content = new System.Net.Http.StringContent("{\"data\":[{\"id\":\"m1\"}]}", System.Text.Encoding.UTF8, "application/json")
+            };
+        }));
+
+        var dirtyKeyClient = new NovelTranslator.Core.Llm.LlmClient(
+            new AppSettings { BaseUrl = "http://127.0.0.1:1234/v1", ApiKey = " sk-ok\r\n\u200B123 " },
+            okHttpClient);
+        var (ok, _) = await dirtyKeyClient.TestConnectionAsync();
+        Assert.True(ok);
+        Assert.Equal("Bearer sk-ok123", capturedAuthHeader);
+
+        var badAsciiClient = new NovelTranslator.Core.Llm.LlmClient(
+            new AppSettings { BaseUrl = "http://127.0.0.1:1234/v1", ApiKey = "sk-ภาษาไทย" },
+            okHttpClient);
+        var (fail, errMsg) = await badAsciiClient.TestConnectionAsync();
+        Assert.False(fail);
+        Assert.Contains("ASCII", errMsg);
+    }
+
+    private sealed class StubModelHandler : System.Net.Http.HttpMessageHandler
+    {
+        private readonly Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> _handler;
+        public StubModelHandler(Func<System.Net.Http.HttpRequestMessage, System.Net.Http.HttpResponseMessage> handler) => _handler = handler;
+
+        protected override System.Threading.Tasks.Task<System.Net.Http.HttpResponseMessage> SendAsync(
+            System.Net.Http.HttpRequestMessage request,
+            System.Threading.CancellationToken cancellationToken)
+            => System.Threading.Tasks.Task.FromResult(_handler(request));
+    }
 }

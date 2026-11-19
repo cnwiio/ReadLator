@@ -266,6 +266,10 @@ public partial class BrowserImportWindow : Window
                 var fastResult = WebChapterImportService.ExtractFromHtml(targetUrl, fastHtml);
                 return (fastResult, targetUrl);
             }
+            catch (NotSupportedException)
+            {
+                throw;
+            }
             catch
             {
                 // หน้าเว็บอาจต้องรัน JS เพื่อสร้างเนื้อหา — สลับไปเปิดโหลดหน้าจริงด้านล่าง
@@ -278,6 +282,10 @@ public partial class BrowserImportWindow : Window
         try
         {
             return (WebChapterImportService.ExtractFromHtml(actualUrl, pageHtml), actualUrl);
+        }
+        catch (NotSupportedException)
+        {
+            throw;
         }
         catch
         {

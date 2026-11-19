@@ -29,7 +29,8 @@ public partial class FirstRunWindow : Window
             _ => 0
         };
         if (!string.IsNullOrWhiteSpace(settings.BaseUrl)) BaseUrlBox.Text = settings.BaseUrl;
-        if (!string.IsNullOrWhiteSpace(settings.ApiKey)) ApiKeyBox.Text = settings.ApiKey;
+        string cleanInitialKey = AppSettings.SanitizeApiKey(settings.ApiKey, out _, out _);
+        if (!string.IsNullOrEmpty(cleanInitialKey)) ApiKeyBox.Text = cleanInitialKey;
         if (!string.IsNullOrWhiteSpace(settings.ModelName)) ModelBox.Text = settings.ModelName;
         _isInitializing = false;
     }
@@ -65,7 +66,8 @@ public partial class FirstRunWindow : Window
     private void OnSaveClicked(object? sender, RoutedEventArgs e)
     {
         string baseUrl = BaseUrlBox.Text?.Trim() ?? string.Empty;
-        string apiKey = ApiKeyBox.Text?.Trim() ?? string.Empty;
+        string apiKey = AppSettings.SanitizeApiKey(ApiKeyBox.Text, out _, out bool hasUnsupportedApiKey);
+        if (ApiKeyBox.Text != apiKey) ApiKeyBox.Text = apiKey;
         string model = ModelBox.Text?.Trim() ?? string.Empty;
         var backend = BackendComboBox.SelectedIndex switch
         {
@@ -78,6 +80,13 @@ public partial class FirstRunWindow : Window
         {
             StatusText.IsVisible = true;
             StatusText.Text = "กรุณากรอก Base URL";
+            return;
+        }
+
+        if (hasUnsupportedApiKey)
+        {
+            StatusText.IsVisible = true;
+            StatusText.Text = "API Key มีอักขระที่ไม่รองรับ (ต้องเป็นตัวอักษรภาษาอังกฤษ/ASCII ที่ถูกต้องเท่านั้น)";
             return;
         }
 
