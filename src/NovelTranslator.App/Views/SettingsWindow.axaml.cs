@@ -1,8 +1,10 @@
+using System.Linq;
 using System.Text;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using NovelTranslator.App.ViewModels;
 
 namespace NovelTranslator.App.Views;
@@ -34,6 +36,21 @@ public partial class SettingsWindow : Window
             {
                 e.Handled = true;
                 Close();
+            }
+            else if (e.Key == Key.Enter && e.KeyModifiers == KeyModifiers.None &&
+                     GetTopLevel(this)?.FocusManager?.GetFocusedElement() is TextBox focused &&
+                     !focused.AcceptsReturn)
+            {
+                // หาก Dropdown ของ ComboBox กำลังเปิดอยู่ ให้ตัว ComboBox รับ Enter เพื่อยืนยันรายการก่อน
+                var openCombo = focused.GetVisualAncestors().OfType<ComboBox>().FirstOrDefault(c => c.IsDropDownOpen);
+                if (openCombo != null)
+                {
+                    return;
+                }
+
+                App.DeselectAndUnfocusTextBox(this, focused);
+                ViewModel.CommitTypedModelNames();
+                e.Handled = true;
             }
             return;
         }

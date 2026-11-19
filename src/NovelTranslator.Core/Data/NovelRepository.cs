@@ -284,6 +284,20 @@ public class NovelRepository
         await conn.ExecuteAsync("DELETE FROM GlossaryEntries WHERE Id = @Id", new { Id = id });
     }
 
+    public async Task DeleteGlossaryEntriesAsync(IEnumerable<long> ids)
+    {
+        var idList = ids.Distinct().ToList();
+        if (idList.Count == 0) return;
+
+        using var conn = _database.CreateConnection();
+        using var transaction = conn.BeginTransaction();
+        await conn.ExecuteAsync(
+            "DELETE FROM GlossaryEntries WHERE Id = @Id",
+            idList.Select(id => new { Id = id }),
+            transaction);
+        transaction.Commit();
+    }
+
     public async Task BulkInsertGlossaryEntriesAsync(IEnumerable<GlossaryEntry> entries)
     {
         using var conn = _database.CreateConnection();

@@ -168,4 +168,72 @@ public class GlossaryServiceTests
             if (File.Exists(dbPath)) File.Delete(dbPath);
         }
     }
+
+    [Fact]
+    public async System.Threading.Tasks.Task GlossaryViewModel_CategoryFilterAndMultiDelete_RespectsConfirmationAndRemovesEntries()
+    {
+        string dbPath = Path.Combine(Path.GetTempPath(), $"test_gl_multi_{Path.GetRandomFileName()}.db");
+        try
+        {
+            var db = new NovelTranslator.Core.Data.NovelDatabase(dbPath);
+            db.Initialize();
+            var repo = new NovelTranslator.Core.Data.NovelRepository(db);
+            var story = new Story { Title = "Multi Delete Story" };
+            story.Id = await repo.InsertStoryAsync(story);
+
+            await repo.InsertGlossaryEntryAsync(new GlossaryEntry { StoryId = story.Id, SourceTerm = "Arthur", TargetTerm = "อาเธอร์", Category = GlossaryCategory.Person });
+            await repo.InsertGlossaryEntryAsync(new GlossaryEntry { StoryId = story.Id, SourceTerm = "Camelot", TargetTerm = "คาเมล็อต", Category = GlossaryCategory.Location });
+            await repo.InsertGlossaryEntryAsync(new GlossaryEntry { StoryId = story.Id, SourceTerm = "Excalibur", TargetTerm = "เอ็กซ์คาลิเบอร์", Category = GlossaryCategory.Term });
+
+            var vm = new NovelTranslator.App.ViewModels.GlossaryViewModel(repo, story);
+            await vm.LoadEntriesAsync();
+            Assert.Equal(3, vm.Entries.Count);
+
+            // กรองตามประเภท
+            vm.SelectedFilterCategoryIndex = 1; // Person
+            Assert.Single(vm.Entries);
+            Assert.Equal("Arthur", vm.Entries[0].SourceTerm);
+
+            vm.SelectedFilterCategoryIndex = 2; // Location
+            Assert.Single(vm.Entries);
+            Assert.Equal("Camelot", vm.Entries[0].SourceTerm);
+
+            vm.SelectedFilterCategoryIndex = 0; // All
+            Assert.Equal(3, vm.Entries.Count);
+
+            // เลือก 2 คำและยกเลิกยืนยัน -> ต้องยังไม่ถูกลบ
+            var toDelete = System.Linq.Enumerable.Take(vm.Entries, 2).ToList();
+            vm.SetSelectedEntries(toDelete);
+            Assert.Null(vm.SelectedEntry);
+            Assert.True(vm.CanDeleteSelected);
+            Assert.Equal("ลบที่เลือก (2 คำ)", vm.DeleteButtonText);
+
+            bool confirmAsked = false;
+            vm.RequestConfirmDialog = _ => { confirmAsked = true; return System.Threading.Tasks.Task.FromResult(false); };
+            await vm.DeleteEntryCommand.ExecuteAsync(null);
+            Assert.True(confirmAsked);
+            Assert.Equal(3, (await repo.GetGlossaryByStoryAsync(story.Id)).Count);
+
+            // ยืนยันลบหลายคำ -> เหลือ 1 คำ
+            vm.RequestConfirmDialog = _ => System.Threading.Tasks.Task.FromResult(true);
+            await vm.DeleteEntryCommand.ExecuteAsync(null);
+            var afterMulti = await repo.GetGlossaryByStoryAsync(story.Id);
+            Assert.Single(afterMulti);
+            Assert.Empty(vm.SelectedEntries);
+
+            // ลบคำเดียว -> ไม่ต้องถามยืนยัน
+            bool askedSingle = false;
+            vm.RequestConfirmDialog = _ => { askedSingle = true; return System.Threading.Tasks.Task.FromResult(true); };
+            vm.SetSelectedEntries(new[] { vm.Entries[0] });
+            Assert.Equal("ลบคำนี้", vm.DeleteButtonText);
+            await vm.DeleteEntryCommand.ExecuteAsync(null);
+            Assert.False(askedSingle);
+            Assert.Empty(await repo.GetGlossaryByStoryAsync(story.Id));
+        }
+        finally
+        {
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            if (File.Exists(dbPath)) File.Delete(dbPath);
+        }
+    }
 }

@@ -558,24 +558,7 @@ public partial class MainWindow : Window
             return result;
         };
 
-        ViewModel.RequestConfirmDialog = async (message) =>
-        {
-            bool result = false;
-            var okBtn = new Button { Content = "ยืนยัน", Classes = { "primary" }, Height = 32, Padding = new Thickness(18, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
-            var cancelBtn = new Button { Content = "ยกเลิก", Classes = { "ghost" }, Height = 32, Padding = new Thickness(14, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
-            var messageBlock = new TextBlock { Text = message, FontSize = 13, Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 20) };
-
-            var dialog = CreateModalDialog("ยืนยันการดำเนินการ", 420, null, false, new Control[] { messageBlock }, cancelBtn, okBtn);
-
-            okBtn.Click += (_, _) => { result = true; dialog.Close(); };
-            cancelBtn.Click += (_, _) => dialog.Close();
-            dialog.KeyDown += (_, ke) =>
-            {
-                if (ke.Key == Key.Enter) { ke.Handled = true; result = true; dialog.Close(); }
-            };
-            await dialog.ShowDialog(this);
-            return result;
-        };
+        ViewModel.RequestConfirmDialog = msg => ShowConfirmDialogAsync(this, msg);
 
         ViewModel.RequestCopyToClipboard = async (text) =>
         {
@@ -1430,6 +1413,25 @@ public partial class MainWindow : Window
         _draggedChapter = null;
         _targetChapter = null;
         _movingChapters.Clear();
+    }
+
+    internal static async Task<bool> ShowConfirmDialogAsync(Window owner, string message)
+    {
+        bool result = false;
+        var okBtn = new Button { Content = "ยืนยัน", Classes = { "primary" }, Height = 32, Padding = new Thickness(18, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
+        var cancelBtn = new Button { Content = "ยกเลิก", Classes = { "ghost" }, Height = 32, Padding = new Thickness(14, 0), VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center };
+        var messageBlock = new TextBlock { Text = message, FontSize = 13, Foreground = GetThemeBrush("TextSecondaryBrush", "#A1A1A6"), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 20) };
+
+        var dialog = CreateModalDialog("ยืนยันการดำเนินการ", 420, null, false, new Control[] { messageBlock }, cancelBtn, okBtn);
+
+        okBtn.Click += (_, _) => { result = true; dialog.Close(); };
+        cancelBtn.Click += (_, _) => dialog.Close();
+        dialog.KeyDown += (_, ke) =>
+        {
+            if (ke.Key == Key.Enter) { ke.Handled = true; result = true; dialog.Close(); }
+        };
+        await dialog.ShowDialog(owner);
+        return result;
     }
 
     private static Window CreateModalDialog(string title, double width, double? height, bool canResize, Control[] bodyControls, params Button[] buttons)

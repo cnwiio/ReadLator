@@ -19,9 +19,13 @@ public partial class GlossaryViewModel : ObservableObject
     private readonly List<GlossaryEntry> _allEntries = new();
 
     public ObservableCollection<GlossaryEntry> Entries { get; } = new();
+    public ObservableCollection<GlossaryEntry> SelectedEntries { get; } = new();
 
     [ObservableProperty]
     private string _searchFilter = string.Empty;
+
+    [ObservableProperty]
+    private int _selectedFilterCategoryIndex = 0; // 0: All, 1: Person, 2: Location, 3: Term
 
     [ObservableProperty]
     private GlossaryEntry? _selectedEntry;
@@ -41,7 +45,14 @@ public partial class GlossaryViewModel : ObservableObject
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
+    public bool CanDeleteSelected => SelectedEntries.Count > 0 || SelectedEntry != null;
+    public string DeleteButtonText => SelectedEntries.Count > 1
+        ? $"ลบที่เลือก ({SelectedEntries.Count} คำ)"
+        : "ลบคำนี้";
+
     public Action? RequestClose { get; set; }
+    public Func<string, Task<bool>>? RequestConfirmDialog { get; set; }
+    public Action? RequestClearGridSelection { get; set; }
     public GlossaryViewModel(NovelRepository repository, Story story, string? initialSource = null, string? initialTarget = null)
     {
         _repository = repository;
@@ -59,22 +70,69 @@ public partial class GlossaryViewModel : ObservableObject
     }
 
     partial void OnSearchFilterChanged(string value) => ApplyFilter();
+    partial void OnSelectedFilterCategoryIndexChanged(int value) => ApplyFilter();
 
     private void ApplyFilter()
     {
         string q = SearchFilter?.Trim() ?? string.Empty;
-        var filtered = string.IsNullOrEmpty(q)
-            ? _allEntries
-            : _allEntries.Where(e =>
+        IEnumerable<GlossaryEntry> filtered = _allEntries;
+
+        if (SelectedFilterCategoryIndex is >= 1 and <= 3)
+        {
+            var targetCategory = (GlossaryCategory)(SelectedFilterCategoryIndex - 1);
+            filtered = filtered.Where(e => e.Category == targetCategory);
+        }
+
+        if (!string.IsNullOrEmpty(q))
+        {
+            filtered = filtered.Where(e =>
                 e.SourceTerm.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                 e.TargetTerm.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                 e.Notes.Contains(q, StringComparison.OrdinalIgnoreCase));
+        }
 
         Entries.Clear();
         foreach (var item in filtered)
         {
             Entries.Add(item);
         }
+
+        for (int i = SelectedEntries.Count - 1; i >= 0; i--)
+        {
+            if (!Entries.Contains(SelectedEntries[i]))
+            {
+                SelectedEntries.RemoveAt(i);
+            }
+        }
+        NotifySelectionChanged();
+    }
+
+    public void SetSelectedEntries(IEnumerable<GlossaryEntry> items)
+    {
+        SelectedEntries.Clear();
+        foreach (var item in items.Where(e => e != null).DistinctBy(e => e.Id))
+        {
+            SelectedEntries.Add(item);
+        }
+
+        if (SelectedEntries.Count == 1)
+        {
+            SelectedEntry = SelectedEntries[0];
+        }
+        else
+        {
+            bool wasMultiSelect = SelectedEntries.Count > 1;
+            SelectedEntry = null;
+            if (wasMultiSelect)
+            {
+                SourceTerm = string.Empty;
+                TargetTerm = string.Empty;
+                CategoryIndex = 0;
+                Notes = string.Empty;
+            }
+        }
+
+        NotifySelectionChanged();
     }
 
     partial void OnSelectedEntryChanged(GlossaryEntry? value)
@@ -86,6 +144,13 @@ public partial class GlossaryViewModel : ObservableObject
             CategoryIndex = (int)value.Category;
             Notes = value.Notes;
         }
+        NotifySelectionChanged();
+    }
+
+    private void NotifySelectionChanged()
+    {
+        OnPropertyChanged(nameof(CanDeleteSelected));
+        OnPropertyChanged(nameof(DeleteButtonText));
     }
 
     [RelayCommand]
@@ -164,22 +229,59 @@ public partial class GlossaryViewModel : ObservableObject
     [RelayCommand]
     public async Task DeleteEntryAsync()
     {
-        if (SelectedEntry == null) return;
-        await _repository.DeleteGlossaryEntryAsync(SelectedEntry.Id);
-        StatusMessage = $"ลบคำว่า \"{SelectedEntry.SourceTerm}\" แล้ว";
-        _allEntries.Remove(SelectedEntry);
-        Entries.Remove(SelectedEntry);
+        var targets = GetDeleteTargets();
+        if (targets.Count == 0) return;
+
+        if (targets.Count > 1 && RequestConfirmDialog != null)
+        {
+            bool ok = await RequestConfirmDialog($"ต้องการลบคำศัพท์ที่เลือกทั้งหมด {targets.Count} คำ ใช่หรือไม่?");
+            if (!ok) return;
+        }
+
+        if (targets.Count == 1)
+        {
+            await _repository.DeleteGlossaryEntryAsync(targets[0].Id);
+            StatusMessage = $"ลบคำว่า \"{targets[0].SourceTerm}\" แล้ว";
+        }
+        else
+        {
+            await _repository.DeleteGlossaryEntriesAsync(targets.Select(e => e.Id));
+            StatusMessage = $"ลบคำศัพท์ที่เลือก {targets.Count} คำแล้ว";
+        }
+
+        foreach (var item in targets)
+        {
+            _allEntries.Remove(item);
+            Entries.Remove(item);
+        }
+
         ClearInputs();
+    }
+
+    private List<GlossaryEntry> GetDeleteTargets()
+    {
+        if (SelectedEntries.Count > 0)
+        {
+            return SelectedEntries.DistinctBy(e => e.Id).ToList();
+        }
+        if (SelectedEntry != null)
+        {
+            return new List<GlossaryEntry> { SelectedEntry };
+        }
+        return new List<GlossaryEntry>();
     }
 
     [RelayCommand]
     public void ClearInputs()
     {
+        SelectedEntries.Clear();
         SelectedEntry = null;
+        RequestClearGridSelection?.Invoke();
         SourceTerm = string.Empty;
         TargetTerm = string.Empty;
         CategoryIndex = 0;
         Notes = string.Empty;
+        NotifySelectionChanged();
     }
 
     public async Task ImportCsvAsync(string filePath)

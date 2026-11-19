@@ -149,6 +149,13 @@ public partial class App : Application
         }
     }
 
+    internal static void DeselectAndUnfocusTextBox(Window window, TextBox focused, Action? onCleared = null)
+    {
+        focused.SelectionStart = focused.SelectionEnd;
+        TopLevel.GetTopLevel(window)?.FocusManager?.Focus(null);
+        onCleared?.Invoke();
+    }
+
     internal static void HandleOutsideTextBoxPointerPressed(Window window, PointerPressedEventArgs e, Action? onCleared = null)
     {
         if (TopLevel.GetTopLevel(window)?.FocusManager?.GetFocusedElement() is not TextBox focused)
@@ -165,8 +172,6 @@ public partial class App : Application
             }
         }
 
-        focused.SelectionStart = focused.SelectionEnd;
-        TopLevel.GetTopLevel(window)?.FocusManager?.Focus(null);
-        onCleared?.Invoke();
+        DeselectAndUnfocusTextBox(window, focused, onCleared);
     }
 }
